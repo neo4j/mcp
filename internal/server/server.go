@@ -10,7 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	"github.com/neo4j/neo4j-mcp/internal/config"
+	"github.com/neo4j/mcp/internal/config"
 )
 
 // Neo4jMCPServer represents the MCP server instance

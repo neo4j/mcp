@@ -1,4 +1,4 @@
-module github.com/neo4j/neo4j-mcp
+module github.com/neo4j/mcp
 
 go 1.24.0
 

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/neo4j/neo4j-mcp/internal/server"
+	"github.com/neo4j/mcp/internal/server"
 )
 
 func main() {
