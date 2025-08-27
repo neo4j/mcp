@@ -9,8 +9,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -21,13 +21,11 @@ type Neo4jMCPServer struct {
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
-func NewNeo4jMCPServer() *Neo4jMCPServer {
+func NewNeo4jMCPServer(cfg *config.Config) *Neo4jMCPServer {
 	mcpServer := server.NewMCPServer(
 		"neo4-mcp",
 		"0.0.1",
 	)
-
-	cfg := config.LoadConfig()
 
 	// Initialize Neo4j driver once
 	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
@@ -98,6 +96,7 @@ func (s *Neo4jMCPServer) handleReadCypher(ctx context.Context, request mcp.CallT
 	// Execute the Cypher query using the stored driver
 	response, err := s.executeReadQuery(ctx, Query, Params)
 	if err != nil {
+		// TODO: discuss and write guideline on how to handle tool calling errors.
 		return mcp.NewToolResultError(fmt.Sprintf("Error executing Cypher query: %v", err)), nil
 	}
 
