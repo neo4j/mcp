@@ -2,14 +2,13 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
@@ -40,21 +39,13 @@ func NewNeo4jMCPServer(cfg *config.Config) *Neo4jMCPServer {
 	}
 }
 
-// Define ReadCypher input schema
-type ReadCypherInput struct {
-	Query  string         `json:"query" jsonschema:"default=MATCH(n) RETURN n,description=The Cypher query to execute"`
-	Params map[string]any `json:"params" jsonschema:"description=Parameters to pass to the Cypher query"`
-}
-
 // RegisterTools registers all available MCP tools
 func (s *Neo4jMCPServer) RegisterTools() {
-	// Register the read-cypher tool
-	readCypher := mcp.NewTool("read-cypher",
-		mcp.WithDescription("Perform a read-only Cypher against a Neo4j database"),
-		mcp.WithInputSchema[ReadCypherInput](),
-		mcp.WithReadOnlyHintAnnotation(true),
-	)
-	s.mcpServer.AddTool(readCypher, s.handleReadCypher)
+	deps := &tools.ToolDependencies{
+		Driver: s.driver,
+		Config: s.config,
+	}
+	tools.RegisterAllTools(s.mcpServer, deps)
 }
 
 // Start starts the MCP server with stdio transport
@@ -74,62 +65,4 @@ func (s *Neo4jMCPServer) Stop() error {
 	fmt.Print("Gracefully stop the server")
 	ctx := context.Background()
 	return (*s.driver).Close(ctx)
-}
-
-// handleReadCypher handles the read-cypher tool requests
-func (s *Neo4jMCPServer) handleReadCypher(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	var args ReadCypherInput
-	// Bind arguments to the struct
-	if err := request.BindArguments(&args); err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	Query := args.Query
-	Params := args.Params
-	// TODO: remove these logs during productionization
-	fmt.Fprintf(os.Stderr, "cypher-query: %s\n", Query)
-	if Params != nil {
-		fmt.Fprintf(os.Stderr, "cypher-parameters: %v\n", Params)
-	}
-	fmt.Fprintf(os.Stderr, "url: %s\n", s.config.URI)
-	fmt.Fprintf(os.Stderr, "database: %s\n", s.config.Database)
-
-	// Execute the Cypher query using the stored driver
-	response, err := s.executeReadQuery(ctx, Query, Params)
-	if err != nil {
-		// TODO: discuss and write guideline on how to handle tool calling errors.
-		return mcp.NewToolResultError(fmt.Sprintf("Error executing Cypher query: %v", err)), nil
-	}
-
-	return mcp.NewToolResultText(response), nil
-}
-
-// executeReadQuery executes a read-only Cypher query and returns JSON-formatted results
-func (s *Neo4jMCPServer) executeReadQuery(ctx context.Context, cypher string, params map[string]any) (string, error) {
-
-	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.config.Database), neo4j.ExecuteQueryWithReadersRouting())
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while executing Cypher Read: %v\n", err)
-		return "", err
-	}
-
-	var results []map[string]any
-	for _, record := range res.Records {
-		recordMap := make(map[string]any)
-		for i, key := range record.Keys {
-			recordMap[key] = record.Values[i]
-		}
-		results = append(results, recordMap)
-	}
-
-	formattedResponse, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error formatting response as JSON: %v\n", err)
-		return "", err
-	}
-
-	formattedResponseStr := string(formattedResponse)
-	fmt.Fprintf(os.Stderr, "The formatted response: %s\n", formattedResponseStr)
-
-	return formattedResponseStr, nil
 }
