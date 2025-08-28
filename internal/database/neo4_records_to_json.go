@@ -12,10 +12,7 @@ import (
 func Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 	var results []map[string]any
 	for _, record := range records {
-		recordMap := make(map[string]any)
-		for i, key := range record.Keys {
-			recordMap[key] = record.Values[i]
-		}
+		recordMap := record.AsMap()
 		results = append(results, recordMap)
 	}
 
