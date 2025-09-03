@@ -1,0 +1,17 @@
+Neo4j
+Copyright © 2002-2025 Neo4j Sweden AB (referred to in this notice as "Neo4j")
+[https://neo4j.com]
+
+This product includes software ("Software") developed by Neo4j.
+
+The copyright in the bundled Neo4j graph database (including the
+Software) is owned by Neo4j. The Software developed and owned
+by Neo4j is licensed under the GNU GENERAL PUBLIC LICENSE Version 3
+(http://www.fsf.org/licensing/licenses/gpl-3.0.html) ("GPL")
+to all third parties and that license, as required by the GPL, is
+included in the LICENSE.txt file.
+
+However, when the MCP Server is used with the Aura software as a service offering that is subject to the Neo4j Cloud Agreement (“Cloud Terms”) or 
+with the proprietary commercial graph database products developed by Neo4j and made available to its customers for 
+download through the Neo4j web site that is subject to the Neo4j Software Agreement (“Software Agreement”), 
+the MCP Server is “Client Software” as defined in the Cloud Terms or “Software” as defined in the Software Agreement.
