@@ -67,9 +67,7 @@ Open the VSCode chat in agentic mode and ask about your configured Neo4j databas
 
 ## Documentation
 
-📚 **[Full Documentation](docs/README.md)** - Complete guides and architecture documentation
-
-- [Database Interface Testing](docs/database-interfaces.md) - Guide to interface-based testing and mocking
+📚 **[Development Guide](docs/README.md)** - Testing, mockgen setup, and development workflows
 
 ## Extra
 

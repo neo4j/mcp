@@ -1,106 +1,60 @@
-# Neo4j MCP Documentation
+# Neo4j MCP Development Guide
 
-This directory contains detailed documentation for the Neo4j MCP server.
+Development documentation for the Neo4j MCP server.
 
-## Architecture Documentation
+## Testing with Mockgen
 
-### Core Components
+This project uses interface-based dependency injection with auto-generated mocks for testing without requiring a real Neo4j database.
 
-- [Database Interface Testing](database-interfaces.md) - Comprehensive guide to interface-based dependency injection, testing strategies, and mock generation
+### Setup & Usage
 
-## Development Guides
+1. **Install mockgen**:
 
-### Testing
+   ```bash
+   go install go.uber.org/mock/mockgen@latest
+   export PATH=$PATH:$(go env GOPATH)/bin
+   ```
 
-The project uses a comprehensive testing strategy with interface-based dependency injection:
+2. **Generate mocks** after interface changes:
 
-#### Unit Testing with Mocks
+   ```bash
+   cd internal/database && go generate
+   ```
 
-- **Generated Mocks**: Use `gomock` for type-safe, auto-generated mocks from interfaces
+3. **Run tests**:
+   ```bash
+   go test ./... -cover
+   ```
 
-#### Test Coverage
+### Testing Example
 
-```bash
-# Run tests with coverage report
-go test ./... -cover
+```go
+func TestMyFunction(t *testing.T) {
+    ctrl := gomock.NewController(t)
+    defer ctrl.Finish()
 
-# Generate detailed coverage report
-go test ./... -coverprofile=coverage.out
-go tool cover -html=coverage.out
+    mockDB := mocks.NewMockDatabaseService(ctrl)
+
+    mockDB.EXPECT().
+        ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "neo4j").
+        Return([]*neo4j.Record{}, nil)
+
+    // Use mockDB in your test...
+}
 ```
 
-#### Writing Tests
+See `internal/tools/get_schema_handler_gomock_test.go` for complete examples.
 
-1. **Use interfaces**: All database operations go through `DatabaseService` interface
-2. **Mock dependencies**: Use generated mocks for external dependencies
-3. **Test all paths**: Success, error, and edge cases
-4. **Validate inputs**: Test parameter validation and error handling
-
-#### Mock Generation Workflow
-
-```bash
-# 1. Install mockgen
-go install go.uber.org/mock/mockgen@latest
-
-# make sure it's in your PATH
-export PATH=$PATH:$(go env GOPATH)/bin
-
-# 2. Generate mocks after interface changes
-cd internal/database && go generate
-
-# 3. Run tests to verify mocks work
-go test ./internal/tools/ -v
-```
-
-## Getting Started
-
-1. Read the main [README](../README.md) for setup instructions
-2. Explore [Database Interface Testing](database-interfaces.md) to understand the testing architecture
-3. Check out the example test files in `internal/tools/` for practical examples
-
-## Contributing
-
-When adding new features:
-
-1. Follow the interface-based design patterns
-2. Add comprehensive tests (both unit and integration where appropriate)
-3. Use `go generate` to update mocks when interfaces change
-4. Update documentation as needed
-
-## Quick Reference
-
-### Common Commands
-
-```bash
-# Generate mocks
-cd internal/database && go generate
-
-# Run tests with coverage
-go test ./... -cover
-
-# Run specific test patterns
-go test ./internal/tools/ -run="TestGetSchemaHandler"
-```
-
-### Project Structure
+## Project Structure
 
 ```
-cmd/
-└── neo4j-mcp/         # Main application entry point
-
+cmd/neo4j-mcp/         # Main application
 internal/
-├── config/            # Configuration management
-├── database/          # Database interfaces and implementations
-│   ├── interfaces.go  # Interface definitions
-│   ├── service.go     # Neo4j implementation
-│   ├── execute_query.go
-│   ├── neo4_records_to_json.go
-│   └── mocks/         # Generated mocks (auto-generated)
+├── database/          # Database interfaces & generated mocks
 ├── server/            # MCP server setup
 └── tools/             # MCP tool handlers
-    ├── *_handler.go   # Tool implementations
-    ├── *_spec.go      # Tool specifications
-    └── *_test.go      # Tests
+```
 
-docs/                  # Documentation
+```
+
 ```
