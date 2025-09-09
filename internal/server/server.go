@@ -46,7 +46,6 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 	dbService := database.NewNeo4jService(s.driver)
 
 	deps := &tools.ToolDependencies{
-		Driver:    s.driver,
 		Config:    s.config,
 		DBService: dbService,
 	}

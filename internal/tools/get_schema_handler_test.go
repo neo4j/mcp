@@ -92,7 +92,6 @@ func TestGetSchemaHandler(t *testing.T) {
 
 			// Create dependencies with the mock
 			deps := &ToolDependencies{
-				Driver:    nil, // Not needed with interface
 				Config:    &config.Config{Database: "testdb"},
 				DBService: mockDB,
 			}
@@ -167,7 +166,6 @@ func TestGetSchemaHandler_InputValidation(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &ToolDependencies{
-			Driver:    nil,
 			Config:    &config.Config{Database: "test"},
 			DBService: nil,
 		}
@@ -189,7 +187,6 @@ func TestGetSchemaHandler_InputValidation(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 
 		deps := &ToolDependencies{
-			Driver:    nil,
 			Config:    nil,
 			DBService: mockDB,
 		}

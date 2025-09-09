@@ -4,12 +4,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // ToolDependencies contains all dependencies needed by tools
 type ToolDependencies struct {
-	Driver    *neo4j.DriverWithContext
 	Config    *config.Config
 	DBService database.DatabaseService
 }
