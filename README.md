@@ -65,6 +65,12 @@ Adjust the environment variables according to your Neo4j instance configuration.
 
 Open the VSCode chat in agentic mode and ask about your configured Neo4j database.
 
+## Documentation
+
+📚 **[Full Documentation](docs/README.md)** - Complete guides and architecture documentation
+
+- [Database Interface Testing](docs/database-interfaces.md) - Guide to interface-based testing and mocking
+
 ## Extra
 
 ### Building and Running

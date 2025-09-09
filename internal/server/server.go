@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -20,49 +20,58 @@ type Neo4jMCPServer struct {
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
-func NewNeo4jMCPServer(cfg *config.Config) *Neo4jMCPServer {
+func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
 	mcpServer := server.NewMCPServer(
 		"neo4-mcp",
 		"0.0.1",
+		server.WithToolCapabilities(true),
 	)
 
 	// Initialize Neo4j driver once
 	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
-		log.Fatalf("Error creating Neo4j driver: %v\n", err)
+		return nil, fmt.Errorf("failed to create Neo4j driver: %w", err)
 	}
 
 	return &Neo4jMCPServer{
 		mcpServer: mcpServer,
 		config:    cfg,
 		driver:    &driver,
-	}
+	}, nil
 }
 
 // RegisterTools registers all available MCP tools
-func (s *Neo4jMCPServer) RegisterTools() {
+func (s *Neo4jMCPServer) RegisterTools() error {
+	// Create the database service
+	dbService := database.NewNeo4jService(s.driver)
+
 	deps := &tools.ToolDependencies{
-		Driver: s.driver,
-		Config: s.config,
+		Driver:    s.driver,
+		Config:    s.config,
+		DBService: dbService,
 	}
 	tools.RegisterAllTools(s.mcpServer, deps)
-}
-
-// Start starts the MCP server with stdio transport
-func (s *Neo4jMCPServer) Start() error {
-	fmt.Fprintf(os.Stderr, "Starting Cypher MCP Server running on stdio\n")
-
-	// Start the server with stdio transport (this is blocking)
-	if err := server.ServeStdio(s.mcpServer); err != nil {
-		return fmt.Errorf("server error: %w", err)
-	}
-
 	return nil
 }
 
+// Start initializes and starts the MCP server using stdio transport
+func (s *Neo4jMCPServer) Start(ctx context.Context) error {
+	log.Println("Starting Neo4j MCP Server...")
+
+	// Test the database connection
+	if err := (*s.driver).VerifyConnectivity(ctx); err != nil {
+		return fmt.Errorf("failed to verify database connectivity: %w", err)
+	}
+
+	// Register tools
+	if err := s.RegisterTools(); err != nil {
+		return fmt.Errorf("failed to register tools: %w", err)
+	}
+
+	return server.ServeStdio(s.mcpServer)
+}
+
 // Stop gracefully stops the server and closes the driver
-func (s *Neo4jMCPServer) Stop() error {
-	fmt.Print("Gracefully stop the server")
-	ctx := context.Background()
+func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 	return (*s.driver).Close(ctx)
 }
