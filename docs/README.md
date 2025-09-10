@@ -54,7 +54,3 @@ internal/
 ├── server/            # MCP server setup
 └── tools/             # MCP tool handlers
 ```
-
-```
-
-```

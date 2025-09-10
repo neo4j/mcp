@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -13,8 +12,7 @@ func ExecuteReadQuery(ctx context.Context, driver *neo4j.DriverWithContext, cyph
 	res, err := neo4j.ExecuteQuery(ctx, *driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithReadersRouting())
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while executing Cypher: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to execute read query: %w", err)
 	}
 
 	return res.Records, nil
@@ -25,8 +23,7 @@ func ExecuteWriteQuery(ctx context.Context, driver *neo4j.DriverWithContext, cyp
 	res, err := neo4j.ExecuteQuery(ctx, *driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithWritersRouting())
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while executing Cypher: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to execute write query: %w", err)
 	}
 
 	return res.Records, nil

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"log"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -30,8 +30,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithReadersRouting())
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while executing Cypher: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to execute read query: %w", err)
 	}
 
 	return res.Records, nil
@@ -46,8 +45,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithWritersRouting())
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while executing Cypher: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to execute write query: %w", err)
 	}
 
 	return res.Records, nil
@@ -63,12 +61,11 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 
 	formattedResponse, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error formatting response as JSON: %v\n", err)
-		return "", err
+		return "", fmt.Errorf("failed to format records as JSON: %w", err)
 	}
 
 	formattedResponseStr := string(formattedResponse)
-	fmt.Fprintf(os.Stderr, "The formatted response: %s\n", formattedResponseStr)
+	log.Printf("The formatted response: %s", formattedResponseStr)
 
 	return formattedResponseStr, nil
 }

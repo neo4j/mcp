@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
-	"os"
+	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
@@ -25,9 +25,9 @@ func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService
 	Query := args.Query
 	Params := args.Params
 	// TODO: handle better these logs during productization process.
-	fmt.Fprintf(os.Stderr, "cypher-query: %s\n", Query)
+	log.Printf("cypher-query: %s", Query)
 	if Params != nil {
-		fmt.Fprintf(os.Stderr, "cypher-parameters: %v\n", Params)
+		log.Printf("cypher-parameters: %v", Params)
 	}
 
 	if dbService == nil {

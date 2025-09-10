@@ -3,7 +3,7 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"log"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -18,12 +18,11 @@ func Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 
 	formattedResponse, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error formatting response as JSON: %v\n", err)
-		return "", err
+		return "", fmt.Errorf("failed to format records as JSON: %w", err)
 	}
 
 	formattedResponseStr := string(formattedResponse)
-	fmt.Fprintf(os.Stderr, "The formatted response: %s\n", formattedResponseStr)
+	log.Printf("The formatted response: %s", formattedResponseStr)
 
 	return formattedResponseStr, nil
 }
