@@ -1,0 +1,258 @@
+package tools
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"go.uber.org/mock/gomock"
+)
+
+func TestRunCypherHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("successful cypher execution with parameters", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteWriteQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
+			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return(`[{"n": {"name": "Alice"}}]`, nil)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query":  "MATCH (n:Person {name: $name}) RETURN n",
+					"params": map[string]any{"name": "Alice"},
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if result == nil || result.IsError {
+			t.Error("Expected success result")
+		}
+	})
+
+	t.Run("successful cypher execution without parameters", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
+			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return(`[{"count(n)": 42}]`, nil)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "MATCH (n) RETURN count(n)",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if result == nil || result.IsError {
+			t.Error("Expected success result")
+		}
+	})
+
+	t.Run("invalid arguments binding", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		// Test with invalid argument structure that should cause BindArguments to fail
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: "invalid string instead of map",
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for invalid arguments")
+		}
+	})
+
+	t.Run("missing required arguments", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		// The handler will still call ExecuteWriteQuery even with missing query
+		// because the BindArguments doesn't fail, it just assigns zero values
+		mockDB.EXPECT().
+			ExecuteWriteQuery(gomock.Any(), "", gomock.Nil(), "testdb").
+			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return(`[]`, nil)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"invalid_field": "value",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		// Since BindArguments doesn't fail for missing fields (it uses zero values),
+		// the test will succeed but with an empty query
+		if result == nil || result.IsError {
+			t.Error("Expected success result (with empty query)")
+		}
+	})
+
+	t.Run("nil database service", func(t *testing.T) {
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: nil,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "MATCH (n) RETURN n",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for nil database service")
+		}
+	})
+
+	t.Run("database query execution failure", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			Return(nil, errors.New("syntax error"))
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "INVALID CYPHER",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for query execution failure")
+		}
+	})
+
+	t.Run("JSON formatting failure", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return("", errors.New("JSON marshaling failed"))
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "MATCH (n) RETURN n",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for JSON formatting failure")
+		}
+	})
+}
+
+func TestRunCypherSpec(t *testing.T) {
+	spec := RunCypherSpec()
+
+	if spec.Name != "run-cypher" {
+		t.Errorf("Expected tool name 'run-cypher', got: %s", spec.Name)
+	}
+
+	if spec.Description == "" {
+		t.Error("Expected non-empty description")
+	}
+
+	// Check that the tool is marked as not read-only and destructive
+	// Note: Annotations is a struct, not a pointer, so we can check its fields directly
+	if spec.Annotations.ReadOnlyHint == nil || *spec.Annotations.ReadOnlyHint != false {
+		t.Error("Expected ReadOnlyHint to be false")
+	}
+
+	if spec.Annotations.DestructiveHint == nil || *spec.Annotations.DestructiveHint != true {
+		t.Error("Expected DestructiveHint to be true")
+	}
+}

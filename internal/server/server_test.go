@@ -39,7 +39,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			wantErr: true,
 			errMsg:  "failed to create Neo4j driver",
 		},
-		// Note: Config validation (empty fields, nil config) is now handled 
+		// Note: Config validation (empty fields, nil config) is now handled
 		// in the config package, so we don't test those scenarios here
 	}
 
