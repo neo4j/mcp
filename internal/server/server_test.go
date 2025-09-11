@@ -39,56 +39,8 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			wantErr: true,
 			errMsg:  "failed to create Neo4j driver",
 		},
-		{
-			name: "empty URI",
-			cfg: &config.Config{
-				URI:      "",
-				Username: "neo4j",
-				Password: "password",
-				Database: "neo4j",
-			},
-			wantErr: true,
-			errMsg:  "Neo4j URI is required but was empty",
-		},
-		{
-			name: "empty username",
-			cfg: &config.Config{
-				URI:      "bolt://localhost:7687",
-				Username: "",
-				Password: "password",
-				Database: "neo4j",
-			},
-			wantErr: true,
-			errMsg:  "Neo4j username is required but was empty",
-		},
-		{
-			name: "empty password",
-			cfg: &config.Config{
-				URI:      "bolt://localhost:7687",
-				Username: "neo4j",
-				Password: "",
-				Database: "neo4j",
-			},
-			wantErr: true,
-			errMsg:  "Neo4j password is required but was empty",
-		},
-		{
-			name: "empty database",
-			cfg: &config.Config{
-				URI:      "bolt://localhost:7687",
-				Username: "neo4j",
-				Password: "password",
-				Database: "",
-			},
-			wantErr: true,
-			errMsg:  "Neo4j database name is required but was empty",
-		},
-		{
-			name: "nil config",
-			cfg:  nil,
-			wantErr: true,
-			errMsg:  "configuration is required but was nil",
-		},
+		// Note: Config validation (empty fields, nil config) is now handled 
+		// in the config package, so we don't test those scenarios here
 	}
 
 	for _, tt := range tests {
