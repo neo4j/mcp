@@ -19,10 +19,41 @@ type Neo4jMCPServer struct {
 	driver    *neo4j.DriverWithContext
 }
 
+// validateConfig validates the configuration and returns an error if invalid
+func validateConfig(cfg *config.Config) error {
+	if cfg == nil {
+		return fmt.Errorf("configuration is required but was nil")
+	}
+
+	validations := []struct {
+		value string
+		name  string
+	}{
+		{cfg.URI, "Neo4j URI"},
+		{cfg.Username, "Neo4j username"},
+		{cfg.Password, "Neo4j password"},
+		{cfg.Database, "Neo4j database name"},
+	}
+
+	for _, v := range validations {
+		if v.value == "" {
+			return fmt.Errorf("%s is required but was empty", v.name)
+		}
+	}
+
+	return nil
+}
+
 // NewNeo4jMCPServer creates a new MCP server instance
 func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
+	// Validate configuration
+	if err := validateConfig(cfg); err != nil {
+		log.Printf("Error in NewNeo4jMCPServer: %v", err)
+		return nil, err
+	}
+
 	mcpServer := server.NewMCPServer(
-		"neo4-mcp",
+		"neo4j-mcp",
 		"0.0.1",
 		server.WithToolCapabilities(true),
 	)
