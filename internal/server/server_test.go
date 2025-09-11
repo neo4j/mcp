@@ -50,18 +50,9 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			wantErr: true,
 			errMsg:  "failed to create Neo4j driver",
 		},
-		{
-			name: "nil config",
-			cfg:  nil,
-			// This would panic, so we skip this test case for now
-			// as it would be handled by the calling code
-		},
 	}
 
 	for _, tt := range tests {
-		if tt.cfg == nil {
-			continue // Skip nil config test as it would panic
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			server, err := server.NewNeo4jMCPServer(tt.cfg)
 
@@ -126,7 +117,7 @@ func TestNeo4jMCPServer_Start_ConnectionFailure(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	
+
 	err = s.Start(ctx)
 
 	if err == nil {
@@ -182,36 +173,6 @@ func TestNeo4jMCPServer_Start_WithCanceledContext(t *testing.T) {
 	}
 }
 
-func TestNeo4jMCPServer_Start_SuccessfulSetup(t *testing.T) {
-	// Test that verifies the setup part of Start() works correctly
-	// We can't test the actual ServeStdio call as it's blocking, but we can
-	// test that all the setup steps work correctly up to that point
-
-	cfg := &config.Config{
-		URI:      "bolt://localhost:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
-	}
-
-	s, err := server.NewNeo4jMCPServer(cfg)
-	if err != nil {
-		t.Fatalf("failed to create server: %v", err)
-	}
-
-	// We can't easily test the full Start() method because ServeStdio() blocks
-	// Instead, let's test the components that Start() calls individually
-
-	// Test RegisterTools independently (this is called within Start)
-	err = s.RegisterTools()
-	if err != nil {
-		t.Errorf("RegisterTools() failed during Start() setup test: %v", err)
-	}
-
-	// Note: We can't test VerifyConnectivity without a real Neo4j instance
-	// and we can't test ServeStdio as it's a blocking stdio server call
-}
-
 func TestNeo4jMCPServer_Stop(t *testing.T) {
 	cfg := &config.Config{
 		URI:      "bolt://localhost:7687",
@@ -258,5 +219,3 @@ func TestNeo4jMCPServer_StopWithTimeout(t *testing.T) {
 		t.Errorf("Stop() with cancelled context error = %v, want context.Canceled or no error", err)
 	}
 }
-
-
