@@ -30,6 +30,13 @@ func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService
 		log.Printf("cypher-parameters: %v", Params)
 	}
 
+	// Validate that query is not empty
+	if Query == "" {
+		errMessage := "Query parameter is required and cannot be empty"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)

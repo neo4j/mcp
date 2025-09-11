@@ -111,14 +111,8 @@ func TestRunCypherHandler(t *testing.T) {
 
 	t.Run("missing required arguments", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
-		// The handler will still call ExecuteWriteQuery even with missing query
-		// because the BindArguments doesn't fail, it just assigns zero values
-		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "", gomock.Nil(), "testdb").
-			Return([]*neo4j.Record{}, nil)
-		mockDB.EXPECT().
-			Neo4jRecordsToJSON(gomock.Any()).
-			Return(`[]`, nil)
+		// The handler should NOT call ExecuteWriteQuery when query is empty
+		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
@@ -139,10 +133,39 @@ func TestRunCypherHandler(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
 		}
-		// Since BindArguments doesn't fail for missing fields (it uses zero values),
-		// the test will succeed but with an empty query
-		if result == nil || result.IsError {
-			t.Error("Expected success result (with empty query)")
+		// Now the handler should return an error for empty query
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for missing query parameter")
+		}
+	})
+
+	t.Run("empty query parameter", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		// The handler should NOT call ExecuteWriteQuery when query is empty
+		// No expectations set for mockDB since it shouldn't be called
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := RunCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		// Handler should return an error for empty query
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for empty query parameter")
 		}
 	})
 
