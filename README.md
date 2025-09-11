@@ -69,6 +69,15 @@ Open the VSCode chat in agentic mode and ask about your configured Neo4j databas
 
 📚 **[Development Guide](docs/README.md)** - Testing, mockgen setup, and development workflows
 
+## Logging
+
+This project follows the [MCP specification](https://spec.modelcontextprotocol.io/specification/basic/transports/#stdio) recommendation that all log output should be written to **stderr** to keep **stdout** clean for protocol communication.
+
+We achieve this by using Go's standard `log` package, which writes to stderr by default. This ensures:
+
+- **MCP Compliance**: stdout remains clean for JSON-RPC protocol messages
+- **Proper Stream Separation**: Application logs go to stderr, protocol messages to stdout
+
 ## Extra
 
 ### Building and Running

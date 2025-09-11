@@ -22,7 +22,7 @@ func main() {
 	ctx := context.Background()
 	defer func() {
 		if err := mcpServer.Stop(ctx); err != nil {
-			log.Printf("Error stopping server: %v", err)
+			log.Fatalf("Error stopping server: %v", err)
 		}
 	}()
 

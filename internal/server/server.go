@@ -30,7 +30,9 @@ func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
 	// Initialize Neo4j driver once
 	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Neo4j driver: %w", err)
+		wrappedErr := fmt.Errorf("failed to create Neo4j driver: %w", err)
+		log.Printf("Error in NewNeo4jMCPServer: %v", wrappedErr)
+		return nil, wrappedErr
 	}
 
 	return &Neo4jMCPServer{
@@ -55,7 +57,7 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start(ctx context.Context) error {
-	log.Println("Starting Neo4j MCP Server...")
+	log.Printf("Starting Neo4j MCP Server...")
 
 	// Test the database connection
 	if err := (*s.driver).VerifyConnectivity(ctx); err != nil {

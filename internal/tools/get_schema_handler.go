@@ -2,7 +2,7 @@ package tools
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
@@ -30,23 +30,29 @@ func GetSchemaHandler(deps *ToolDependencies) func(context.Context, mcp.CallTool
 // handleGetSchema retrieves Neo4j schema information using APOC
 func handleGetSchema(ctx context.Context, dbService database.DatabaseService, config *config.Config) (*mcp.CallToolResult, error) {
 	if dbService == nil {
-		return mcp.NewToolResultError("Database service is not initialized"), nil
+		errMessage := "Database service is not initialized"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	if config == nil {
-		return mcp.NewToolResultError("Configuration is not provided"), nil
+		errMessage := "Configuration is not provided"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Execute the APOC schema query
 	records, err := dbService.ExecuteReadQuery(ctx, schemaQuery, nil, config.Database)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to execute schema query: %v", err)), nil
+		log.Printf("Failed to execute schema query: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	// Convert records to JSON using the existing utility function
 	response, err := dbService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to format schema results to JSON: %v", err)), nil
+		log.Printf("Failed to format schema results to JSON: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	return mcp.NewToolResultText(response), nil

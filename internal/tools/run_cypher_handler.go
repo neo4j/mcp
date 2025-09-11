@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -20,30 +19,35 @@ func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService
 	var args RunCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
+		log.Printf("Error binding arguments: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	Query := args.Query
 	Params := args.Params
-	// TODO: handle better these logs during productization process.
+	// debug log -- to be removed at a later stage
 	log.Printf("cypher-query: %s", Query)
 	if Params != nil {
 		log.Printf("cypher-parameters: %v", Params)
 	}
 
 	if dbService == nil {
-		return mcp.NewToolResultError("Database service is not initialized"), nil
+		errMessage := "Database service is not initialized"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Execute the Cypher query using the database service
 	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params, config.Database)
 	if err != nil {
 		// TODO: discuss and write guideline on how to handle tool calling errors.
-		return mcp.NewToolResultError(fmt.Sprintf("Error executing Cypher query: %v", err)), nil
+		log.Printf("Error executing Cypher query: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	response, err := dbService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Error formatting query results: %v", err)), nil
+		log.Printf("Error formatting query results: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	return mcp.NewToolResultText(response), nil
