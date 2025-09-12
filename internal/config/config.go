@@ -42,7 +42,7 @@ func LoadConfig() *Config {
 
 	// We didn't load the .env file :(
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could  not find .env file in %s\n", envFilePath)
+		fmt.Fprintf(os.Stderr, "Could not find .env file in %s\n", envFilePath)
 		fmt.Fprintf(os.Stderr, "Trying Environment variables\n")
 	}
 
