@@ -17,9 +17,6 @@ jobs:
           go-version: "stable"
       - run: go install go.uber.org/mock/mockgen@latest
 
-      # - name: Install mockgen binary
-      #   run: go install go.uber.org/mock/mockgen@latest
-
       - name: Get the latest version
         id: latest
         uses: miniscruff/changie-action@v2
