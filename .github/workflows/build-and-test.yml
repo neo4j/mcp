@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Uncomment this line to run CI only against main branch
-    # branches: [main]
+    branches: [main]
 
 jobs:
   test:
