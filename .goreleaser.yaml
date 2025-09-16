@@ -9,7 +9,7 @@ builds:
   - env:
       - CGO_ENABLED=0
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - -X "main.Version={{.Env.GORELEASER_CURRENT_TAG}}"
     goos:
       - linux
       - windows
@@ -32,11 +32,7 @@ archives:
         formats: zip
 
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
+  disable: false
 
 release:
   draft: true
