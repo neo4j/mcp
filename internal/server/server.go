@@ -20,9 +20,10 @@ type Neo4jMCPServer struct {
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
+// The config parameter is expected to be already validated
 func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
 	mcpServer := server.NewMCPServer(
-		"neo4-mcp",
+		"neo4j-mcp",
 		"0.0.1",
 		server.WithToolCapabilities(true),
 	)

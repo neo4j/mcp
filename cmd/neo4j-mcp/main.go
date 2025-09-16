@@ -10,7 +10,10 @@ import (
 
 func main() {
 	// get config from environment variables
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
 
 	// Create and configure the MCP server
 	mcpServer, err := server.NewNeo4jMCPServer(cfg)

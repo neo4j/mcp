@@ -35,11 +35,6 @@ func handleGetSchema(ctx context.Context, dbService database.DatabaseService, co
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	if config == nil {
-		errMessage := "Configuration is not provided"
-		log.Printf("%s", errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
 
 	// Execute the APOC schema query
 	records, err := dbService.ExecuteReadQuery(ctx, schemaQuery, nil, config.Database)
