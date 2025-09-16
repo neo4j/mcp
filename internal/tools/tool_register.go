@@ -3,13 +3,13 @@ package tools
 import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/mcp/internal/database"
 )
 
 // ToolDependencies contains all dependencies needed by tools
 type ToolDependencies struct {
-	Driver *neo4j.DriverWithContext
-	Config *config.Config
+	Config    *config.Config
+	DBService database.DatabaseService
 }
 
 // GetAllTools returns all available tools with their specs and handlers

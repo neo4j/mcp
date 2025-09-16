@@ -49,7 +49,7 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as document he
   "servers": {
     "neo4j": {
       "type": "stdio",
-      "command": "neo4j-mcp",
+      "command": "neo4j-mcp", // Use full path to binary or ensure neo4j-mcp is in PATH
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
@@ -64,6 +64,19 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as document he
 Adjust the environment variables according to your Neo4j instance configuration.
 
 Open the VSCode chat in agentic mode and ask about your configured Neo4j database.
+
+## Documentation
+
+📚 **[Development Guide](docs/README.md)** - Testing, mockgen setup, and development workflows
+
+## Logging
+
+This project follows the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#stdio) recommendation that all log output should be written to **stderr** to keep **stdout** clean for protocol communication.
+
+We achieve this by using Go's standard `log` package, which writes to stderr by default. This ensures:
+
+- **MCP Compliance**: stdout remains clean for JSON-RPC protocol messages
+- **Proper Stream Separation**: Application logs go to stderr, protocol messages to stdout
 
 ## Extra
 

@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/mark3labs/mcp-go v0.38.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.2
+	go.uber.org/mock v0.6.0
 )
 
 require (

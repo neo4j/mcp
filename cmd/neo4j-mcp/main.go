@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"log"
+
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/server"
 )
@@ -10,12 +13,21 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Create and configure the MCP server
-	mcpServer := server.NewNeo4jMCPServer(cfg)
-	defer mcpServer.Stop()
+	mcpServer, err := server.NewNeo4jMCPServer(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create MCP server: %v", err)
+	}
 
-	// Register all tools
-	mcpServer.RegisterTools()
+	// Gracefully handle shutdown
+	ctx := context.Background()
+	defer func() {
+		if err := mcpServer.Stop(ctx); err != nil {
+			log.Fatalf("Error stopping server: %v", err)
+		}
+	}()
 
-	mcpServer.Start()
-
+	// Start the server (this blocks until the server is stopped)
+	if err := mcpServer.Start(ctx); err != nil {
+		log.Fatalf("Server error: %v", err)
+	}
 }
