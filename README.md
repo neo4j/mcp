@@ -49,7 +49,7 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as document he
   "servers": {
     "neo4j": {
       "type": "stdio",
-      "command": "./bin/neo4j-mcp", // Use full path to binary or ensure neo4j-mcp is in PATH
+      "command": "neo4j-mcp", // Use full path to binary or ensure neo4j-mcp is in PATH
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
