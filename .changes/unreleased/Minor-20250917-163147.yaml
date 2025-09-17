@@ -1,0 +1,3 @@
+kind: Minor
+body: First pre-release of the Neo4j MCP server with two initial tools, "get-schema" for retrieving database schema information, "run-cypher" for executing Cypher
+time: 2025-09-17T16:31:47.000756+01:00
