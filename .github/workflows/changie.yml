@@ -3,6 +3,8 @@ name: changie
 on:
   push:
     branches: ["main"]
+    paths:
+      - ".changes/unreleased/**"
 
 jobs:
   generate-pr:
