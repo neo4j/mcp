@@ -16,34 +16,59 @@ type Config struct {
 	Database string
 }
 
-func getEnvFilePath() string {
+// Returns the full filepath to the neo4j-mcp binary or an error on failure.
+func getEnvFilePath() (string, error) {
 	// The .env file has to be in the same folder as the neo4j-mcp binary
 	// Get the filepath to the neo4j-mcp binary
-	binaryFullPath, _ := filepath.Abs(os.Args[0])
+
+	var err error
+	var binaryFullPath, envFolderPath string
+
+	binaryFullPath, err = filepath.Abs(os.Args[0])
+	if err != nil {
+		return "", err
+	}
 
 	// filepath.Abs returns full folder path and the binary filename but we only want the full folder path so we
 	// use filepath.Split that returns two values, dir = full folder path  and
 	// file = the binary name
 	// We just want the path which is where the .env file ( hopefully ) will be
-	envFolderPath, _ := filepath.Split(binaryFullPath)
+	envFolderPath, _ = filepath.Split(binaryFullPath)
 
-	return envFolderPath
+	return envFolderPath, nil
+}
+
+// Sets environment variables from .env file located in the same folder as the neo4j-mcp binary
+func setEnvFromFile() error {
+	var err error
+	var envFilePath, envFileName string
+
+	envFileName = ".env"
+
+	// Get the filepath to the .env file
+	envFilePath, err = getEnvFilePath()
+	if err != nil {
+		return err
+	}
+
+	err = godotenv.Load(filepath.Join(envFilePath, envFileName))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not find .env in %s\n", envFilePath)
+		return err
+	}
+
+	fmt.Fprintf(os.Stderr, "Using values in .env to set environmental variables\n")
+
+	return nil
 }
 
 // LoadConfig loads configuration from environment variables with defaults
 func LoadConfig() *Config {
 
-	// try loading .env and set the needed
-	// environmental variables
-	envFilePath := getEnvFilePath()
-	envFileName := ".env"
-
-	err := godotenv.Load(envFilePath + envFileName)
-
+	err := setEnvFromFile()
 	// We didn't load the .env file :(
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not find .env file in %s\n", envFilePath)
-		fmt.Fprintf(os.Stderr, "Trying Environment variables\n")
+		fmt.Fprintf(os.Stderr, "Using values from environment variables\n")
 	}
 
 	return &Config{
