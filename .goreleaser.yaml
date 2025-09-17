@@ -35,9 +35,7 @@ changelog:
   disable: false
 
 release:
-  draft: true
-  prerelease: auto
-  name_template: "Neo4j MCP Server {{.Version}}"
+  prerelease: true
 
 notarize:
   macos:
