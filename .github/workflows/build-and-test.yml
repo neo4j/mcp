@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Uncomment this line to run CI only against main branch
-    # branches: [main]
+    branches: [main]
 
 jobs:
   test:
@@ -17,7 +16,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.1"
+          go-version: "1.25.0"
+      - run: go install go.uber.org/mock/mockgen@latest
 
       - name: Cache Go modules
         uses: actions/cache@v4

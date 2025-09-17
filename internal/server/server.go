@@ -24,7 +24,7 @@ type Neo4jMCPServer struct {
 func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
-		"0.0.1",
+		"0.1.0",
 		server.WithToolCapabilities(true),
 	)
 

@@ -26,7 +26,6 @@ func (c *Config) Validate() error {
 		{c.URI, "Neo4j URI"},
 		{c.Username, "Neo4j username"},
 		{c.Password, "Neo4j password"},
-		{c.Database, "Neo4j database name"},
 	}
 
 	for _, v := range validations {

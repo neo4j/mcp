@@ -55,7 +55,7 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as documented 
   "servers": {
     "neo4j": {
       "type": "stdio",
-      "command": "./bin/neo4j-mcp", // Use full path to binary or ensure neo4j-mcp is in PATH
+      "command": "neo4j-mcp", // Use full path to binary or ensure neo4j-mcp is in PATH
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
@@ -151,7 +151,7 @@ The MCP server automatically translates your natural language requests into appr
 
 ## Logging
 
-This project follows the [MCP specification](https://spec.modelcontextprotocol.io/specification/basic/transports/#stdio) recommendation that all log output should be written to **stderr** to keep **stdout** clean for protocol communication.
+This project follows the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#stdio) recommendation that all log output should be written to **stderr** to keep **stdout** clean for protocol communication.
 
 We achieve this by using Go's standard `log` package, which writes to stderr by default. This ensures:
 

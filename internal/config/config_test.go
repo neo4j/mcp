@@ -62,15 +62,15 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "Neo4j password is required but was empty",
 		},
 		{
-			name: "empty database",
+			name: "empty database should not raise error",
 			cfg: &Config{
 				URI:      "bolt://localhost:7687",
 				Username: "neo4j",
 				Password: "password",
 				Database: "",
 			},
-			wantErr: true,
-			errMsg:  "Neo4j database name is required but was empty",
+			wantErr: false,
+			errMsg:  "",
 		},
 	}
 

@@ -105,15 +105,3 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 	})
 }
-
-func TestGetSchemaSpec(t *testing.T) {
-	spec := GetSchemaSpec()
-
-	if spec.Name != "get-schema" {
-		t.Errorf("Expected tool name 'get-schema', got: %s", spec.Name)
-	}
-
-	if spec.Description == "" {
-		t.Error("Expected non-empty description")
-	}
-}

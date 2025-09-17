@@ -1,0 +1,73 @@
+version: 2
+project_name: neo4j-mcp
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -X "main.Version={{.Env.GORELEASER_CURRENT_TAG}}"
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./cmd/neo4j-mcp
+
+archives:
+  - formats: ["tar.gz"]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+
+changelog:
+  disable: false
+
+release:
+  prerelease: true
+
+notarize:
+  macos:
+    - # Whether this configuration is enabled or not.
+      #
+      # Default: false.
+      # Templates: allowed.
+      enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+
+      # IDs to use to filter the built binaries.
+      #
+      # Default: the project name.
+      ids:
+        - neo4j-mcp
+
+      sign:
+        # The .p12 certificate file path or its base64'd contents.
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+
+        # The password to be used to open the certificate.
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+
+      # Then, we notarize the binaries.
+      notarize:
+        # The issuer ID.
+        # Its the UUID you see when creating the App Store Connect key.
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+
+        # Key ID.
+        # You can see it in the list of App Store Connect Keys.
+        # It will also be in the ApiKey filename.
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+
+        # The .p8 key file path or its base64'd contents.
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
