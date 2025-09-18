@@ -8,45 +8,40 @@ This project is currently under active development and is not ready for producti
 
 ## Prerequisites
 
-- Go 1.19 or later
-- Neo4j database instance (4.0 or later recommended)
-- **APOC plugin installed** - This is required for optimal schema introspection. You can easily install APOC through Neo4j Desktop by going to your database → Plugins → APOC → Install.
+- A running Neo4j database instance; either local [neo4j-desktop](https://neo4j.com/download/) or [Aura](https://neo4j.com/product/auradb/).
+- Any MCP-compatible client (ie. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
-## Setup
+## Installation
 
-### 1. Clone the Repository
+The Neo4j MCP binaries are available on GitHub. Select the latest release and download the archive suitable for your platform and architecture of choice. The Neo4j MCP is fully compatible with Mac, Linux and Windows.
 
-```bash
-git clone https://github.com/neo4j/mcp.git
-cd mcp
-```
+1. Navigate to https://github.com/neo4j/mcp/releases.
+2. Download the compressed file that matches your OS. Make a note of the folder where the file is located.
+3. Once the file is downloaded, extract the contents.
+4. Open a command prompt and move to the location where you extracted the files.
+5. Complete the installation by moving the neo4j-mcp executable file into the file path.
 
-### 2. Set up Go Environment
-
-Ensure your Go environment is properly configured:
+Mac/Linux users:
 
 ```bash
-# Check Go installation
-go version
+sudo mv neo4j-mcp /usr/local/bin
 ```
 
-Set up GOPATH and GOBIN (if not already configured in your favorite shell file, such as: .bashrc,.zshrc)
+Windows users:
 
 ```bash
-export GOPATH=$HOME/go
-export GOBIN=$GOPATH/bin
-export PATH=$PATH:$GOBIN
+move neo4j-mcp c:\windows\system32
 ```
 
-### 3. Install the Neo4j MCP Server
+Check the installation with:
 
 ```bash
-go install -C cmd/neo4j-mcp
+neo4j-mcp -v # todo: add a version flag to the binary
 ```
 
-This will install the `neo4j-mcp` binary to your `$GOBIN` directory.
+You should see the version of the Neo4j MCP displayed.
 
-### 4. Configure VSCode MCP
+## Configure VSCode MCP
 
 Create or update your VSCode MCP configuration file (`mcp.json`), as documented here: https://code.visualstudio.com/docs/copilot/customization/mcp-servers
 
@@ -67,9 +62,11 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as documented 
 }
 ```
 
+<!-- TODO: add claude desktop MCP installation instructions -->
+
 **Configuration Notes:**
 
-- Adjust the environment variables according to your Neo4j instance configuration
+- Adjust the environment variables according to your Neo4j instance configuration (defaults are provided for Neo4j Desktop)
 - For Neo4j Desktop: typically uses `bolt://localhost:7687` with your custom password
 - For Neo4j Aura: use the connection URI provided in your Aura console
 - Ensure the `neo4j-mcp` binary path is correct or the command is in your system PATH
@@ -146,14 +143,3 @@ The MCP server automatically translates your natural language requests into appr
 ## Documentation
 
 📚 **[Contributing Guide](CONTRIBUTING.md)** - How to contribute, development setup, coding standards, and technical architecture
-
-📚 **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and debugging steps
-
-## Logging
-
-This project follows the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#stdio) recommendation that all log output should be written to **stderr** to keep **stdout** clean for protocol communication.
-
-We achieve this by using Go's standard `log` package, which writes to stderr by default. This ensures:
-
-- **MCP Compliance**: stdout remains clean for JSON-RPC protocol messages
-- **Proper Stream Separation**: Application logs go to stderr, protocol messages to stdout
