@@ -88,6 +88,12 @@ To build the project:
 go build -C cmd/neo4j-mcp -o ../../bin/
 ```
 
+Check the version:
+
+```bash
+go run ./cmd/neo4j-mcp -v
+```
+
 To run directly:
 
 ```bash
