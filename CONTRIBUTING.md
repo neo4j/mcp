@@ -8,7 +8,7 @@ This project follows the [Neo4j Community Guidelines](https://neo4j.com/develope
 
 ## Project Status
 
-Active development; not yet production‑hardened. Contributions that improve stability, correctness, performance, and ergonomics are welcome.
+Active development; not yet production‑hardened.
 
 ## Prerequisites
 
@@ -36,22 +36,22 @@ go install go.uber.org/mock/mockgen@latest
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-### Local Development and Testing
+### Build / Test / Run
 
 ```bash
-# Build the binary
-go build -C cmd/neo4j-mcp -o ../../bin/
+# Tests (coverage)
+go test ./... -cover
 
-# Run tests
-go test ./... -v -cover
-
-# Specific package
+# Verbose / single package
 go test ./internal/tools -v
 
-# Run directly without building
+# Build binary
+go build -C cmd/neo4j-mcp -o ../../bin/
+
+# Run from source
 go run ./cmd/neo4j-mcp
 
-# Install the binary (optional)
+# Optional: install
 go install -C cmd/neo4j-mcp
 ```
 
@@ -76,7 +76,7 @@ Regenerate mocks ONLY after changing interfaces (e.g. `internal/database/interfa
 cd internal/database && go generate
 ```
 
-Example test using gomock:
+Minimal gomock example:
 
 ```go
 func TestMyFunction(t *testing.T) {
@@ -94,7 +94,7 @@ func TestMyFunction(t *testing.T) {
 
 See `internal/tools/get_schema_handler_gomock_test.go` for a fuller pattern.
 
-Integration / manual check (optional):
+Manual inspection (optional):
 
 ```bash
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
@@ -143,21 +143,11 @@ When adding new database operations:
 3. **Regenerate mocks**: `cd internal/database && go generate`
 4. **Update tests** to use new mock methods
 
-## Code Standards
+### Quick Fixes
 
-General Go style, logging, and performance patterns are intentionally omitted here to keep this concise. Follow idiomatic Go, keep interfaces small, wrap errors with context, and avoid leaking sensitive data. Open an issue if clarifications are needed.
-
-## Documentation Updates
-
-When you change user-visible behavior, update README, this file (if process changes), and any relevant examples.
-
-## Troubleshooting Development Issues
-
-### Common Development Problems
-
-1. **Mock generation fails**: Ensure mockgen is installed and in PATH
-2. **Tests fail**: Check if test Neo4j instance is running and accessible
-3. **Build fails**: Run `go mod tidy` to clean up dependencies
+Mock generation fails → ensure `mockgen` on PATH.
+Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
+Dependency/build issues → `go mod tidy`.
 
 ### Getting Help
 
