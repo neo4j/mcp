@@ -1,3 +1,0 @@
-kind: Patch
-body: 'MCP server version is now returned when "-v" flag is passed. "neo4j-mcp -v"'
-time: 2025-09-18T12:14:55.289867+01:00
