@@ -1,49 +1,45 @@
 # Neo4j MCP
 
-Official repository for the Neo4j MCP.
+Official Model Context Protocol (MCP) server for Neo4j.
 
 ## Status
 
-This project is currently under active development and is not ready for production use.
+Active development. Not yet production‑hardened.
 
 ## Prerequisites
 
 - A running Neo4j database instance; either local [neo4j-desktop](https://neo4j.com/download/) or [Aura](https://neo4j.com/product/auradb/).
 - Any MCP-compatible client (ie. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
-## Installation
+## Installation (Binary)
 
-The Neo4j MCP binaries are available on GitHub. Select the latest release and download the archive suitable for your platform and architecture of choice. The Neo4j MCP is fully compatible with Mac, Linux and Windows.
+Releases: https://github.com/neo4j/mcp/releases
 
-1. Navigate to https://github.com/neo4j/mcp/releases.
-2. Download the compressed file that matches your OS. Make a note of the folder where the file is located.
-3. Once the file is downloaded, extract the contents.
-4. Open a command prompt and move to the location where you extracted the files.
-5. Complete the installation by moving the neo4j-mcp executable file into the file path.
+1. Download the archive for your OS/arch.
+2. Extract and place `neo4j-mcp` somewhere on your PATH (examples below).
 
-Mac/Linux users:
+Mac / Linux:
 
 ```bash
-sudo mv neo4j-mcp /usr/local/bin
+chmod +x neo4j-mcp
+sudo mv neo4j-mcp /usr/local/bin/
 ```
 
-Windows users:
+Windows (PowerShell / cmd):
+
+```powershell
+move neo4j-mcp.exe C:\Windows\System32
+```
+
+To verify basic startup (will wait for MCP host on stdio):
 
 ```bash
-move neo4j-mcp c:\windows\system32
+neo4j-mcp # should block; Ctrl+C to stop
 ```
 
-Check the installation with:
+## Configure VSCode (MCP)
 
-```bash
-neo4j-mcp -v # todo: add a version flag to the binary
-```
-
-You should see the version of the Neo4j MCP displayed.
-
-## Configure VSCode MCP
-
-Create or update your VSCode MCP configuration file (`mcp.json`), as documented here: https://code.visualstudio.com/docs/copilot/customization/mcp-servers
+Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/customization/mcp-servers):
 
 ```json
 {
@@ -64,82 +60,45 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as documented 
 
 <!-- TODO: add claude desktop MCP installation instructions -->
 
-**Configuration Notes:**
+Notes:
 
-- Adjust the environment variables according to your Neo4j instance configuration (defaults are provided for Neo4j Desktop)
-- For Neo4j Desktop: typically uses `bolt://localhost:7687` with your custom password
-- For Neo4j Aura: use the connection URI provided in your Aura console
-- Ensure the `neo4j-mcp` binary path is correct or the command is in your system PATH
+- Adjust env vars for your setup (defaults shown above).
+- Desktop default URI: `bolt://localhost:7687`.
+- Aura: use the connection string from the Aura console.
+- Provide an absolute path to the binary if not on PATH.
 
-After configuration, restart VSCode to load the MCP server. You can verify the connection by checking the MCP status in VSCode.
+Restart VSCode; open Copilot Chat and ask: "List Neo4j MCP tools" to confirm.
 
-Open the VSCode chat in agentic mode and ask about your configured Neo4j database.
+## Tools & Usage
 
-## MCP Usage
+Provided tools:
 
-The Neo4j MCP server provides two main tools for interacting with your Neo4j database through Model Context Protocol:
+| Tool         | Purpose                                                                    | Notes                                        |
+| ------------ | -------------------------------------------------------------------------- | -------------------------------------------- |
+| `get-schema` | Introspect labels, relationship types, property keys, indexes, constraints | Read-only, safe to repeat                    |
+| `run-cypher` | Execute arbitrary Cypher (read/write)                                      | Use caution; respects Neo4j auth permissions |
 
-### Available Tools
-
-#### 1. `get-schema`
-
-Retrieves comprehensive schema information from your Neo4j database, including:
-
-- Node labels
-- Relationship types
-- Property keys and their data types
-- Indexes and constraints
-
-This tool is read-only and idempotent, making it safe to call repeatedly.
-
-**Example usage:**
+Example natural language prompts (in Copilot / other MCP client):
 
 ```
 Get the database schema
 ```
-
-#### 2. `run-cypher`
-
-Executes Cypher queries against your Neo4j database. This tool supports:
-
-- Read and write operations
-- Parameterized queries for security
-- Complex graph traversals and analytics
-
-**Important:** This tool can perform destructive operations, so use with caution in production environments.
-
-**Example usage:**
 
 ```
 Find all Person nodes and their relationships
 ```
 
 ```
-Create a new node with label User and name property "John"
+Create a new User node with name "John"
 ```
 
-```
-Match all nodes connected to a specific node within 3 hops
-```
+Security tips:
 
-### Integration with AI Assistants
-
-Once configured, you can interact with your Neo4j database using natural language through supported AI assistants:
-
-- **Schema Exploration**: "What's the structure of my database?" or "Show me all node types"
-- **Data Querying**: "Find all users who purchased products in the last month"
-- **Graph Analysis**: "Show me the shortest path between two specific nodes"
-- **Data Modification**: "Create a new customer node with email and name"
-
-The MCP server automatically translates your natural language requests into appropriate Cypher queries and executes them against your database.
-
-### Security Considerations
-
-- The `run-cypher` tool can execute any Cypher query, including destructive operations
-- Ensure your Neo4j user has appropriate permissions for your use case
-- Consider using a read-only user for exploration and analysis tasks
-- Always validate results before applying changes in production environments
+- Prefer a read-only Neo4j user for exploration.
+- Review generated Cypher before executing in production databases.
 
 ## Documentation
 
-📚 **[Contributing Guide](CONTRIBUTING.md)** - How to contribute, development setup, coding standards, and technical architecture
+📚 **[Contributing Guide](CONTRIBUTING.md)** – Contribution workflow, development environment, mocks & testing.
+
+Issues / feedback: open a GitHub issue with reproduction details (omit sensitive data).
