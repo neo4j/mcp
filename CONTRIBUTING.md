@@ -4,7 +4,7 @@ Thank you for your interest in contributing to the Neo4j MCP server! This docume
 
 ## Code of Conduct
 
-This project follows the [Neo4j Community Guidelines](https://neo4j.com/developer/contributing/). Please read and follow these guidelines to ensure a welcoming environment for everyone.
+This project follows the [Neo4j Community Guidelines](todo: missing link here). Please read and follow these guidelines to ensure a welcoming environment for everyone.
 
 ## Project Status
 
@@ -152,7 +152,6 @@ Dependency/build issues → `go mod tidy`.
 ### Getting Help
 
 - Check existing [GitHub Issues](https://github.com/neo4j/mcp/issues)
-- Review the [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 - Ask questions in pull request discussions
 - Reach out to maintainers for complex architectural questions
 
