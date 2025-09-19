@@ -6,26 +6,18 @@ Thank you for your interest in contributing to the Neo4j MCP server! This docume
 
 This project follows the [Neo4j Community Guidelines](todo: missing link here). Please read and follow these guidelines to ensure a welcoming environment for everyone.
 
-## Project Status
-
-Active development; not yet production‑hardened.
-
 ## Prerequisites
 
 - Go 1.25+ (see `go.mod`)
-- Git
-- A Neo4j instance (4.x or 5.x; 5.x recommended)
-- (Optional) APOC plugin for richer schema / procedures
+- A Neo4j instance with APOC plugin installed.
 
-## Getting Started
+## Clone the repository (forks are currently disabled)
 
-### Fork & Clone
+```bash
+git clone git@github.com:neo4j/mcp.git && cd mcp
+```
 
-1. Fork the repository (GitHub guide: https://docs.github.com/en/get-started/quickstart/fork-a-repo)
-2. Clone your fork: `git clone https://github.com/<your-username>/mcp.git && cd mcp`
-3. Add upstream remote (to sync later): `git remote add upstream https://github.com/neo4j/mcp.git`
-
-### Install Dependencies
+## Install Dependencies
 
 ```bash
 # Install Go dependencies
@@ -36,7 +28,7 @@ go install go.uber.org/mock/mockgen@latest
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-### Build / Test / Run
+## Build / Test / Run
 
 ```bash
 # Tests (coverage)
@@ -55,7 +47,7 @@ go run ./cmd/neo4j-mcp
 go install -C cmd/neo4j-mcp
 ```
 
-### Environment Variables
+## Environment Variables
 
 For local testing, set these environment variables:
 
@@ -94,7 +86,9 @@ func TestMyFunction(t *testing.T) {
 
 See `internal/tools/get_schema_handler_gomock_test.go` for a fuller pattern.
 
-Manual inspection (optional):
+## Testing using the @modelcontextprotocol/inspector:
+
+The Neo4j MCP capabilities can be tested using the `@modelcontextprotocol/inspector`:
 
 ```bash
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
