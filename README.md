@@ -9,6 +9,7 @@ Active development. Not yet production‑hardened.
 ## Prerequisites
 
 - A running Neo4j database instance; either local [neo4j–desktop](https://neo4j.com/download/) or [Aura](https://neo4j.com/product/auradb/).
+- APOC plugin installed in the Neo4j instance.
 - Any MCP-compatible client (ie. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
 ## Installation (Binary)
@@ -16,7 +17,7 @@ Active development. Not yet production‑hardened.
 Releases: https://github.com/neo4j/mcp/releases
 
 1. Download the archive for your OS/arch.
-2. Extract and place `neo4j-mcp` somewhere on your PATH (examples below).
+2. Extract and place `neo4j-mcp` in a directory present in your PATH variables (see examples below).
 
 Mac / Linux:
 
