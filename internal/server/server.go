@@ -12,11 +12,15 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// Version represents the current version of the neo4j-mcp server
+const Version = "0.1.1"
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	mcpServer *server.MCPServer
 	config    *config.Config
 	driver    *neo4j.DriverWithContext
+	version   string
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -24,8 +28,10 @@ type Neo4jMCPServer struct {
 func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
-		"0.1.0",
+		Version,
 		server.WithToolCapabilities(true),
+		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
+			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with run-cypher."),
 	)
 
 	// Initialize Neo4j driver once
@@ -40,6 +46,7 @@ func NewNeo4jMCPServer(cfg *config.Config) (*Neo4jMCPServer, error) {
 		mcpServer: mcpServer,
 		config:    cfg,
 		driver:    &driver,
+		version:   Version,
 	}, nil
 }
 

@@ -61,7 +61,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 
 // Neo4jRecordsToJSON converts Neo4j records to JSON string
 func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
-	var results []map[string]any
+	results := make([]map[string]any, 0)
 	for _, record := range records {
 		recordMap := record.AsMap()
 		results = append(results, recordMap)
@@ -75,6 +75,7 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 	}
 
 	formattedResponseStr := string(formattedResponse)
+
 
 	return formattedResponseStr, nil
 }
