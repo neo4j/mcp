@@ -2,9 +2,11 @@
 
 Thank you for your interest in contributing to the Neo4j MCP server! This document provides guidelines and information for contributors.
 
+If you're an external contributor you must sign the [https://neo4j.com/developer/contributing-code/#sign-cla](https://neo4j.com/developer/contributing-code/#sign-cla)
+
 ## Code of Conduct
 
-This project follows the [Neo4j Community Guidelines](todo: missing link here). Please read and follow these guidelines to ensure a welcoming environment for everyone.
+Please read and follow these guidelines to ensure a welcoming environment for everyone.
 
 ## Prerequisites
 
