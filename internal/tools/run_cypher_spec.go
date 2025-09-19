@@ -11,7 +11,7 @@ type RunCypherInput struct {
 
 func RunCypherSpec() mcp.Tool {
 	return mcp.NewTool("run-cypher",
-		mcp.WithDescription("Run a Cypher against a Neo4j database"),
+		mcp.WithDescription("run-cypher executes any arbitrary Cypher query against the user-configured Neo4j database."),
 		mcp.WithInputSchema[RunCypherInput](),
 		mcp.WithReadOnlyHintAnnotation(false),
 		mcp.WithDestructiveHintAnnotation(true),

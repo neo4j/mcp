@@ -20,7 +20,12 @@ func TestGetSchemaHandler(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
-			Return([]*neo4j.Record{}, nil)
+			Return([]*neo4j.Record{
+				{
+					Values: []any{"value1"},
+					Keys:   []string{"key1"},
+				},
+			}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`{"schema": "data"}`, nil)
@@ -67,7 +72,12 @@ func TestGetSchemaHandler(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
-			Return([]*neo4j.Record{}, nil)
+			Return([]*neo4j.Record{
+				{
+					Values: []any{"value1"},
+					Keys:   []string{"key1"},
+				},
+			}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return("", errors.New("JSON marshaling failed"))
@@ -102,6 +112,39 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 		if result == nil || !result.IsError {
 			t.Error("Expected error result for nil database service")
+		}
+	})
+	t.Run("No records returned from apoc query (empty database)", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			Return([]*neo4j.Record{}, nil)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := GetSchemaHandler(deps)
+		result, err := handler(context.Background(), mcp.CallToolRequest{})
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+
+		if result == nil {
+			t.Error("Expected non-nil result")
+			return
+		}
+
+		if result.IsError {
+			t.Error("Expected success result, not error")
+			return
+		}
+
+		textContent := result.Content[0].(mcp.TextContent)
+		if textContent.Text != "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned." {
+			t.Error("Expected result content to be present for empty database case")
 		}
 	})
 }
