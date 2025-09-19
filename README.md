@@ -4,7 +4,7 @@ Official Model Context Protocol (MCP) server for Neo4j.
 
 ## Status
 
-Active development. Not yet production‑hardened.
+Active development. Not yet production-hardened.
 
 ## Prerequisites
 
