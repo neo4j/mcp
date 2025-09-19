@@ -35,16 +35,18 @@ func handleGetSchema(ctx context.Context, dbService database.DatabaseService, co
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-
 	// Execute the APOC schema query
 	records, err := dbService.ExecuteReadQuery(ctx, schemaQuery, nil, config.Database)
 	if err != nil {
 		log.Printf("Failed to execute schema query: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
+	if len(records) == 0 {
+		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
+	}
 	// Convert records to JSON using the existing utility function
 	response, err := dbService.Neo4jRecordsToJSON(records)
+
 	if err != nil {
 		log.Printf("Failed to format schema results to JSON: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
