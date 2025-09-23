@@ -88,7 +88,7 @@ func TestMyFunction(t *testing.T) {
 }
 ```
 
-See `internal/tools/get_schema_handler_gomock_test.go` for a fuller pattern.
+See `internal/tools/get_schema_handler_test.go` for a fuller pattern.
 
 ## Testing using the @modelcontextprotocol/inspector:
 
