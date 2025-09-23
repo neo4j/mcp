@@ -25,9 +25,22 @@ git clone git@github.com:neo4j/mcp.git && cd mcp
 # Install Go dependencies
 go mod download
 
-# Install mock generator (only if you will change interfaces)
+# Install mock generator (only if you will change interfaces, as the generated mocks depend on the interface definitions)
 go install go.uber.org/mock/mockgen@latest
 export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+## Environment Variables
+
+The MCP server requires certain environment variables to connect to a Neo4j instance.
+Defaults are provided for local development.
+For local testing, make sure to set these environment variables (your local Neo4j instance must be running and it might require different credentials):
+
+```bash
+export NEO4J_URI="bolt://localhost:7687"
+export NEO4J_USERNAME="neo4j"
+export NEO4J_PASSWORD="password"
+export NEO4J_DATABASE="neo4j"
 ```
 
 ## Build / Test / Run
@@ -47,17 +60,6 @@ go run ./cmd/neo4j-mcp
 
 # Optional: install
 go install -C cmd/neo4j-mcp
-```
-
-## Environment Variables
-
-For local testing, set these environment variables:
-
-```bash
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USERNAME="neo4j"
-export NEO4J_PASSWORD="password"
-export NEO4J_DATABASE="neo4j"
 ```
 
 ## Mocks
