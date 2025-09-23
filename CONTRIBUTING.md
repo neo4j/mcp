@@ -98,7 +98,7 @@ npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
 
 ## Adding New MCP Tools
 
-1. **Define tool specification** in `internal/tools/`:
+1. **Define tool specifications** in `internal/tools/`:
 
    ```go
    func NewMyToolSpec() mcp.Tool {
