@@ -10,7 +10,7 @@ Active development; not yet suitable for production
 
 - A running Neo4j database instance; either local [neo4j–desktop](https://neo4j.com/download/) or [Aura](https://neo4j.com/product/auradb/).
 - APOC plugin installed in the Neo4j instance.
-- Any MCP-compatible client (ie. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
+- Any MCP-compatible client (e.g. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
 ## Installation (Binary)
 
