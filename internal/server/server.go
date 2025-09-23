@@ -65,7 +65,7 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start(ctx context.Context) error {
-	log.Printf("Starting Neo4j MCP Server...")
+	log.Println("Starting Neo4j MCP Server...")
 
 	// Test the database connection
 	if err := (*s.driver).VerifyConnectivity(ctx); err != nil {
@@ -76,7 +76,7 @@ func (s *Neo4jMCPServer) Start(ctx context.Context) error {
 	if err := s.RegisterTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-
+	log.Println("Started Neo4j MCP Server. Now listening for input...")
 	return server.ServeStdio(s.mcpServer)
 }
 
