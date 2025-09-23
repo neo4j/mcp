@@ -13,7 +13,10 @@ func RunCypherSpec() mcp.Tool {
 	return mcp.NewTool("run-cypher",
 		mcp.WithDescription("run-cypher executes any arbitrary Cypher query against the user-configured Neo4j database."),
 		mcp.WithInputSchema[RunCypherInput](),
+		mcp.WithTitleAnnotation("Run Cypher"),
 		mcp.WithReadOnlyHintAnnotation(false),
 		mcp.WithDestructiveHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 	)
 }
