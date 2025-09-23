@@ -58,7 +58,7 @@ go build -C cmd/neo4j-mcp -o ../../bin/
 # Run from source
 go run ./cmd/neo4j-mcp
 
-# Optional: install
+# Optional: install (should be run from repo root)
 go install -C cmd/neo4j-mcp
 ```
 
