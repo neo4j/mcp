@@ -58,6 +58,7 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 	deps := &tools.ToolDependencies{
 		Config:    s.config,
 		DBService: dbService,
+		MCPServer: s.mcpServer,
 	}
 	tools.RegisterAllTools(s.mcpServer, deps)
 	return nil
