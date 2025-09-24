@@ -13,7 +13,7 @@ import (
 )
 
 // Version represents the current version of the neo4j-mcp server
-const Version = "0.1.1"
+const Version = "0.1.3"
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
