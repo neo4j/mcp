@@ -44,7 +44,12 @@ func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService
 		log.Printf("%s", errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-	requestConfirmation(ctx, Query, MCPServer)
+	confirmation, err := requestConfirmation(ctx, Query, MCPServer)
+
+	if confirmation == false {
+		// stop cypher execution
+		return mcp.NewToolResultError("user has not confirmed the Cypher"), nil
+	}
 
 	// Execute the Cypher query using the database service
 	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params, config.Database)
@@ -95,13 +100,15 @@ func requestConfirmation(ctx context.Context, Query string, MCPServer *server.MC
 		return true, nil
 
 	case mcp.ElicitationResponseActionDecline:
-		return true, nil
+		// do not execute Cypher
+		return false, nil
 
 	case mcp.ElicitationResponseActionCancel:
-		return true, fmt.Errorf("project creation cancelled by user")
+		// do not execute Cypher
+		return false, fmt.Errorf("User cancel elicitation")
 
 	default:
-		return true, fmt.Errorf("unexpected response action: %s", result.Action)
+		return false, fmt.Errorf("unexpected response action: %s", result.Action)
 	}
 
 }
