@@ -1,55 +1,55 @@
 # Neo4j MCP
 
-Official repository for the Neo4j MCP.
+Official Model Context Protocol (MCP) server for Neo4j.
 
 ## Status
 
-This project is currently under active development and is not ready for production use.
+Active development; not yet suitable for production
 
-## Setup
+## Prerequisites
 
-### 1. Clone the Repository
+- A running Neo4j database instance; either local [neo4j–desktop](https://neo4j.com/download/) or [Aura](https://neo4j.com/product/auradb/).
+- APOC plugin installed in the Neo4j instance.
+- Any MCP-compatible client (e.g. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
-```bash
-git clone https://github.com/neo4j/mcp.git
-cd mcp
-```
+## Installation (Binary)
 
-### 2. Set up Go Environment
+Releases: https://github.com/neo4j/mcp/releases
 
-Ensure your Go environment is properly configured:
+1. Download the archive for your OS/arch.
+2. Extract and place `neo4j-mcp` in a directory present in your PATH variables (see examples below).
 
-```bash
-# Check Go installation
-go version
-```
-
-Set up GOPATH and GOBIN (if not already configured in your favorite shell file, such as: .bashrc,.zshrc)
+Mac / Linux:
 
 ```bash
-export GOPATH=$HOME/go
-export GOBIN=$GOPATH/bin
-export PATH=$PATH:$GOBIN
+chmod +x neo4j-mcp
+sudo mv neo4j-mcp /usr/local/bin/
 ```
 
-### 3. Install the Neo4j MCP Server
+Windows (PowerShell / cmd):
+
+```powershell
+move neo4j-mcp.exe C:\Windows\System32
+```
+
+Verify the neo4j-mcp installation:
 
 ```bash
-go install -C cmd/neo4j-mcp
+neo4j-mcp -v
 ```
 
-This will install the `neo4j-mcp` binary to your `$GOBIN` directory.
+Should print the installed version.
 
-### 4. Configure VSCode MCP
+## Configure VSCode (MCP)
 
-Create or update your VSCode MCP configuration file (`mcp.json`), as document here:https://code.visualstudio.com/docs/copilot/customization/mcp-servers
+Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/customization/mcp-servers):
 
 ```json
 {
   "servers": {
     "neo4j": {
       "type": "stdio",
-      "command": "neo4j-mcp", // Use full path to binary or ensure neo4j-mcp is in PATH
+      "command": "neo4j-mcp",
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
@@ -61,57 +61,69 @@ Create or update your VSCode MCP configuration file (`mcp.json`), as document he
 }
 ```
 
-Adjust the environment variables according to your Neo4j instance configuration.
+Restart VSCode; open Copilot Chat and ask: "List Neo4j MCP tools" to confirm.
 
-Open the VSCode chat in agentic mode and ask about your configured Neo4j database.
+## Configure Claude Desktop
+
+First, make sure you have Claude for Desktop installed. [You can install the latest version here](https://claude.ai/download).
+
+We’ll need to configure Claude for Desktop for whichever MCP servers you want to use. To do this, open your Claude for Desktop App configuration at:
+
+- (MacOS/Linux) `~/Library/Application Support/Claude/claude_desktop_config.json`
+- (Windows) `$env:AppData\Claude\claude_desktop_config.json`
+
+in a text editor. Make sure to create the file if it doesn’t exist.
+
+You’ll then add the `neo4j-mcp` MCP in the mcpServers key:
+
+```json
+{
+  "mcpServers": {
+    "neo4j-mcp": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "args": [],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "password",
+        "NEO4J_DATABASE": "neo4j"
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- Adjust env vars for your setup (defaults shown above).
+- Neo4j Desktop default URI: `bolt://localhost:7687`.
+- Aura: use the connection string from the Aura console.
+
+## Tools & Usage
+
+Provided tools:
+
+| Tool         | Purpose                                              | Notes                                                                                      |
+| ------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `get-schema` | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                    |
+| `run-cypher` | Execute arbitrary Cypher (read/write)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. |
+
+## Example Natural Language Prompts
+
+Below are some example prompts you can try in Copilot or any other MCP client:
+
+- "What does my Neo4j instance contain? List all node labels, relationship types, and property keys."
+- "Find all Person nodes and their relationships in my Neo4j instance."
+- "Create a new User node with a name 'John' in my Neo4j instance."
+
+## Security tips:
+
+- Use a restricted Neo4j user for exploration.
+- Review generated Cypher before executing in production databases.
 
 ## Documentation
 
-📚 **[Development Guide](docs/README.md)** - Testing, mockgen setup, and development workflows
+📚 **[Contributing Guide](CONTRIBUTING.md)** – Contribution workflow, development environment, mocks & testing.
 
-## Logging
-
-This project follows the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#stdio) recommendation that all log output should be written to **stderr** to keep **stdout** clean for protocol communication.
-
-We achieve this by using Go's standard `log` package, which writes to stderr by default. This ensures:
-
-- **MCP Compliance**: stdout remains clean for JSON-RPC protocol messages
-- **Proper Stream Separation**: Application logs go to stderr, protocol messages to stdout
-
-## Extra
-
-### Building and Running
-
-To build the project:
-
-```bash
-go build -C cmd/neo4j-mcp -o ../../bin/
-```
-
-Check the version:
-
-```bash
-go run ./cmd/neo4j-mcp -v
-```
-
-To run directly:
-
-```bash
-go run ./cmd/neo4j-mcp
-```
-
-To install:
-
-```bash
-go install -C cmd/neo4j-mcp
-```
-
-### Testing with MCP Inspector
-
-Use the MCP Inspector to test and explore the functionality:
-
-```bash
-npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
-```
-
-This will launch the MCP Inspector interface where you can interact with the Neo4j MCP server and test the read-cypher capabilities.
+Issues / feedback: open a GitHub issue with reproduction details (omit sensitive data).
