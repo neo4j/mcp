@@ -1,10 +1,10 @@
-# Neo4j MCP
+# Neo4j MCP (BETA)
 
 Official Model Context Protocol (MCP) server for Neo4j.
 
 ## Status
 
-Active development; not yet suitable for production
+BETA - Active development; not yet suitable for production.
 
 ## Prerequisites
 
