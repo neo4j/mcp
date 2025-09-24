@@ -143,9 +143,9 @@ When adding new database operations:
 
 ### Quick Fixes
 
-Mock generation fails → ensure `mockgen` on PATH.
-Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
-Dependency/build issues → `go mod tidy`.
+- Mock generation fails → ensure `mockgen` on PATH.
+- Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
+- Dependency/build issues → `go mod tidy`.
 
 ### Getting Help
 
