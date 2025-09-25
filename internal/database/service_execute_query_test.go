@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/database/mocks"
@@ -58,7 +58,7 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 
 	t.Run("session factory returns error", func(t *testing.T) {
 		mockFactory := mocks.NewMockSessionFactory(ctrl)
-		expectedErr := fmt.Errorf("failed to create session")
+		expectedErr := errors.New("failed to create session")
 		mockFactory.EXPECT().
 			NewSession(gomock.Any(), "neo4j").
 			Return(nil, expectedErr)
@@ -97,7 +97,7 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 
 	t.Run("session factory returns error", func(t *testing.T) {
 		mockFactory := mocks.NewMockSessionFactory(ctrl)
-		expectedErr := fmt.Errorf("failed to create session")
+		expectedErr := errors.New("failed to create session")
 		mockFactory.EXPECT().
 			NewSession(gomock.Any(), "neo4j").
 			Return(nil, expectedErr)
