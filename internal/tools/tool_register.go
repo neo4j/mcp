@@ -10,6 +10,7 @@ import (
 type ToolDependencies struct {
 	Config    *config.Config
 	DBService database.DatabaseService
+	MCPServer *server.MCPServer
 }
 
 // GetAllTools returns all available tools with their specs and handlers
