@@ -11,7 +11,7 @@ import (
 
 // Neo4jSessionFactory is the concrete implementation of SessionFactory
 type Neo4jSessionFactory struct {
-	driver *neo4j.DriverWithContext
+	driver neo4j.DriverWithContext
 }
 
 // NewSession creates a new Neo4j session for the specified database
@@ -19,7 +19,7 @@ func (f *Neo4jSessionFactory) NewSession(ctx context.Context, database string) (
 	if f.driver == nil {
 		return nil, fmt.Errorf("error in NewSession: Neo4j driver is not initialized")
 	}
-	return (*f.driver).NewSession(ctx, neo4j.SessionConfig{
+	return f.driver.NewSession(ctx, neo4j.SessionConfig{
 		DatabaseName: database,
 	}), nil
 }
@@ -30,7 +30,7 @@ type Neo4jService struct {
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver *neo4j.DriverWithContext) DatabaseService {
+func NewNeo4jService(driver neo4j.DriverWithContext) DatabaseService {
 	return &Neo4jService{
 		sessionFactory: &Neo4jSessionFactory{driver: driver},
 	}
