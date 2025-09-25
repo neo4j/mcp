@@ -98,6 +98,37 @@ The Neo4j MCP capabilities can be tested using the `@modelcontextprotocol/inspec
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
 ```
 
+## MCP Error Handling
+
+**Note:** MCP error handling differs from standard Go patterns. Instead of returning Go errors directly, we wrap error information inside a `CallToolResult` with the `IsError` flag set to true to properly communicate MCP-related errors to clients.
+
+**MCP Tool Handler error handling pattern:**
+When implementing MCP tool handlers, return errors using the MCP tool result structure:
+
+```go
+func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
+    return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+        // ... implementation ...
+
+        if err != nil {
+            return &mcp.CallToolResult{
+                Content: []mcp.Content{
+                    mcp.NewTextContent(fmt.Sprintf("Error: %v", err)),
+                },
+                IsError: &[]bool{true}[0],
+            }, nil // Note: return nil as the second parameter, error info is in the result
+        }
+
+        // Success case
+        return &mcp.CallToolResult{
+            Content: []mcp.Content{
+                mcp.NewTextContent("Success result"),
+            },
+        }, nil
+    }
+}
+```
+
 ## Adding New MCP Tools
 
 1. **Define tool specifications** in `internal/tools/`:
