@@ -11,12 +11,16 @@ import (
 
 // Neo4jSessionFactory is the concrete implementation of SessionFactory
 type Neo4jSessionFactory struct {
-	driver neo4j.DriverWithContext
+	driver *neo4j.DriverWithContext
 }
 
 // NewSession creates a new Neo4j session for the specified database
 func (f *Neo4jSessionFactory) NewSession(ctx context.Context, database string) neo4j.SessionWithContext {
-	return f.driver.NewSession(ctx, neo4j.SessionConfig{
+	if f.driver == nil {
+		log.Printf("Error in NewSession: Neo4j driver is not initialized")
+		return nil
+	}
+	return (*f.driver).NewSession(ctx, neo4j.SessionConfig{
 		DatabaseName: database,
 	})
 }
@@ -29,7 +33,7 @@ type Neo4jService struct {
 // NewNeo4jService creates a new Neo4jService instance
 func NewNeo4jService(driver *neo4j.DriverWithContext) DatabaseService {
 	return &Neo4jService{
-		sessionFactory: &Neo4jSessionFactory{driver: *driver},
+		sessionFactory: &Neo4jSessionFactory{driver: driver},
 	}
 }
 
@@ -61,7 +65,11 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 		if err != nil {
 			return nil, err
 		}
-		return res.Collect(ctx)
+		records, collectErr := res.Collect(ctx)
+		if collectErr != nil {
+			return nil, collectErr
+		}
+		return records, nil
 	})
 
 	if err != nil {
@@ -70,9 +78,10 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 		return nil, wrappedErr
 	}
 
+	// Safe type assertion - we know the transaction function returns []*neo4j.Record
 	records, ok := result.([]*neo4j.Record)
 	if !ok {
-		err := fmt.Errorf("unexpected result type from read transaction")
+		err := fmt.Errorf("unexpected result type from read transaction: expected []*neo4j.Record, got %T", result)
 		log.Printf("Error in ExecuteReadQuery: %v", err)
 		return nil, err
 	}
@@ -101,7 +110,11 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 		if err != nil {
 			return nil, err
 		}
-		return res.Collect(ctx)
+		records, collectErr := res.Collect(ctx)
+		if collectErr != nil {
+			return nil, collectErr
+		}
+		return records, nil
 	})
 
 	if err != nil {
@@ -110,9 +123,10 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 		return nil, wrappedErr
 	}
 
+	// Safe type assertion - we know the transaction function returns []*neo4j.Record
 	records, ok := result.([]*neo4j.Record)
 	if !ok {
-		err := fmt.Errorf("unexpected result type from write transaction")
+		err := fmt.Errorf("unexpected result type from write transaction: expected []*neo4j.Record, got %T", result)
 		log.Printf("Error in ExecuteWriteQuery: %v", err)
 		return nil, err
 	}
