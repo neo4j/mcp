@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/database/mocks"
@@ -20,7 +21,10 @@ func TestNeo4jSessionFactory_NewSession(t *testing.T) {
 
 	t.Run("nil driver", func(t *testing.T) {
 		factory := &Neo4jSessionFactory{driver: nil}
-		session := factory.NewSession(ctx, "neo4j")
+		session, err := factory.NewSession(ctx, "neo4j")
+		if err == nil {
+			t.Errorf("expected error when driver is nil")
+		}
 		if session != nil {
 			t.Errorf("expected nil session when driver is nil, got: %v", session)
 		}
@@ -44,11 +48,24 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 		mockFactory := mocks.NewMockSessionFactory(ctrl)
 		mockFactory.EXPECT().
 			NewSession(gomock.Any(), "neo4j").
-			Return(nil)
+			Return(nil, nil)
 
 		service := newNeo4jServiceWithSessionFactory(mockFactory)
 		if _, err := service.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j"); err == nil {
 			t.Errorf("expected error when session is nil")
+		}
+	})
+
+	t.Run("session factory returns error", func(t *testing.T) {
+		mockFactory := mocks.NewMockSessionFactory(ctrl)
+		expectedErr := fmt.Errorf("failed to create session")
+		mockFactory.EXPECT().
+			NewSession(gomock.Any(), "neo4j").
+			Return(nil, expectedErr)
+
+		service := newNeo4jServiceWithSessionFactory(mockFactory)
+		if _, err := service.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j"); err == nil {
+			t.Errorf("expected error when NewSession returns error")
 		}
 	})
 }
@@ -70,11 +87,24 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 		mockFactory := mocks.NewMockSessionFactory(ctrl)
 		mockFactory.EXPECT().
 			NewSession(gomock.Any(), "neo4j").
-			Return(nil)
+			Return(nil, nil)
 
 		service := newNeo4jServiceWithSessionFactory(mockFactory)
 		if _, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j"); err == nil {
 			t.Errorf("expected error when session is nil")
+		}
+	})
+
+	t.Run("session factory returns error", func(t *testing.T) {
+		mockFactory := mocks.NewMockSessionFactory(ctrl)
+		expectedErr := fmt.Errorf("failed to create session")
+		mockFactory.EXPECT().
+			NewSession(gomock.Any(), "neo4j").
+			Return(nil, expectedErr)
+
+		service := newNeo4jServiceWithSessionFactory(mockFactory)
+		if _, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j"); err == nil {
+			t.Errorf("expected error when NewSession returns error")
 		}
 	})
 }

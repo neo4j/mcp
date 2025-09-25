@@ -15,14 +15,13 @@ type Neo4jSessionFactory struct {
 }
 
 // NewSession creates a new Neo4j session for the specified database
-func (f *Neo4jSessionFactory) NewSession(ctx context.Context, database string) neo4j.SessionWithContext {
+func (f *Neo4jSessionFactory) NewSession(ctx context.Context, database string) (neo4j.SessionWithContext, error) {
 	if f.driver == nil {
-		log.Printf("Error in NewSession: Neo4j driver is not initialized")
-		return nil
+		return nil, fmt.Errorf("error in NewSession: Neo4j driver is not initialized")
 	}
 	return (*f.driver).NewSession(ctx, neo4j.SessionConfig{
 		DatabaseName: database,
-	})
+	}), nil
 }
 
 // Neo4jService is the concrete implementation of DatabaseService
@@ -51,8 +50,11 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 		log.Printf("Error in ExecuteReadQuery: %v", err)
 		return nil, err
 	}
-
-	session := s.sessionFactory.NewSession(ctx, database)
+	session, sessionErr := s.sessionFactory.NewSession(ctx, database)
+	if sessionErr != nil {
+		log.Printf("Error in ExecuteReadQuery: %v", sessionErr)
+		return nil, sessionErr
+	}
 	if session == nil {
 		err := fmt.Errorf("session factory returned nil session")
 		log.Printf("Error in ExecuteReadQuery: %v", err)
@@ -96,8 +98,11 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 		log.Printf("Error in ExecuteWriteQuery: %v", err)
 		return nil, err
 	}
-
-	session := s.sessionFactory.NewSession(ctx, database)
+	session, sessionErr := s.sessionFactory.NewSession(ctx, database)
+	if sessionErr != nil {
+		log.Printf("Error in ExecuteWriteQuery: %v", sessionErr)
+		return nil, sessionErr
+	}
 	if session == nil {
 		err := fmt.Errorf("session factory returned nil session")
 		log.Printf("Error in ExecuteWriteQuery: %v", err)

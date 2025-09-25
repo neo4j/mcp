@@ -42,11 +42,12 @@ func (m *MockSessionFactory) EXPECT() *MockSessionFactoryMockRecorder {
 }
 
 // NewSession mocks base method.
-func (m *MockSessionFactory) NewSession(ctx context.Context, database string) neo4j.SessionWithContext {
+func (m *MockSessionFactory) NewSession(ctx context.Context, database string) (neo4j.SessionWithContext, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewSession", ctx, database)
 	ret0, _ := ret[0].(neo4j.SessionWithContext)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NewSession indicates an expected call of NewSession.

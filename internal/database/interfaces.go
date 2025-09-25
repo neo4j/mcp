@@ -10,7 +10,7 @@ import (
 
 // SessionFactory creates new sessions for executing queries
 type SessionFactory interface {
-	NewSession(ctx context.Context, database string) neo4j.SessionWithContext
+	NewSession(ctx context.Context, database string) (neo4j.SessionWithContext, error)
 }
 
 // QueryExecutor defines the interface for executing Neo4j queries
