@@ -109,11 +109,18 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 	})
 }
 
-func TestNewNeo4jServiceWithSessionFactory(t *testing.T) {
+func TestNeo4jService_UsesDependencyInjectedSessionFactory(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	mockFactory := mocks.NewMockSessionFactory(ctrl)
+
+	// Set up mock expectation for the behavior we want to verify
+	mockFactory.EXPECT().
+		NewSession(gomock.Any(), "neo4j").
+		Return(nil, errors.New("test error"))
+
 	service := newNeo4jServiceWithSessionFactory(mockFactory)
 
 	// Verify it returns a DatabaseService interface
@@ -121,13 +128,14 @@ func TestNewNeo4jServiceWithSessionFactory(t *testing.T) {
 		t.Fatal("expected non-nil service")
 	}
 
-	// Verify it's actually a Neo4jService underneath
-	neo4jService, ok := service.(*Neo4jService)
-	if !ok {
-		t.Fatal("expected Neo4jService type")
+	// Test the actual behavior: verify the service uses the injected factory
+	_, err := service.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j")
+	if err == nil {
+		t.Fatal("expected service to use the injected session factory and return the mock error")
 	}
 
-	if neo4jService.sessionFactory != mockFactory {
-		t.Fatal("expected session factory to be set correctly")
+	// Verify the error message contains our test error, confirming the factory was used
+	if err.Error() != "test error" {
+		t.Fatalf("expected error from mock factory, got: %v", err)
 	}
 }
