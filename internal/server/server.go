@@ -12,8 +12,6 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-
-
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	mcpServer *server.MCPServer
