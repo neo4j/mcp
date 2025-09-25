@@ -145,7 +145,5 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 		return "", wrappedErr
 	}
 
-	formattedResponseStr := string(formattedResponse)
-
-	return formattedResponseStr, nil
+	return string(formattedResponse), nil
 }
