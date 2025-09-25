@@ -17,6 +17,44 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockSessionFactory is a mock of SessionFactory interface.
+type MockSessionFactory struct {
+	ctrl     *gomock.Controller
+	recorder *MockSessionFactoryMockRecorder
+	isgomock struct{}
+}
+
+// MockSessionFactoryMockRecorder is the mock recorder for MockSessionFactory.
+type MockSessionFactoryMockRecorder struct {
+	mock *MockSessionFactory
+}
+
+// NewMockSessionFactory creates a new mock instance.
+func NewMockSessionFactory(ctrl *gomock.Controller) *MockSessionFactory {
+	mock := &MockSessionFactory{ctrl: ctrl}
+	mock.recorder = &MockSessionFactoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSessionFactory) EXPECT() *MockSessionFactoryMockRecorder {
+	return m.recorder
+}
+
+// NewSession mocks base method.
+func (m *MockSessionFactory) NewSession(ctx context.Context, database string) neo4j.SessionWithContext {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewSession", ctx, database)
+	ret0, _ := ret[0].(neo4j.SessionWithContext)
+	return ret0
+}
+
+// NewSession indicates an expected call of NewSession.
+func (mr *MockSessionFactoryMockRecorder) NewSession(ctx, database any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockSessionFactory)(nil).NewSession), ctx, database)
+}
+
 // MockQueryExecutor is a mock of QueryExecutor interface.
 type MockQueryExecutor struct {
 	ctrl     *gomock.Controller

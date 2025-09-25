@@ -9,27 +9,60 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// Neo4jSessionFactory is the concrete implementation of SessionFactory
+type Neo4jSessionFactory struct {
+	driver neo4j.DriverWithContext
+}
+
+// NewSession creates a new Neo4j session for the specified database
+func (f *Neo4jSessionFactory) NewSession(ctx context.Context, database string) neo4j.SessionWithContext {
+	return f.driver.NewSession(ctx, neo4j.SessionConfig{
+		DatabaseName: database,
+	})
+}
+
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver *neo4j.DriverWithContext
+	sessionFactory SessionFactory
 }
 
 // NewNeo4jService creates a new Neo4jService instance
 func NewNeo4jService(driver *neo4j.DriverWithContext) DatabaseService {
 	return &Neo4jService{
-		driver: driver,
+		sessionFactory: &Neo4jSessionFactory{driver: *driver},
+	}
+}
+
+// closeSession safely closes a Neo4j session and logs any errors
+func (s *Neo4jService) closeSession(ctx context.Context, session neo4j.SessionWithContext) {
+	if closeErr := session.Close(ctx); closeErr != nil {
+		log.Printf("Error closing session: %v", closeErr)
 	}
 }
 
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
-	if s.driver == nil {
-		err := fmt.Errorf("Neo4j driver is not initialized")
+	if s.sessionFactory == nil {
+		err := fmt.Errorf("Neo4j session factory is not initialized")
 		log.Printf("Error in ExecuteReadQuery: %v", err)
 		return nil, err
 	}
 
-	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithReadersRouting())
+	session := s.sessionFactory.NewSession(ctx, database)
+	if session == nil {
+		err := fmt.Errorf("session factory returned nil session")
+		log.Printf("Error in ExecuteReadQuery: %v", err)
+		return nil, err
+	}
+	defer s.closeSession(ctx, session)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		res, err := tx.Run(ctx, cypher, params)
+		if err != nil {
+			return nil, err
+		}
+		return res.Collect(ctx)
+	})
 
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
@@ -37,18 +70,39 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 		return nil, wrappedErr
 	}
 
-	return res.Records, nil
+	records, ok := result.([]*neo4j.Record)
+	if !ok {
+		err := fmt.Errorf("unexpected result type from read transaction")
+		log.Printf("Error in ExecuteReadQuery: %v", err)
+		return nil, err
+	}
+
+	return records, nil
 }
 
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
-	if s.driver == nil {
-		err := fmt.Errorf("Neo4j driver is not initialized")
+	if s.sessionFactory == nil {
+		err := fmt.Errorf("Neo4j session factory is not initialized")
 		log.Printf("Error in ExecuteWriteQuery: %v", err)
 		return nil, err
 	}
 
-	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithWritersRouting())
+	session := s.sessionFactory.NewSession(ctx, database)
+	if session == nil {
+		err := fmt.Errorf("session factory returned nil session")
+		log.Printf("Error in ExecuteWriteQuery: %v", err)
+		return nil, err
+	}
+	defer s.closeSession(ctx, session)
+
+	result, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		res, err := tx.Run(ctx, cypher, params)
+		if err != nil {
+			return nil, err
+		}
+		return res.Collect(ctx)
+	})
 
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
@@ -56,7 +110,14 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 		return nil, wrappedErr
 	}
 
-	return res.Records, nil
+	records, ok := result.([]*neo4j.Record)
+	if !ok {
+		err := fmt.Errorf("unexpected result type from write transaction")
+		log.Printf("Error in ExecuteWriteQuery: %v", err)
+		return nil, err
+	}
+
+	return records, nil
 }
 
 // Neo4jRecordsToJSON converts Neo4j records to JSON string
@@ -75,7 +136,6 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 	}
 
 	formattedResponseStr := string(formattedResponse)
-
 
 	return formattedResponseStr, nil
 }

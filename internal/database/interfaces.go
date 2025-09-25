@@ -8,6 +8,11 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// SessionFactory creates new sessions for executing queries
+type SessionFactory interface {
+	NewSession(ctx context.Context, database string) neo4j.SessionWithContext
+}
+
 // QueryExecutor defines the interface for executing Neo4j queries
 type QueryExecutor interface {
 	// ExecuteReadQuery executes a read-only Cypher query and returns raw records
