@@ -60,7 +60,7 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("nil session factory", func(t *testing.T) {
-		serviceNil := &Neo4jService{sessionFactory: nil}
+		serviceNil := newNeo4jServiceWithSessionFactory(nil)
 		if _, err := serviceNil.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j"); err == nil {
 			t.Errorf("expected error when session factory is nil")
 		}
