@@ -17,7 +17,7 @@ type Neo4jSessionFactory struct {
 // NewSession creates a new Neo4j session for the specified database
 func (f *Neo4jSessionFactory) NewSession(ctx context.Context, database string) (neo4j.SessionWithContext, error) {
 	if f.driver == nil {
-		return nil, fmt.Errorf("error in NewSession: Neo4j driver is not initialized")
+		return nil, fmt.Errorf("Neo4j driver is not initialized")
 	}
 	return f.driver.NewSession(ctx, neo4j.SessionConfig{
 		DatabaseName: database,
@@ -43,100 +43,91 @@ func (s *Neo4jService) closeSession(ctx context.Context, session neo4j.SessionWi
 	}
 }
 
-// ExecuteReadQuery executes a read-only Cypher query and returns raw records
-func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
+// executeTransaction runs a Cypher query within a transaction and collects the results
+func (s *Neo4jService) executeTransaction(ctx context.Context, cypher string, params map[string]any, tx neo4j.ManagedTransaction) ([]*neo4j.Record, error) {
+	res, err := tx.Run(ctx, cypher, params)
+	if err != nil {
+		return nil, err
+	}
+	records, collectErr := res.Collect(ctx)
+	if collectErr != nil {
+		return nil, collectErr
+	}
+	return records, nil
+}
+
+// executeWithSession handles common session creation, management, and cleanup for query execution
+func (s *Neo4jService) executeWithSession(ctx context.Context, database string, operation func(session neo4j.SessionWithContext) ([]*neo4j.Record, error)) ([]*neo4j.Record, error) {
 	if s.sessionFactory == nil {
 		err := fmt.Errorf("Neo4j session factory is not initialized")
-		log.Printf("Error in ExecuteReadQuery: %v", err)
+		log.Printf("Error in executeWithSession: %v", err)
 		return nil, err
 	}
+
 	session, sessionErr := s.sessionFactory.NewSession(ctx, database)
 	if sessionErr != nil {
-		log.Printf("Error in ExecuteReadQuery: %v", sessionErr)
+		log.Printf("Error in executeWithSession: %v", sessionErr)
 		return nil, sessionErr
 	}
+
 	if session == nil {
 		err := fmt.Errorf("session factory returned nil session")
-		log.Printf("Error in ExecuteReadQuery: %v", err)
+		log.Printf("Error in executeWithSession: %v", err)
 		return nil, err
 	}
+
 	defer s.closeSession(ctx, session)
 
-	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		res, err := tx.Run(ctx, cypher, params)
+	return operation(session)
+}
+
+// ExecuteReadQuery executes a read-only Cypher query and returns raw records
+func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
+	return s.executeWithSession(ctx, database, func(session neo4j.SessionWithContext) ([]*neo4j.Record, error) {
+		result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+			return s.executeTransaction(ctx, cypher, params, tx)
+		})
+
 		if err != nil {
+			wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
+			log.Printf("Error in ExecuteReadQuery: %v", wrappedErr)
+			return nil, wrappedErr
+		}
+
+		// Safe type assertion - we know the transaction function returns []*neo4j.Record
+		records, ok := result.([]*neo4j.Record)
+		if !ok {
+			err := fmt.Errorf("unexpected result type from read transaction: expected []*neo4j.Record, got %T", result)
+			log.Printf("Error in ExecuteReadQuery: %v", err)
 			return nil, err
 		}
-		records, collectErr := res.Collect(ctx)
-		if collectErr != nil {
-			return nil, collectErr
-		}
+
 		return records, nil
 	})
-
-	if err != nil {
-		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
-		log.Printf("Error in ExecuteReadQuery: %v", wrappedErr)
-		return nil, wrappedErr
-	}
-
-	// Safe type assertion - we know the transaction function returns []*neo4j.Record
-	records, ok := result.([]*neo4j.Record)
-	if !ok {
-		err := fmt.Errorf("unexpected result type from read transaction: expected []*neo4j.Record, got %T", result)
-		log.Printf("Error in ExecuteReadQuery: %v", err)
-		return nil, err
-	}
-
-	return records, nil
 }
 
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
-	if s.sessionFactory == nil {
-		err := fmt.Errorf("Neo4j session factory is not initialized")
-		log.Printf("Error in ExecuteWriteQuery: %v", err)
-		return nil, err
-	}
-	session, sessionErr := s.sessionFactory.NewSession(ctx, database)
-	if sessionErr != nil {
-		log.Printf("Error in ExecuteWriteQuery: %v", sessionErr)
-		return nil, sessionErr
-	}
-	if session == nil {
-		err := fmt.Errorf("session factory returned nil session")
-		log.Printf("Error in ExecuteWriteQuery: %v", err)
-		return nil, err
-	}
-	defer s.closeSession(ctx, session)
+	return s.executeWithSession(ctx, database, func(session neo4j.SessionWithContext) ([]*neo4j.Record, error) {
+		result, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+			return s.executeTransaction(ctx, cypher, params, tx)
+		})
 
-	result, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		res, err := tx.Run(ctx, cypher, params)
 		if err != nil {
+			wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
+			log.Printf("Error in ExecuteWriteQuery: %v", wrappedErr)
+			return nil, wrappedErr
+		}
+
+		records, ok := result.([]*neo4j.Record)
+		if !ok {
+			err := fmt.Errorf("unexpected result type from write transaction: expected []*neo4j.Record, got %T", result)
+			log.Printf("Error in ExecuteWriteQuery: %v", err)
 			return nil, err
 		}
-		records, collectErr := res.Collect(ctx)
-		if collectErr != nil {
-			return nil, collectErr
-		}
+
 		return records, nil
 	})
-
-	if err != nil {
-		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
-		log.Printf("Error in ExecuteWriteQuery: %v", wrappedErr)
-		return nil, wrappedErr
-	}
-
-	// Safe type assertion - we know the transaction function returns []*neo4j.Record
-	records, ok := result.([]*neo4j.Record)
-	if !ok {
-		err := fmt.Errorf("unexpected result type from write transaction: expected []*neo4j.Record, got %T", result)
-		log.Printf("Error in ExecuteWriteQuery: %v", err)
-		return nil, err
-	}
-
-	return records, nil
 }
 
 // Neo4jRecordsToJSON converts Neo4j records to JSON string
