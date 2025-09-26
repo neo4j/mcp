@@ -10,11 +10,13 @@ import (
 	"github.com/neo4j/mcp/internal/server"
 )
 
+var Version = "development"
+
 func main() {
 	// Handle version flag
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
 		// NOTE: "standard" log package logger write on on STDERR, in this case we want explicitly to write to STDOUT
-		fmt.Printf("neo4j-mcp version: %s\n", server.Version)
+		fmt.Printf("neo4j-mcp version: %s\n", Version)
 		return
 	}
 	// get config from environment variables
@@ -24,7 +26,7 @@ func main() {
 	}
 
 	// Create and configure the MCP server
-	mcpServer, err := server.NewNeo4jMCPServer(cfg)
+	mcpServer, err := server.NewNeo4jMCPServer(Version, cfg)
 	if err != nil {
 		log.Fatalf("Failed to create MCP server: %v", err)
 	}
