@@ -9,14 +9,14 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 )
 
-func RunCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func WriteCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleRunCypher(ctx, request, deps.DBService, deps.Config)
+		return handleWriteCypher(ctx, request, deps.DBService, deps.Config)
 	}
 }
 
-func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.DatabaseService, config *config.Config) (*mcp.CallToolResult, error) {
-	var args RunCypherInput
+func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.DatabaseService, config *config.Config) (*mcp.CallToolResult, error) {
+	var args WriteCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
 		log.Printf("Error binding arguments: %v", err)
@@ -26,9 +26,6 @@ func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService
 	Params := args.Params
 	// debug log -- to be removed at a later stage
 	log.Printf("cypher-query: %s", Query)
-	if Params != nil {
-		log.Printf("cypher-parameters: %v", Params)
-	}
 
 	// Validate that query is not empty
 	if Query == "" {

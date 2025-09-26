@@ -76,6 +76,5 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 
 	formattedResponseStr := string(formattedResponse)
 
-
 	return formattedResponseStr, nil
 }

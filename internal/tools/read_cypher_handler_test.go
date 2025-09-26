@@ -12,14 +12,14 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestRunCypherHandler(t *testing.T) {
+func TestReadCypherHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
+			ExecuteReadQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
@@ -30,7 +30,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -53,7 +53,7 @@ func TestRunCypherHandler(t *testing.T) {
 	t.Run("successful cypher execution without parameters", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
@@ -64,7 +64,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -91,7 +91,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		// Test with invalid argument structure that should cause BindArguments to fail
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
@@ -111,7 +111,7 @@ func TestRunCypherHandler(t *testing.T) {
 
 	t.Run("missing required arguments", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
-		// The handler should NOT call ExecuteWriteQuery when query is empty
+		// The handler should NOT call ExecuteReadQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &ToolDependencies{
@@ -119,7 +119,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -141,7 +141,7 @@ func TestRunCypherHandler(t *testing.T) {
 
 	t.Run("empty query parameter", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
-		// The handler should NOT call ExecuteWriteQuery when query is empty
+		// The handler should NOT call ExecuteReadQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &ToolDependencies{
@@ -149,7 +149,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -175,7 +175,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: nil,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -197,7 +197,7 @@ func TestRunCypherHandler(t *testing.T) {
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
 			Return(nil, errors.New("syntax error"))
 
 		deps := &ToolDependencies{
@@ -205,7 +205,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -227,7 +227,7 @@ func TestRunCypherHandler(t *testing.T) {
 	t.Run("JSON formatting failure", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
@@ -238,7 +238,7 @@ func TestRunCypherHandler(t *testing.T) {
 			DBService: mockDB,
 		}
 
-		handler := RunCypherHandler(deps)
+		handler := ReadCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -256,26 +256,4 @@ func TestRunCypherHandler(t *testing.T) {
 			t.Error("Expected error result for JSON formatting failure")
 		}
 	})
-}
-
-func TestRunCypherSpec(t *testing.T) {
-	spec := RunCypherSpec()
-
-	if spec.Name != "run-cypher" {
-		t.Errorf("Expected tool name 'run-cypher', got: %s", spec.Name)
-	}
-
-	if spec.Description == "" {
-		t.Error("Expected non-empty description")
-	}
-
-	// Check that the tool is marked as not read-only and destructive
-	// Note: Annotations is a struct, not a pointer, so we can check its fields directly
-	if spec.Annotations.ReadOnlyHint == nil || *spec.Annotations.ReadOnlyHint != false {
-		t.Error("Expected ReadOnlyHint to be false")
-	}
-
-	if spec.Annotations.DestructiveHint == nil || *spec.Annotations.DestructiveHint != true {
-		t.Error("Expected DestructiveHint to be true")
-	}
 }

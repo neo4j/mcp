@@ -107,7 +107,8 @@ Provided tools:
 | Tool         | Purpose                                              | Notes                                                                                      |
 | ------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `get-schema` | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                    |
-| `run-cypher` | Execute arbitrary Cypher (read/write)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. |
+| `read-cypher` | Execute arbitrary Cypher (read mode)                | None.                                                                                      |
+| `write-cypher` | Execute arbitrary Cypher (write mode)              | **Caution:** LLM-generated queries could cause harm. Use only in development environments. |
 
 ## Example Natural Language Prompts
 
