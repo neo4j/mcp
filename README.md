@@ -8,7 +8,7 @@ BETA - Active development; not yet suitable for production.
 
 ## Prerequisites
 
-- A running Neo4j database instance; either local [neo4j–desktop](https://neo4j.com/download/) or [Aura](https://neo4j.com/product/auradb/).
+- A running Neo4j database instance; options include [Aura](https://neo4j.com/product/auradb/), [neo4j–desktop](https://neo4j.com/download/) or [self-managed](https://neo4j.com/deployment-center/#gdb-tab).
 - APOC plugin installed in the Neo4j instance.
 - Any MCP-compatible client (e.g. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
