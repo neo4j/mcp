@@ -71,6 +71,21 @@ func (mr *MockQueryExecutorMockRecorder) ExecuteWriteQuery(ctx, cypher, params, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWriteQuery", reflect.TypeOf((*MockQueryExecutor)(nil).ExecuteWriteQuery), ctx, cypher, params, database)
 }
 
+// GetQueryType mocks base method.
+func (m *MockQueryExecutor) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params, database)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetQueryType indicates an expected call of GetQueryType.
+func (mr *MockQueryExecutorMockRecorder) GetQueryType(ctx, cypher, params, database any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetQueryType", reflect.TypeOf((*MockQueryExecutor)(nil).GetQueryType), ctx, cypher, params, database)
+}
+
 // MockRecordFormatter is a mock of RecordFormatter interface.
 type MockRecordFormatter struct {
 	ctrl     *gomock.Controller
@@ -162,6 +177,21 @@ func (m *MockDatabaseService) ExecuteWriteQuery(ctx context.Context, cypher stri
 func (mr *MockDatabaseServiceMockRecorder) ExecuteWriteQuery(ctx, cypher, params, database any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWriteQuery", reflect.TypeOf((*MockDatabaseService)(nil).ExecuteWriteQuery), ctx, cypher, params, database)
+}
+
+// GetQueryType mocks base method.
+func (m *MockDatabaseService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params, database)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetQueryType indicates an expected call of GetQueryType.
+func (mr *MockDatabaseServiceMockRecorder) GetQueryType(ctx, cypher, params, database any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetQueryType", reflect.TypeOf((*MockDatabaseService)(nil).GetQueryType), ctx, cypher, params, database)
 }
 
 // Neo4jRecordsToJSON mocks base method.

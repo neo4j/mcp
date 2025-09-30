@@ -39,12 +39,21 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 		log.Printf("%s", errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-	// if strings.ContainsAny(strings.ToLower(Query), "explain") {
-	// 	// records, err := dbService.ExecuteReadQuery(ctx, Query, Params, config.Database)
-	// 	// log.Print(records)
-	// 	// log.Print(err)
-	// }
-	// Execute the Cypher query using the database service
+
+	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
+	queryType, err := dbService.GetQueryType(ctx, Query, Params, config.Database)
+	if err != nil {
+		log.Printf("Error while classifying Cypher query: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	if queryType != "r" { // only queryType == "r" are allowed in read-cypher
+		errMessage := "read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead."
+		log.Printf("Rejected non-read query (type=%s): %s", queryType, Query)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
+	// Execute the Cypher query using the database service (now confirmed read-only)
 	records, err := dbService.ExecuteReadQuery(ctx, Query, Params, config.Database)
 	if err != nil {
 		log.Printf("Error executing Cypher query: %v", err)

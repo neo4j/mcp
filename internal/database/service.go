@@ -59,6 +59,48 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	return res.Records, nil
 }
 
+
+// GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
+// This allows read-only tools to determine if a query is safe to run in read-only context.
+func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
+	if s.driver == nil {
+		err := fmt.Errorf("Neo4j driver is not initialized")
+		log.Printf("Error in GetQueryType: %v", err)
+		return "", err
+	}
+
+	explain := "EXPLAIN " + cypher
+	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explain, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
+	if err != nil {
+		wrappedErr := fmt.Errorf("Error during GetQueryType: %w", err)
+		log.Printf("Error during GetQueryType:: %v", wrappedErr)
+		return "", wrappedErr
+	}
+
+	if res.Summary == nil {
+		err := fmt.Errorf("Error during GetQueryType: no summary returned for explained query")
+		log.Printf("Error during GetQueryType:: %v", err)
+		return "", err
+	}
+
+	st := res.Summary.StatementType()
+	var qType string
+	switch st {
+	case neo4j.StatementTypeReadOnly:
+		qType = "r"
+	case neo4j.StatementTypeReadWrite:
+		qType = "rw"
+	case neo4j.StatementTypeWriteOnly:
+		qType = "w"
+	case neo4j.StatementTypeSchemaWrite:
+		qType = "s"
+	default:
+		qType = "unknown"
+	}
+
+	return qType, nil
+}
+
 // Neo4jRecordsToJSON converts Neo4j records to JSON string
 func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 	results := make([]map[string]any, 0)

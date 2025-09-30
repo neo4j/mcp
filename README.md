@@ -104,11 +104,11 @@ Notes:
 
 Provided tools:
 
-| Tool         | Purpose                                              | Notes                                                                                      |
-| ------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `get-schema` | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                    |
-| `read-cypher` | Execute arbitrary Cypher (read mode)                | None.                                                                                      |
-| `write-cypher` | Execute arbitrary Cypher (write mode)              | **Caution:** LLM-generated queries could cause harm. Use only in development environments. |
+| Tool           | Purpose                                              | Notes                                                                                                |
+| -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `get-schema`   | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                              |
+| `read-cypher`  | Execute arbitrary Cypher (read mode)                 | Read-only; rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead  |
+| `write-cypher` | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments.           |
 
 ## Example Natural Language Prompts
 

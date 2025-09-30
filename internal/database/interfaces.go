@@ -15,6 +15,10 @@ type QueryExecutor interface {
 
 	// ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 	ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error)
+
+	// GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
+	// This allows read-only tools to determine if a query is safe to run in read-only context.
+	GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error)
 }
 
 // RecordFormatter defines the interface for formatting Neo4j records

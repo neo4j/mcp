@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+
 func TestReadCypherHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -21,6 +22,9 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
 			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			GetQueryType(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
+			Return("r", nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`[{"n": {"name": "Alice"}}]`, nil)
@@ -52,6 +56,9 @@ func TestReadCypherHandler(t *testing.T) {
 
 	t.Run("successful cypher execution without parameters", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			GetQueryType(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
+			Return("r", nil)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
@@ -197,6 +204,9 @@ func TestReadCypherHandler(t *testing.T) {
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
+			GetQueryType(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			Return("r", nil)
+		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
 			Return(nil, errors.New("syntax error"))
 
@@ -227,6 +237,9 @@ func TestReadCypherHandler(t *testing.T) {
 	t.Run("JSON formatting failure", func(t *testing.T) {
 		mockDB := mocks.NewMockDatabaseService(ctrl)
 		mockDB.EXPECT().
+			GetQueryType(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			Return("r", nil)
+		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
@@ -254,6 +267,64 @@ func TestReadCypherHandler(t *testing.T) {
 		}
 		if result == nil || !result.IsError {
 			t.Error("Expected error result for JSON formatting failure")
+		}
+	})
+
+	t.Run("non-read query type returns error", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			GetQueryType(gomock.Any(), "CREATE (n:Test)", gomock.Nil(), "testdb").
+			Return("w", nil)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := ReadCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "CREATE (n:Test)",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for non-read query type")
+		}
+	})
+
+	t.Run("explain query failure", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			GetQueryType(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			Return("", errors.New("driver error"))
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := ReadCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": "MATCH (n) RETURN n",
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for explain failure")
 		}
 	})
 }
