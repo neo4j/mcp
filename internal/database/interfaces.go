@@ -1,6 +1,6 @@
 package database
 
-//go:generate mockgen -source=interfaces.go -destination=mocks/mock_database.go -package=mocks
+//go:generate mockgen -destination=mocks/mock_database.go -package=mocks github.com/neo4j/mcp/internal/database DatabaseService,Driver,Session
 
 import (
 	"context"
@@ -8,9 +8,16 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-// SessionFactory creates new sessions for executing queries
-type SessionFactory interface {
-	NewSession(ctx context.Context, database string) (neo4j.SessionWithContext, error)
+// Driver is a minimal interface wrapping neo4j.DriverWithContext for testability
+type Driver interface {
+	NewSession(ctx context.Context, database string) (Session, error)
+}
+
+// Session is a minimal interface wrapping neo4j.SessionWithContext for testability
+type Session interface {
+	ExecuteRead(ctx context.Context, work func(tx neo4j.ManagedTransaction) (any, error)) (any, error)
+	ExecuteWrite(ctx context.Context, work func(tx neo4j.ManagedTransaction) (any, error)) (any, error)
+	Close(ctx context.Context) error
 }
 
 // QueryExecutor defines the interface for executing Neo4j queries
