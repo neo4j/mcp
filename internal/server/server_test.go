@@ -45,7 +45,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server, err := server.NewNeo4jMCPServer(tt.cfg)
+			server, err := server.NewNeo4jMCPServer("test-version", tt.cfg)
 
 			if tt.wantErr {
 				if err == nil {
@@ -81,7 +81,7 @@ func TestNeo4jMCPServer_RegisterTools(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	s, err := server.NewNeo4jMCPServer(cfg)
+	s, err := server.NewNeo4jMCPServer("test-version", cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestNeo4jMCPServer_Start_ConnectionFailure(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	s, err := server.NewNeo4jMCPServer(cfg)
+	s, err := server.NewNeo4jMCPServer("test-version", cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestNeo4jMCPServer_Start_WithCanceledContext(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	s, err := server.NewNeo4jMCPServer(cfg)
+	s, err := server.NewNeo4jMCPServer("test-version", cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestNeo4jMCPServer_Stop(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	s, err := server.NewNeo4jMCPServer(cfg)
+	s, err := server.NewNeo4jMCPServer("test-version", cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestNeo4jMCPServer_StopWithTimeout(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	s, err := server.NewNeo4jMCPServer(cfg)
+	s, err := server.NewNeo4jMCPServer("test-version", cfg)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
