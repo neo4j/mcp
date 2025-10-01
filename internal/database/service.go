@@ -59,27 +59,26 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	return res.Records, nil
 }
 
-
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
 	if s.driver == nil {
-		err := fmt.Errorf("Neo4j driver is not initialized")
-		log.Printf("Error in GetQueryType: %v", err)
+		err := fmt.Errorf("neo4j driver is not initialized")
+		log.Printf("error in GetQueryType: %v", err)
 		return "", err
 	}
 
-	explain := "EXPLAIN " + cypher
-	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explain, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
+	explainedQuery := "explainedQuery " + cypher
+	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
 	if err != nil {
-		wrappedErr := fmt.Errorf("Error during GetQueryType: %w", err)
-		log.Printf("Error during GetQueryType:: %v", wrappedErr)
+		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
+		log.Printf("error during GetQueryType:: %v", wrappedErr)
 		return "", wrappedErr
 	}
 
 	if res.Summary == nil {
-		err := fmt.Errorf("Error during GetQueryType: no summary returned for explained query")
-		log.Printf("Error during GetQueryType:: %v", err)
+		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
+		log.Printf("error during GetQueryType:: %v", err)
 		return "", err
 	}
 
