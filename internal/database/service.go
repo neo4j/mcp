@@ -68,7 +68,7 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 		return "", err
 	}
 
-	explainedQuery := "explainedQuery " + cypher
+	explainedQuery := "EXPLAIN " + cypher
 	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
