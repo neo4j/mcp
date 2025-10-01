@@ -15,7 +15,7 @@ type Neo4jService struct {
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver *neo4j.DriverWithContext) DatabaseService {
+func NewNeo4jService(driver *neo4j.DriverWithContext) Service {
 	return &Neo4jService{
 		driver: driver,
 	}
@@ -75,7 +75,6 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 	}
 
 	formattedResponseStr := string(formattedResponse)
-
 
 	return formattedResponseStr, nil
 }

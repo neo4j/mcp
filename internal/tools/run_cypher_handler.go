@@ -15,7 +15,7 @@ func RunCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallTool
 	}
 }
 
-func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.DatabaseService, config *config.Config) (*mcp.CallToolResult, error) {
+func handleRunCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, config *config.Config) (*mcp.CallToolResult, error) {
 	var args RunCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {

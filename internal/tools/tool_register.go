@@ -9,7 +9,7 @@ import (
 // ToolDependencies contains all dependencies needed by tools
 type ToolDependencies struct {
 	Config    *config.Config
-	DBService database.DatabaseService
+	DBService database.Service
 }
 
 // GetAllTools returns all available tools with their specs and handlers
