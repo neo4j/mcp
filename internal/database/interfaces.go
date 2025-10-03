@@ -1,6 +1,6 @@
 package database
 
-//go:generate mockgen -destination=mocks/mock_database.go -package=mocks github.com/neo4j/mcp/internal/database DatabaseService,Driver,Session
+//go:generate mockgen -destination=mocks/mock_database.go -package=mocks github.com/neo4j/mcp/internal/database DatabaseService,DriverWithContext
 
 import (
 	"context"
@@ -9,14 +9,10 @@ import (
 )
 
 // Driver is a minimal interface wrapping neo4j.DriverWithContext for testability
-type Driver interface {
-	NewSession(ctx context.Context, database string) (Session, error)
-}
-
-// Session is a minimal interface wrapping neo4j.SessionWithContext for testability
-type Session interface {
-	ExecuteRead(ctx context.Context, work func(tx neo4j.ManagedTransaction) (any, error)) (any, error)
-	ExecuteWrite(ctx context.Context, work func(tx neo4j.ManagedTransaction) (any, error)) (any, error)
+type DriverWithContext interface {
+	neo4j.DriverWithContext // Embedding the original interface to include all its methods
+	// Additional methods can be added here if needed (for example, for mocking purposes and to use in tests)
+	VerifyConnectivity(ctx context.Context) error
 	Close(ctx context.Context) error
 }
 

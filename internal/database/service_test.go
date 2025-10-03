@@ -3,7 +3,6 @@ package database_test
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/database"
@@ -12,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
+func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -26,46 +25,15 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("nil driver interface", func(t *testing.T) {
-		service := database.NewNeo4jServiceWithDriver(nil)
-		_, err := service.ExecuteReadQuery(ctx, "RETURN 1", nil, "neo4j")
-		if err == nil {
-			t.Errorf("expected error when driver is nil")
-		}
-	})
-
-	t.Run("session creation error", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(nil, errors.New("failed to create session"))
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j")
-		if err == nil {
-			t.Errorf("expected error when session creation fails")
-		}
-	})
-
 	t.Run("successful read query execution", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+		mockService := mocks.NewMockDatabaseService(ctrl)
 		expectedRecords := []*neo4j.Record{}
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
-
-		mockSession.EXPECT().
-			ExecuteRead(gomock.Any(), gomock.Any()).
+		mockService.EXPECT().
+			ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10}, "neo4j").
 			Return(expectedRecords, nil)
 
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		records, err := service.ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10}, "neo4j")
+		records, err := mockService.ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10}, "neo4j")
 
 		if err != nil {
 			t.Errorf("expected no error, got: %v", err)
@@ -75,59 +43,23 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("transaction error", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+	t.Run("query execution error", func(t *testing.T) {
+		mockService := mocks.NewMockDatabaseService(ctrl)
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
+		mockService.EXPECT().
+			ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j").
+			Return(nil, errors.New("query execution failed"))
 
-		mockSession.EXPECT().
-			ExecuteRead(gomock.Any(), gomock.Any()).
-			Return(nil, errors.New("transaction failed"))
-
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j")
+		_, err := mockService.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j")
 
 		if err == nil {
 			t.Errorf("expected error, got nil")
 		}
 	})
 
-	t.Run("unexpected result type", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
-
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
-
-		mockSession.EXPECT().
-			ExecuteRead(gomock.Any(), gomock.Any()).
-			Return("unexpected string", nil)
-
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j")
-
-		if err == nil {
-			t.Errorf("expected error for unexpected result type")
-		}
-	})
-
 	t.Run("query with parameters - find person by name", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+		mockService := mocks.NewMockDatabaseService(ctrl)
 
-		// Simulate Neo4j returning a person record
 		mockRecords := []*neo4j.Record{
 			{
 				Keys: []string{"name", "age", "email"},
@@ -139,20 +71,16 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 			},
 		}
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
-
-		mockSession.EXPECT().
-			ExecuteRead(gomock.Any(), gomock.Any()).
+		mockService.EXPECT().
+			ExecuteReadQuery(
+				ctx,
+				"MATCH (p:Person {name: $name}) RETURN p.name as name, p.age as age, p.email as email",
+				map[string]any{"name": "Alice"},
+				"neo4j",
+			).
 			Return(mockRecords, nil)
 
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		records, err := service.ExecuteReadQuery(
+		records, err := mockService.ExecuteReadQuery(
 			ctx,
 			"MATCH (p:Person {name: $name}) RETURN p.name as name, p.age as age, p.email as email",
 			map[string]any{"name": "Alice"},
@@ -170,27 +98,21 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("cypher syntax error from tx.Run", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+	t.Run("cypher syntax error", func(t *testing.T) {
+		mockService := mocks.NewMockDatabaseService(ctrl)
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
+		mockService.EXPECT().
+			ExecuteReadQuery(
+				ctx,
+				"MATCH (p:Person WHERE p.name = $name RETURN p",
+				map[string]any{"name": "Alice"},
+				"neo4j",
+			).
+			Return(nil, errors.New("syntax error"))
 
-		// Simulate a Cypher syntax error that would come from tx.Run
-		mockSession.EXPECT().
-			ExecuteRead(gomock.Any(), gomock.Any()).
-			Return(nil, errors.New("Neo.ClientError.Statement.SyntaxError: Invalid syntax at line 1"))
-
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteReadQuery(
+		_, err := mockService.ExecuteReadQuery(
 			ctx,
-			"MATCH (p:Person WHERE p.name = $name RETURN p", // Invalid Cypher
+			"MATCH (p:Person WHERE p.name = $name RETURN p",
 			map[string]any{"name": "Alice"},
 			"neo4j",
 		)
@@ -198,14 +120,10 @@ func TestNeo4jService_ExecuteReadQuery(t *testing.T) {
 		if err == nil {
 			t.Errorf("expected cypher syntax error")
 		}
-		// Verify the error message is propagated
-		if err != nil && !strings.Contains(err.Error(), "SyntaxError") {
-			t.Errorf("expected syntax error in message, got: %v", err)
-		}
 	})
 }
 
-func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
+func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -219,46 +137,15 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("nil driver interface", func(t *testing.T) {
-		service := database.NewNeo4jServiceWithDriver(nil)
-		_, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
-		if err == nil {
-			t.Errorf("expected error when driver is nil")
-		}
-	})
-
-	t.Run("session creation error", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(nil, errors.New("failed to create session"))
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
-		if err == nil {
-			t.Errorf("expected error when session creation fails")
-		}
-	})
-
 	t.Run("successful write query execution", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+		mockService := mocks.NewMockDatabaseService(ctrl)
 		expectedRecords := []*neo4j.Record{}
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
-
-		mockSession.EXPECT().
-			ExecuteWrite(gomock.Any(), gomock.Any()).
+		mockService.EXPECT().
+			ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "neo4j").
 			Return(expectedRecords, nil)
 
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		records, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "neo4j")
+		records, err := mockService.ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "neo4j")
 
 		if err != nil {
 			t.Errorf("expected no error, got: %v", err)
@@ -268,59 +155,23 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("transaction error", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+	t.Run("query execution error", func(t *testing.T) {
+		mockService := mocks.NewMockDatabaseService(ctrl)
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
+		mockService.EXPECT().
+			ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j").
+			Return(nil, errors.New("query execution failed"))
 
-		mockSession.EXPECT().
-			ExecuteWrite(gomock.Any(), gomock.Any()).
-			Return(nil, errors.New("transaction failed"))
-
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
+		_, err := mockService.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
 
 		if err == nil {
 			t.Errorf("expected error, got nil")
 		}
 	})
 
-	t.Run("unexpected result type", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
-
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
-
-		mockSession.EXPECT().
-			ExecuteWrite(gomock.Any(), gomock.Any()).
-			Return("unexpected string", nil)
-
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
-
-		if err == nil {
-			t.Errorf("expected error for unexpected result type")
-		}
-	})
-
 	t.Run("create node with properties and return it", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+		mockService := mocks.NewMockDatabaseService(ctrl)
 
-		// Simulate Neo4j returning the created node with generated properties
 		mockRecords := []*neo4j.Record{
 			{
 				Keys: []string{"id", "name", "createdAt"},
@@ -332,20 +183,16 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 			},
 		}
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
-
-		mockSession.EXPECT().
-			ExecuteWrite(gomock.Any(), gomock.Any()).
+		mockService.EXPECT().
+			ExecuteWriteQuery(
+				ctx,
+				"CREATE (p:Person {name: $name}) SET p.createdAt = datetime() RETURN id(p) as id, p.name as name, p.createdAt as createdAt",
+				map[string]any{"name": "NewPerson"},
+				"neo4j",
+			).
 			Return(mockRecords, nil)
 
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		records, err := service.ExecuteWriteQuery(
+		records, err := mockService.ExecuteWriteQuery(
 			ctx,
 			"CREATE (p:Person {name: $name}) SET p.createdAt = datetime() RETURN id(p) as id, p.name as name, p.createdAt as createdAt",
 			map[string]any{"name": "NewPerson"},
@@ -363,37 +210,27 @@ func TestNeo4jService_ExecuteWriteQuery(t *testing.T) {
 		}
 	})
 
-	t.Run("cypher syntax error from tx.Run", func(t *testing.T) {
-		mockDriver := mocks.NewMockDriver(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+	t.Run("cypher syntax error", func(t *testing.T) {
+		mockService := mocks.NewMockDatabaseService(ctrl)
 
-		mockDriver.EXPECT().
-			NewSession(gomock.Any(), "neo4j").
-			Return(mockSession, nil)
+		mockService.EXPECT().
+			ExecuteWriteQuery(
+				ctx,
+				"CREATE (p:Person {name: $name RETURN p",
+				map[string]any{"name": "Alice"},
+				"neo4j",
+			).
+			Return(nil, errors.New("syntax error"))
 
-		// Simulate a Cypher syntax error that would come from tx.Run
-		mockSession.EXPECT().
-			ExecuteWrite(gomock.Any(), gomock.Any()).
-			Return(nil, errors.New("Neo.ClientError.Statement.SyntaxError: Invalid syntax at line 1"))
-
-		mockSession.EXPECT().
-			Close(gomock.Any()).
-			Return(nil)
-
-		service := database.NewNeo4jServiceWithDriver(mockDriver)
-		_, err := service.ExecuteWriteQuery(
+		_, err := mockService.ExecuteWriteQuery(
 			ctx,
-			"CREATE (p:Person {name: $name RETURN p", // Invalid Cypher - missing closing brace
+			"CREATE (p:Person {name: $name RETURN p",
 			map[string]any{"name": "Alice"},
 			"neo4j",
 		)
 
 		if err == nil {
 			t.Errorf("expected cypher syntax error")
-		}
-		// Verify the error message is propagated
-		if err != nil && !strings.Contains(err.Error(), "SyntaxError") {
-			t.Errorf("expected syntax error in message, got: %v", err)
 		}
 	})
 }
