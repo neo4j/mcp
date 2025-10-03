@@ -11,11 +11,11 @@ import (
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver *neo4j.DriverWithContext
+	driver DriverWithContext
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver *neo4j.DriverWithContext) DatabaseService {
+func NewNeo4jService(driver DriverWithContext) DatabaseService {
 	return &Neo4jService{
 		driver: driver,
 	}
@@ -29,8 +29,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 		return nil, err
 	}
 
-	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithReadersRouting())
-
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithReadersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
 		log.Printf("Error in ExecuteReadQuery: %v", wrappedErr)
@@ -48,8 +47,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 		return nil, err
 	}
 
-	res, err := neo4j.ExecuteQuery(ctx, *s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithWritersRouting())
-
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithWritersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
 		log.Printf("Error in ExecuteWriteQuery: %v", wrappedErr)
@@ -74,8 +72,5 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 		return "", wrappedErr
 	}
 
-	formattedResponseStr := string(formattedResponse)
-
-
-	return formattedResponseStr, nil
+	return string(formattedResponse), nil
 }

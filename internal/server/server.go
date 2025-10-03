@@ -16,7 +16,7 @@ import (
 type Neo4jMCPServer struct {
 	mcpServer *server.MCPServer
 	config    *config.Config
-	driver    *neo4j.DriverWithContext
+	driver    neo4j.DriverWithContext
 	version   string
 }
 
@@ -42,7 +42,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config) (*Neo4jMCPServer, err
 	return &Neo4jMCPServer{
 		mcpServer: mcpServer,
 		config:    cfg,
-		driver:    &driver,
+		driver:    driver,
 		version:   version,
 	}, nil
 }
@@ -65,7 +65,7 @@ func (s *Neo4jMCPServer) Start(ctx context.Context) error {
 	log.Println("Starting Neo4j MCP Server...")
 
 	// Test the database connection
-	if err := (*s.driver).VerifyConnectivity(ctx); err != nil {
+	if err := s.driver.VerifyConnectivity(ctx); err != nil {
 		return fmt.Errorf("failed to verify database connectivity: %w", err)
 	}
 
@@ -79,5 +79,5 @@ func (s *Neo4jMCPServer) Start(ctx context.Context) error {
 
 // Stop gracefully stops the server and closes the driver
 func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
-	return (*s.driver).Close(ctx)
+	return s.driver.Close(ctx)
 }
