@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -68,7 +69,7 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 		return "", err
 	}
 
-	explainedQuery := "EXPLAIN " + cypher
+	explainedQuery := strings.Join([]string{"EXPLAIN", " ", "original-query"}, "")
 	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
