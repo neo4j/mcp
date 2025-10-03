@@ -6,7 +6,7 @@ import (
 
 type WriteCypherInput struct {
 	Query  string         `json:"query" jsonschema:"default=MATCH(n) RETURN n,description=The Cypher query to execute"`
-	Params map[string]any `json:"params" jsonschema:"description=Parameters to pass to the Cypher query"`
+	Params map[string]any `json:"params" jsonschema:"default={},description=Parameters to pass to the Cypher query"`
 }
 
 func WriteCypherSpec() mcp.Tool {
