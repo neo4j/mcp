@@ -16,12 +16,16 @@ type ToolDependencies struct {
 func GetAllTools(deps *ToolDependencies) []server.ServerTool {
 	return []server.ServerTool{
 		{
-			Tool:    RunCypherSpec(),
-			Handler: RunCypherHandler(deps),
-		},
-		{
 			Tool:    GetSchemaSpec(),
 			Handler: GetSchemaHandler(deps),
+		},
+		{
+			Tool:    ReadCypherSpec(),
+			Handler: ReadCypherHandler(deps),
+		},
+		{
+			Tool:    WriteCypherSpec(),
+			Handler: WriteCypherHandler(deps),
 		},
 	}
 }
