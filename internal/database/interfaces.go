@@ -16,6 +16,9 @@ type DriverWithContext interface {
 	Close(ctx context.Context) error
 }
 
+// Ensure neo4j.DriverWithContext implements DriverWithContext and we detect changes in compile time
+var _ DriverWithContext = (neo4j.DriverWithContext)(nil)
+
 // QueryExecutor defines the interface for executing Neo4j queries
 type QueryExecutor interface {
 	// ExecuteReadQuery executes a read-only Cypher query and returns raw records
