@@ -72,10 +72,10 @@ func (mr *MockQueryExecutorMockRecorder) ExecuteWriteQuery(ctx, cypher, params, 
 }
 
 // GetQueryType mocks base method.
-func (m *MockQueryExecutor) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
+func (m *MockQueryExecutor) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params, database)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(neo4j.StatementType)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -180,10 +180,10 @@ func (mr *MockDatabaseServiceMockRecorder) ExecuteWriteQuery(ctx, cypher, params
 }
 
 // GetQueryType mocks base method.
-func (m *MockDatabaseService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
+func (m *MockDatabaseService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params, database)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(neo4j.StatementType)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

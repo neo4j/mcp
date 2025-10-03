@@ -62,43 +62,29 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
-func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (string, error) {
+func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
 	if s.driver == nil {
 		err := fmt.Errorf("neo4j driver is not initialized")
 		log.Printf("error in GetQueryType: %v", err)
-		return "", err
+		return neo4j.StatementTypeUnknown, err
 	}
 
-	explainedQuery := strings.Join([]string{"EXPLAIN", " ", "original-query"}, "")
+	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
-		log.Printf("error during GetQueryType:: %v", wrappedErr)
-		return "", wrappedErr
+		log.Printf("error during GetQueryType: %v", wrappedErr)
+		return neo4j.StatementTypeUnknown, wrappedErr
 	}
 
 	if res.Summary == nil {
 		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
-		log.Printf("error during GetQueryType:: %v", err)
-		return "", err
+		log.Printf("error during GetQueryType: %v", err)
+		return neo4j.StatementTypeUnknown, err
 	}
 
-	st := res.Summary.StatementType()
-	var qType string
-	switch st {
-	case neo4j.StatementTypeReadOnly:
-		qType = "r"
-	case neo4j.StatementTypeReadWrite:
-		qType = "rw"
-	case neo4j.StatementTypeWriteOnly:
-		qType = "w"
-	case neo4j.StatementTypeSchemaWrite:
-		qType = "s"
-	default:
-		qType = "unknown"
-	}
+	return res.Summary.StatementType(), nil
 
-	return qType, nil
 }
 
 // Neo4jRecordsToJSON converts Neo4j records to JSON string

@@ -7,6 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 func ReadCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -47,7 +48,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	if queryType != "r" { // only queryType == "r" are allowed in read-cypher
+	if queryType != neo4j.StatementTypeReadOnly { // only queryType == "r" are allowed in read-cypher
 		errMessage := "read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead."
 		log.Printf("Rejected non-read query (type=%s): %s", queryType, Query)
 		return mcp.NewToolResultError(errMessage), nil
