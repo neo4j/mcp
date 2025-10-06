@@ -17,14 +17,6 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 
 	ctx := context.Background()
 
-	t.Run("nil driver", func(t *testing.T) {
-		service := database.NewNeo4jService(nil)
-		_, err := service.ExecuteReadQuery(ctx, "RETURN 1", nil, "neo4j")
-		if err == nil {
-			t.Errorf("expected error when driver is nil")
-		}
-	})
-
 	t.Run("successful read query execution", func(t *testing.T) {
 		mockService := mocks.NewMockDatabaseService(ctrl)
 		expectedRecords := []*neo4j.Record{}
@@ -123,19 +115,27 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 	})
 }
 
+func TestNewNeo4jService(t *testing.T) {
+	t.Run("nil driver error", func(t *testing.T) {
+		service, err := database.NewNeo4jService(nil)
+
+		if err == nil {
+			t.Errorf("expected error when driver is nil, got nil")
+		}
+		if service != nil {
+			t.Errorf("expected nil service when driver is nil, got %v", service)
+		}
+		if err.Error() != "driver cannot be nil" {
+			t.Errorf("expected error 'driver cannot be nil', got: %v", err)
+		}
+	})
+}
+
 func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-
-	t.Run("nil driver", func(t *testing.T) {
-		service := database.NewNeo4jService(nil)
-		_, err := service.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
-		if err == nil {
-			t.Errorf("expected error when driver is nil")
-		}
-	})
 
 	t.Run("successful write query execution", func(t *testing.T) {
 		mockService := mocks.NewMockDatabaseService(ctrl)

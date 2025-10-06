@@ -7,7 +7,9 @@ import (
 	"os"
 
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 var Version = "development"
@@ -25,14 +27,35 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Create and configure the MCP server
-	mcpServer, err := server.NewNeo4jMCPServer(Version, cfg)
+	// Initialize Neo4j driver
+	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
-		log.Fatalf("Failed to create MCP server: %v", err)
+		log.Fatalf("Failed to create Neo4j driver: %v", err)
 	}
 
 	// Gracefully handle shutdown
 	ctx := context.Background()
+	defer func() {
+		if err := driver.Close(ctx); err != nil {
+			log.Fatalf("Error closing driver: %v", err)
+		}
+	}()
+
+	// Verify database connectivity
+	if err := driver.VerifyConnectivity(ctx); err != nil {
+		log.Fatalf("Failed to verify database connectivity: %v", err)
+	}
+
+	// Create database service
+	dbService, err := database.NewNeo4jService(driver)
+	if err != nil {
+		log.Fatalf("Failed to create database service: %v", err)
+	}
+
+	// Create and configure the MCP server
+	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService)
+
+	// Gracefully handle shutdown
 	defer func() {
 		if err := mcpServer.Stop(ctx); err != nil {
 			log.Fatalf("Error stopping server: %v", err)
