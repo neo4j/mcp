@@ -25,7 +25,7 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 	Query := args.Query
 	Params := args.Params
 	// debug log -- to be removed at a later stage
-	log.Printf("cypher-query: %s", Query)
+	log.Printf("Cypher-query: %s", Query)
 
 	// Validate that query is not empty
 	if Query == "" {
@@ -43,7 +43,6 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 	// Execute the Cypher query using the database service
 	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params, config.Database)
 	if err != nil {
-		// TODO: discuss and write guideline on how to handle tool calling errors.
 		log.Printf("Error executing Cypher query: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}

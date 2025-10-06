@@ -65,7 +65,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
 	if s.driver == nil {
 		err := fmt.Errorf("neo4j driver is not initialized")
-		log.Printf("error in GetQueryType: %v", err)
+		log.Printf("Error in GetQueryType: %v", err)
 		return neo4j.StatementTypeUnknown, err
 	}
 
@@ -73,13 +73,13 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
-		log.Printf("error during GetQueryType: %v", wrappedErr)
+		log.Printf("Error during GetQueryType: %v", wrappedErr)
 		return neo4j.StatementTypeUnknown, wrappedErr
 	}
 
 	if res.Summary == nil {
 		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
-		log.Printf("error during GetQueryType: %v", err)
+		log.Printf("Error during GetQueryType: %v", err)
 		return neo4j.StatementTypeUnknown, err
 	}
 
