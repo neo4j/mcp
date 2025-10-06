@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -59,6 +60,33 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	return res.Records, nil
 }
 
+// GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
+// This allows read-only tools to determine if a query is safe to run in read-only context.
+func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
+	if s.driver == nil {
+		err := fmt.Errorf("neo4j driver is not initialized")
+		log.Printf("Error in GetQueryType: %v", err)
+		return neo4j.StatementTypeUnknown, err
+	}
+
+	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
+	res, err := neo4j.ExecuteQuery(ctx, *s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
+	if err != nil {
+		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
+		log.Printf("Error during GetQueryType: %v", wrappedErr)
+		return neo4j.StatementTypeUnknown, wrappedErr
+	}
+
+	if res.Summary == nil {
+		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
+		log.Printf("Error during GetQueryType: %v", err)
+		return neo4j.StatementTypeUnknown, err
+	}
+
+	return res.Summary.StatementType(), nil
+
+}
+
 // Neo4jRecordsToJSON converts Neo4j records to JSON string
 func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 	results := make([]map[string]any, 0)
@@ -75,7 +103,6 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 	}
 
 	formattedResponseStr := string(formattedResponse)
-
 
 	return formattedResponseStr, nil
 }
