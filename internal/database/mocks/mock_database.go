@@ -71,6 +71,21 @@ func (mr *MockDatabaseServiceMockRecorder) ExecuteWriteQuery(ctx, cypher, params
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWriteQuery", reflect.TypeOf((*MockDatabaseService)(nil).ExecuteWriteQuery), ctx, cypher, params, database)
 }
 
+// GetQueryType mocks base method.
+func (m *MockDatabaseService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params, database)
+	ret0, _ := ret[0].(neo4j.StatementType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetQueryType indicates an expected call of GetQueryType.
+func (mr *MockDatabaseServiceMockRecorder) GetQueryType(ctx, cypher, params, database any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetQueryType", reflect.TypeOf((*MockDatabaseService)(nil).GetQueryType), ctx, cypher, params, database)
+}
+
 // Neo4jRecordsToJSON mocks base method.
 func (m *MockDatabaseService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 	m.ctrl.T.Helper()
