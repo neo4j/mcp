@@ -37,19 +37,21 @@ func main() {
 	ctx := context.Background()
 	defer func() {
 		if err := driver.Close(ctx); err != nil {
-			log.Fatalf("Error closing driver: %v", err)
+			log.Printf("Error closing driver: %v", err)
 		}
 	}()
 
 	// Verify database connectivity
 	if err := driver.VerifyConnectivity(ctx); err != nil {
-		log.Fatalf("Failed to verify database connectivity: %v", err)
+		log.Printf("Failed to verify database connectivity: %v", err)
+		return
 	}
 
 	// Create database service
 	dbService, err := database.NewNeo4jService(driver)
 	if err != nil {
-		log.Fatalf("Failed to create database service: %v", err)
+		log.Printf("Failed to create database service: %v", err)
+		return
 	}
 
 	// Create and configure the MCP server
@@ -58,7 +60,7 @@ func main() {
 	// Gracefully handle shutdown
 	defer func() {
 		if err := mcpServer.Stop(ctx); err != nil {
-			log.Fatalf("Error stopping server: %v", err)
+			log.Printf("Error stopping server: %v", err)
 		}
 	}()
 
