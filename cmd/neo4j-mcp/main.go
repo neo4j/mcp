@@ -64,6 +64,7 @@ func main() {
 
 	// Start the server (this blocks until the server is stopped)
 	if err := mcpServer.Start(ctx); err != nil {
-		log.Fatalf("Server error: %v", err)
+		log.Printf("Server error: %v", err)
+		return // so that defer can run
 	}
 }

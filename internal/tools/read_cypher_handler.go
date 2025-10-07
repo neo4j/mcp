@@ -16,7 +16,7 @@ func ReadCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallToo
 	}
 }
 
-func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.DatabaseService, config *config.Config) (*mcp.CallToolResult, error) {
+func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, config *config.Config) (*mcp.CallToolResult, error) {
 	var args ReadCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {

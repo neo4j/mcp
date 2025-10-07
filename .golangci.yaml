@@ -1,0 +1,26 @@
+version: "2"
+run:
+  concurrency: 4
+  tests: true
+linters:
+  enable:
+    - bodyclose
+    - gocritic
+    - gosec
+    - makezero
+    - misspell
+    - nakedret
+    - revive
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        - -QF1008
+        - -ST1000
