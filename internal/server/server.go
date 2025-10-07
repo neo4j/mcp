@@ -15,13 +15,13 @@ import (
 type Neo4jMCPServer struct {
 	mcpServer *server.MCPServer
 	config    *config.Config
-	dbService database.DatabaseService
+	dbService database.Service
 	version   string
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
-func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.DatabaseService) *Neo4jMCPServer {
+func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service) *Neo4jMCPServer {
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
 		version,
