@@ -59,13 +59,13 @@ func main() {
 
 	// Gracefully handle shutdown
 	defer func() {
-		if err := mcpServer.Stop(ctx); err != nil {
+		if err := mcpServer.Stop(); err != nil {
 			log.Printf("Error stopping server: %v", err)
 		}
 	}()
 
 	// Start the server (this blocks until the server is stopped)
-	if err := mcpServer.Start(ctx); err != nil {
+	if err := mcpServer.Start(); err != nil {
 		log.Printf("Server error: %v", err)
 		return // so that defer can run
 	}

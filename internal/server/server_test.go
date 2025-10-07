@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/config"
@@ -66,8 +65,7 @@ func TestNeo4jMCPServer_Stop(t *testing.T) {
 	mockDB := mocks.NewMockDatabaseService(ctrl)
 	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
-	ctx := context.Background()
-	err := s.Stop(ctx)
+	err := s.Stop()
 
 	if err != nil {
 		t.Errorf("Stop() unexpected error = %v", err)
