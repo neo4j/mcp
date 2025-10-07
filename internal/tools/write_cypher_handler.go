@@ -15,7 +15,7 @@ func WriteCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallTo
 	}
 }
 
-func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.DatabaseService, config *config.Config) (*mcp.CallToolResult, error) {
+func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, config *config.Config) (*mcp.CallToolResult, error) {
 	var args WriteCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {

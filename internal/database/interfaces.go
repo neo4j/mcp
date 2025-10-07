@@ -27,8 +27,8 @@ type RecordFormatter interface {
 	Neo4jRecordsToJSON(records []*neo4j.Record) (string, error)
 }
 
-// DatabaseService combines query execution and record formatting
-type DatabaseService interface {
+// Service combines query execution and record formatting
+type Service interface {
 	QueryExecutor
 	RecordFormatter
 }
