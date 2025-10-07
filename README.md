@@ -104,10 +104,22 @@ Notes:
 
 Provided tools:
 
-| Tool         | Purpose                                              | Notes                                                                                      |
-| ------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `get-schema` | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                    |
-| `run-cypher` | Execute arbitrary Cypher (read/write)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. |
+| Tool           | Purpose                                              | Notes                                                                                                |
+| -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `get-schema`   | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                              |
+| `read-cypher`  | Execute arbitrary Cypher (read mode)                 | Read-only. rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead. |
+| `write-cypher` | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments.           |
+
+### Query Classification
+
+The `read-cypher` tool performs an extra round-trip to the Neo4j database to guarantee read-only operations.
+
+Important notes:
+
+- **Write operations**: `CREATE`, `MERGE`, `DELETE`, `SET`, etc., are treated as non-read queries.
+- **Admin queries**: Commands like `SHOW USERS`, `SHOW DATABASES`, etc., are treated as non-read queries and must use `write-cypher` instead.
+- **Profile queries**: `EXPLAIN PROFILE` queries are treated as non-read queries, even if the underlying statement is read-only.
+- **Schema operations**: `CREATE INDEX`, `DROP CONSTRAINT`, etc., are treated as non-read queries.
 
 ## Example Natural Language Prompts
 
