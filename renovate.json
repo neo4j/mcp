@@ -1,0 +1,21 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:best-practices"
+    ],
+    "baseBranchPatterns": [
+        "main"
+    ],
+    "rebaseWhen": "conflicted",
+    "automerge": false,
+    "timezone": "Europe/London",
+    "minimumReleaseAge": "3 days",
+    "schedule": [
+        "before 3am on Tuesday"
+    ],
+    "vulnerabilityAlerts": {
+        "labels": [
+            "security"
+        ]
+    }
+}
