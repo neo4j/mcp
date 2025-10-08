@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -138,5 +139,147 @@ func TestLoadConfig(t *testing.T) {
 	}
 	if cfg.Database == "" {
 		t.Error("LoadConfig() returned empty database")
+	}
+}
+
+func TestLoadConfig_HTTPDefaults(t *testing.T) {
+	// Clear HTTP-related env vars to test defaults
+	originalHost := os.Getenv("MCP_HTTP_HOST")
+	originalPort := os.Getenv("MCP_HTTP_PORT")
+	originalPath := os.Getenv("MCP_HTTP_PATH")
+
+	os.Unsetenv("MCP_HTTP_HOST")
+	os.Unsetenv("MCP_HTTP_PORT")
+	os.Unsetenv("MCP_HTTP_PATH")
+
+	defer func() {
+		if originalHost != "" {
+			os.Setenv("MCP_HTTP_HOST", originalHost)
+		}
+		if originalPort != "" {
+			os.Setenv("MCP_HTTP_PORT", originalPort)
+		}
+		if originalPath != "" {
+			os.Setenv("MCP_HTTP_PATH", originalPath)
+		}
+	}()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() failed: %v", err)
+	}
+
+	// Security: Default should be localhost-only, NOT 0.0.0.0
+	if cfg.HTTPHost != "127.0.0.1" {
+		t.Errorf("HTTPHost default = %v, want 127.0.0.1 (localhost-only for security)", cfg.HTTPHost)
+	}
+
+	if cfg.HTTPHost == "0.0.0.0" {
+		t.Error("HTTPHost default should NOT be 0.0.0.0 (exposes to all network interfaces)")
+	}
+
+	if cfg.HTTPHost == "" {
+		t.Error("HTTPHost default should NOT be empty (would bind to all interfaces)")
+	}
+
+	if cfg.HTTPPort != "8080" {
+		t.Errorf("HTTPPort default = %v, want 8080", cfg.HTTPPort)
+	}
+
+	if cfg.HTTPPath != "/mcp" {
+		t.Errorf("HTTPPath default = %v, want /mcp", cfg.HTTPPath)
+	}
+}
+
+func TestLoadConfig_HTTPMode_SecurityValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		httpHost       string
+		auth0Domain    string
+		auth0Audience  string
+		expectInsecure bool
+		description    string
+	}{
+		{
+			name:           "localhost with no auth - less risk",
+			httpHost:       "127.0.0.1",
+			auth0Domain:    "",
+			auth0Audience:  "",
+			expectInsecure: true,
+			description:    "Localhost without auth is insecure but lower risk",
+		},
+		{
+			name:           "0.0.0.0 with no auth - high risk",
+			httpHost:       "0.0.0.0",
+			auth0Domain:    "",
+			auth0Audience:  "",
+			expectInsecure: true,
+			description:    "Binding to all interfaces without auth is dangerous",
+		},
+		{
+			name:           "0.0.0.0 with auth - acceptable",
+			httpHost:       "0.0.0.0",
+			auth0Domain:    "test.auth0.com",
+			auth0Audience:  "https://test-api",
+			expectInsecure: false,
+			description:    "Binding to all interfaces with auth is acceptable",
+		},
+		{
+			name:           "localhost with auth - secure",
+			httpHost:       "127.0.0.1",
+			auth0Domain:    "test.auth0.com",
+			auth0Audience:  "https://test-api",
+			expectInsecure: false,
+			description:    "Localhost with auth is secure",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up environment
+			os.Setenv("MCP_HTTP_HOST", tt.httpHost)
+			os.Setenv("MCP_TRANSPORT", "http")
+
+			if tt.auth0Domain != "" {
+				os.Setenv("AUTH0_DOMAIN", tt.auth0Domain)
+			} else {
+				os.Unsetenv("AUTH0_DOMAIN")
+			}
+
+			if tt.auth0Audience != "" {
+				os.Setenv("AUTH0_AUDIENCE", tt.auth0Audience)
+			} else {
+				os.Unsetenv("AUTH0_AUDIENCE")
+			}
+
+			defer func() {
+				os.Unsetenv("MCP_HTTP_HOST")
+				os.Unsetenv("MCP_TRANSPORT")
+				os.Unsetenv("AUTH0_DOMAIN")
+				os.Unsetenv("AUTH0_AUDIENCE")
+			}()
+
+			cfg, err := LoadConfig()
+			if err != nil {
+				t.Fatalf("LoadConfig() failed: %v", err)
+			}
+
+			// Verify configuration matches expectations
+			if cfg.HTTPHost != tt.httpHost {
+				t.Errorf("HTTPHost = %v, want %v", cfg.HTTPHost, tt.httpHost)
+			}
+
+			hasAuth := cfg.Auth0Domain != "" && cfg.Auth0Audience != ""
+			isInsecure := !hasAuth
+
+			if isInsecure != tt.expectInsecure {
+				t.Errorf("%s: isInsecure = %v, want %v", tt.description, isInsecure, tt.expectInsecure)
+			}
+
+			// Additional security check: binding to 0.0.0.0 without auth should be flagged
+			if cfg.HTTPHost == "0.0.0.0" && !hasAuth {
+				t.Logf("SECURITY WARNING: Binding to 0.0.0.0 without authentication is highly insecure")
+			}
+		})
 	}
 }

@@ -26,6 +26,8 @@ type Config struct {
 	HTTPPort       string
 	HTTPPath       string
 	AllowedOrigins []string
+	Auth0Domain    string
+	Auth0Audience  string
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -71,6 +73,8 @@ func LoadConfig() (*Config, error) {
 		HTTPPort:       getEnvWithDefault("MCP_HTTP_PORT", "8080"),
 		HTTPPath:       getEnvWithDefault("MCP_HTTP_PATH", "/mcp"),
 		AllowedOrigins: allowedOrigins,
+		Auth0Domain:    os.Getenv("AUTH0_DOMAIN"),
+		Auth0Audience:  os.Getenv("AUTH0_AUDIENCE"),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -83,6 +87,13 @@ func LoadConfig() (*Config, error) {
 			log.Println("WARNING: HTTP server is configured to bind to all network interfaces (0.0.0.0)")
 			log.Println("WARNING: For security, consider binding to localhost (127.0.0.1) instead")
 			log.Println("WARNING: Set MCP_HTTP_HOST=127.0.0.1 to bind only to localhost")
+		}
+
+		// Validate Auth0 configuration for HTTP mode
+		if cfg.Auth0Domain == "" || cfg.Auth0Audience == "" {
+			log.Println("WARNING: Auth0 authentication is not configured")
+			log.Println("WARNING: Set AUTH0_DOMAIN and AUTH0_AUDIENCE environment variables")
+			log.Println("WARNING: HTTP server will start but authentication will be disabled")
 		}
 	}
 

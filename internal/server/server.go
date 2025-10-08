@@ -100,12 +100,23 @@ func (s *Neo4jMCPServer) startHTTP() error {
 		server.WithStateLess(true),
 	)
 
-	// Wrap the handler with origin validation middleware to prevent DNS rebinding attacks
-	handler := s.originValidationMiddleware(s.httpServer)
+	// Wrap the handler with authentication and origin validation middleware
+	// Authentication happens first, then origin validation
+	handler := s.jwtAuthMiddleware(
+		s.originValidationMiddleware(s.httpServer),
+	)
 
 	log.Printf("Started Neo4j MCP HTTP Server on http://%s%s", addr, s.config.HTTPPath)
 	log.Printf("Binding to network interface: %s (use 127.0.0.1 for localhost-only)", s.config.HTTPHost)
 	log.Printf("Accepts both GET and POST requests")
+
+	// Log authentication status
+	if s.config.Auth0Domain != "" && s.config.Auth0Audience != "" {
+		log.Printf("Auth0 JWT authentication enabled (domain: %s, audience: %s)", s.config.Auth0Domain, s.config.Auth0Audience)
+	} else {
+		log.Printf("WARNING: Auth0 authentication is DISABLED - server is NOT SECURE")
+	}
+
 	log.Printf("Origin validation enabled with %d allowed origin(s)", len(s.config.AllowedOrigins))
 
 	// Start the HTTP server
