@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/config"
@@ -14,10 +16,11 @@ import (
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	mcpServer *server.MCPServer
-	config    *config.Config
-	driver    *neo4j.DriverWithContext
-	version   string
+	mcpServer  *server.MCPServer
+	httpServer *server.StreamableHTTPServer
+	config     *config.Config
+	driver     *neo4j.DriverWithContext
+	version    string
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -60,9 +63,9 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 	return nil
 }
 
-// Start initializes and starts the MCP server using stdio transport
+// Start initializes and starts the MCP server using the configured transport
 func (s *Neo4jMCPServer) Start(ctx context.Context) error {
-	log.Println("Starting Neo4j MCP Server...")
+	log.Printf("Starting Neo4j MCP Server in %s mode...", s.config.TransportMode)
 
 	// Test the database connection
 	if err := (*s.driver).VerifyConnectivity(ctx); err != nil {
@@ -73,8 +76,40 @@ func (s *Neo4jMCPServer) Start(ctx context.Context) error {
 	if err := s.RegisterTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-	log.Println("Started Neo4j MCP Server. Now listening for input...")
-	return server.ServeStdio(s.mcpServer)
+
+	switch s.config.TransportMode {
+	case config.TransportHTTP:
+		return s.startHTTP()
+	case config.TransportStdio:
+		log.Println("Started Neo4j MCP Server. Now listening for input...")
+		return server.ServeStdio(s.mcpServer)
+	default:
+		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
+	}
+}
+
+// startHTTP initializes and starts the HTTP server
+func (s *Neo4jMCPServer) startHTTP() error {
+	addr := fmt.Sprintf("%s:%s", s.config.HTTPHost, s.config.HTTPPort)
+
+	// Create the StreamableHTTPServer with configuration
+	s.httpServer = server.NewStreamableHTTPServer(
+		s.mcpServer,
+		server.WithEndpointPath(s.config.HTTPPath),
+		server.WithStateLess(true),
+	)
+
+	log.Printf("Started Neo4j MCP HTTP Server on http://%s%s", addr, s.config.HTTPPath)
+	log.Printf("Accepts both GET and POST requests")
+
+	// Start the HTTP server
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: s.httpServer,
+		ReadHeaderTimeout: time.Duration(10 * time.Second),
+	}
+
+	return httpServer.ListenAndServe()
 }
 
 // Stop gracefully stops the server and closes the driver
