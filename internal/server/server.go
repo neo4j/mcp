@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -99,13 +100,18 @@ func (s *Neo4jMCPServer) startHTTP() error {
 		server.WithStateLess(true),
 	)
 
+	// Wrap the handler with origin validation middleware to prevent DNS rebinding attacks
+	handler := s.originValidationMiddleware(s.httpServer)
+
 	log.Printf("Started Neo4j MCP HTTP Server on http://%s%s", addr, s.config.HTTPPath)
+	log.Printf("Binding to network interface: %s (use 127.0.0.1 for localhost-only)", s.config.HTTPHost)
 	log.Printf("Accepts both GET and POST requests")
+	log.Printf("Origin validation enabled with %d allowed origin(s)", len(s.config.AllowedOrigins))
 
 	// Start the HTTP server
 	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: s.httpServer,
+		Addr:              addr,
+		Handler:           handler,
 		ReadHeaderTimeout: time.Duration(10 * time.Second),
 	}
 
@@ -115,4 +121,29 @@ func (s *Neo4jMCPServer) startHTTP() error {
 // Stop gracefully stops the server and closes the driver
 func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 	return (*s.driver).Close(ctx)
+}
+
+// originValidationMiddleware validates the Origin header to prevent DNS rebinding attacks
+func (s *Neo4jMCPServer) originValidationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+
+		// If no Origin header is present, reject the request
+		// This is a security measure against DNS rebinding attacks
+		if origin == "" {
+			log.Printf("Rejected request without Origin header from %s", r.RemoteAddr)
+			http.Error(w, "Origin header is required", http.StatusForbidden)
+			return
+		}
+
+		// Check if origin is in allowed list
+		if !slices.Contains(s.config.AllowedOrigins, origin) {
+			log.Printf("Rejected request from unauthorized origin: %s (remote: %s)", origin, r.RemoteAddr)
+			http.Error(w, "Origin not allowed", http.StatusForbidden)
+			return
+		}
+
+		// Origin is valid, proceed with the request
+		next.ServeHTTP(w, r)
+	})
 }

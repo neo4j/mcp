@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"strings"
 )
 
 // TransportMode defines the transport mode for the MCP server
@@ -15,14 +17,15 @@ const (
 
 // Config holds the application configuration
 type Config struct {
-	URI           string
-	Username      string
-	Password      string
-	Database      string
-	TransportMode TransportMode
-	HTTPHost      string
-	HTTPPort      string
-	HTTPPath      string
+	URI            string
+	Username       string
+	Password       string
+	Database       string
+	TransportMode  TransportMode
+	HTTPHost       string
+	HTTPPort       string
+	HTTPPath       string
+	AllowedOrigins []string
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -53,19 +56,34 @@ func (c *Config) Validate() error {
 func LoadConfig() (*Config, error) {
 	transportMode := TransportMode(getEnvWithDefault("MCP_TRANSPORT", string(TransportStdio)))
 
+	// Default allowed origins for local development
+	defaultOrigins := "http://localhost,http://127.0.0.1,https://localhost,https://127.0.0.1"
+	allowedOriginsStr := getEnvWithDefault("MCP_ALLOWED_ORIGINS", defaultOrigins)
+	allowedOrigins := parseAllowedOrigins(allowedOriginsStr)
+
 	cfg := &Config{
-		URI:           getEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username:      getEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password:      getEnvWithDefault("NEO4J_PASSWORD", "password"),
-		Database:      getEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		TransportMode: transportMode,
-		HTTPHost:      getEnvWithDefault("MCP_HTTP_HOST", "localhost"),
-		HTTPPort:      getEnvWithDefault("MCP_HTTP_PORT", "8080"),
-		HTTPPath:      getEnvWithDefault("MCP_HTTP_PATH", "/mcp"),
+		URI:            getEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username:       getEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:       getEnvWithDefault("NEO4J_PASSWORD", "password"),
+		Database:       getEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		TransportMode:  transportMode,
+		HTTPHost:       getEnvWithDefault("MCP_HTTP_HOST", "127.0.0.1"),
+		HTTPPort:       getEnvWithDefault("MCP_HTTP_PORT", "8080"),
+		HTTPPath:       getEnvWithDefault("MCP_HTTP_PATH", "/mcp"),
+		AllowedOrigins: allowedOrigins,
 	}
 
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	// Warn if binding to all interfaces in HTTP mode
+	if cfg.TransportMode == TransportHTTP {
+		if cfg.HTTPHost == "0.0.0.0" || cfg.HTTPHost == "" {
+			log.Println("WARNING: HTTP server is configured to bind to all network interfaces (0.0.0.0)")
+			log.Println("WARNING: For security, consider binding to localhost (127.0.0.1) instead")
+			log.Println("WARNING: Set MCP_HTTP_HOST=127.0.0.1 to bind only to localhost")
+		}
 	}
 
 	return cfg, nil
@@ -76,4 +94,23 @@ func getEnvWithDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// parseAllowedOrigins parses a comma-separated list of allowed origins
+func parseAllowedOrigins(originsStr string) []string {
+	if originsStr == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(originsStr, ",")
+	origins := make([]string, 0, len(parts))
+
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+
+	return origins
 }
