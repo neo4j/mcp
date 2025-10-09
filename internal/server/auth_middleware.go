@@ -12,6 +12,10 @@ import (
 	"github.com/auth0/go-jwt-middleware/v2/validator"
 )
 
+type contextKey string
+
+const contextKeyJWTClaims contextKey = "jwt_claims"
+
 // CustomClaims contains custom claims for JWT validation
 type CustomClaims struct {
 	Scope string `json:"scope"`
@@ -28,6 +32,9 @@ func (c CustomClaims) Validate(ctx context.Context) error {
 // - Token expiration (exp claim)
 // - Audience (aud claim)
 // - Issuer (iss claim)
+//
+// Per RFC9728 Section 5.1, all 401 responses include the WWW-Authenticate header
+// with the resource server metadata URL.
 func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// If Auth0 is not configured, skip JWT validation and proceed
@@ -40,7 +47,7 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			log.Printf("Missing Authorization header from %s", r.RemoteAddr)
-			http.Error(w, "Unauthorized: Missing Authorization header", http.StatusUnauthorized)
+			s.sendUnauthorized(w, "invalid_request", "Missing Authorization header")
 			return
 		}
 
@@ -48,7 +55,7 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			log.Printf("Invalid Authorization header format from %s", r.RemoteAddr)
-			http.Error(w, "Unauthorized: Invalid Authorization header format", http.StatusUnauthorized)
+			s.sendUnauthorized(w, "invalid_request", "Invalid Authorization header format")
 			return
 		}
 		tokenString := parts[1]
@@ -65,14 +72,38 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		token, err := jwtValidator.ValidateToken(r.Context(), tokenString)
 		if err != nil {
 			log.Printf("JWT validation failed from %s: %v", r.RemoteAddr, err)
-			http.Error(w, "Unauthorized: Invalid or missing token", http.StatusUnauthorized)
+			s.sendUnauthorized(w, "invalid_token", "The access token is invalid or expired")
 			return
 		}
 
 		// Token is valid, add claims to context if needed
-		ctx := context.WithValue(r.Context(), "jwt_claims", token)
+		ctx := context.WithValue(r.Context(), contextKeyJWTClaims, token)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// sendUnauthorized sends a 401 Unauthorized response with the WWW-Authenticate header
+// as required by RFC9728 Section 5.1.
+//
+// The WWW-Authenticate header includes:
+// - realm: The resource server metadata URL (Auth0 .well-known endpoint)
+// - error: OAuth 2.0 error code (e.g., "invalid_token", "invalid_request")
+// - error_description: Human-readable description of the error
+func (s *Neo4jMCPServer) sendUnauthorized(w http.ResponseWriter, errorCode, errorDescription string) {
+	// Construct the resource server metadata URL per RFC9728
+	metadataURL := "https://" + s.config.Auth0Domain + "/.well-known/oauth-authorization-server"
+
+	// Build WWW-Authenticate header value per RFC 6750 Section 3
+	wwwAuthenticate := `Bearer realm="` + metadataURL + `"`
+	if errorCode != "" {
+		wwwAuthenticate += `, error="` + errorCode + `"`
+	}
+	if errorDescription != "" {
+		wwwAuthenticate += `, error_description="` + errorDescription + `"`
+	}
+
+	w.Header().Set("WWW-Authenticate", wwwAuthenticate)
+	http.Error(w, "Unauthorized: "+errorDescription, http.StatusUnauthorized)
 }
 
 // getJWTValidator creates and returns a JWT validator configured for Auth0
@@ -82,7 +113,7 @@ func (s *Neo4jMCPServer) getJWTValidator() (*validator.Validator, error) {
 		return nil, err
 	}
 
-	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
+	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute) // todo: make cache duration configurable
 
 	jwtValidator, err := validator.New(
 		provider.KeyFunc,
