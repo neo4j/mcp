@@ -67,7 +67,7 @@ func printHelp() {
 	log.Printf("  NEO4J_DATABASE    Neo4j database name (default: neo4j)")
 	log.Printf("  MCP_TRANSPORT     Transport mode: 'stdio' or 'http' (default: stdio)")
 	log.Printf("\nHTTP Mode Environment Variables (when MCP_TRANSPORT=http):")
-	log.Printf("  MCP_HTTP_HOST     HTTP server host (default: localhost)")
+	log.Printf("  MCP_HTTP_HOST     HTTP server host (default: 127.0.0.1)")
 	log.Printf("  MCP_HTTP_PORT     HTTP server port (default: 8080)")
 	log.Printf("  MCP_HTTP_PATH     HTTP endpoint path (default: /mcp)")
 	log.Printf("\nExamples:")

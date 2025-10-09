@@ -14,6 +14,8 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+const httpReadHeaderTimeout = 10 * time.Second
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	mcpServer  *server.MCPServer
@@ -134,7 +136,7 @@ func (s *Neo4jMCPServer) startHTTP() error {
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
-		ReadHeaderTimeout: time.Duration(10 * time.Second),
+		ReadHeaderTimeout: httpReadHeaderTimeout,
 	}
 
 	return httpServer.ListenAndServe()
@@ -152,6 +154,8 @@ func (s *Neo4jMCPServer) originValidationMiddleware(next http.Handler) http.Hand
 		log.Printf("Origin validation disabled - accepting request from %s", r.RemoteAddr)
 		next.ServeHTTP(w, r)
 		// origin := r.Header.Get("Origin")
+
+		// Origin validation MUST NOT be disabled in production code, which exposes the server to DNS rebinding attacks and CSRF vulnerabilities. This creates a significant security risk, especially when combined with the disabled authentication warnings elsewhere in the code.
 
 		// // If no Origin header is present, check if request has Authorization header
 		// // OAuth-authenticated clients (like VS Code) may not send Origin header

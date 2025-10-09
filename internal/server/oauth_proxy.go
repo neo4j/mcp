@@ -108,7 +108,6 @@ func (s *Neo4jMCPServer) handleToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	if _, err := w.Write(respBody); err != nil {
 		log.Printf("Failed to write response to client: %v", err)
-		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 	}
 }
 
