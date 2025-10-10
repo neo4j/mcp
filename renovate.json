@@ -7,7 +7,7 @@
     "schedule": ["before 3am on Tuesday"],
     "vulnerabilityAlerts": {
         "labels": ["security"]
-    }
+    },
     "separateMajorMinor": true,
     "minimumReleaseAge": "3 days",
     "packageRules": [
