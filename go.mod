@@ -6,6 +6,7 @@ require (
 	github.com/auth0/go-jwt-middleware/v2 v2.3.0
 	github.com/mark3labs/mcp-go v0.41.1
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
+	github.com/rs/cors v1.11.1
 	go.uber.org/mock v0.6.0
 )
 

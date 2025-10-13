@@ -1,148 +1,132 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
+	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 )
 
-// handleAuthorize redirects OAuth authorization requests to Auth0
-// This handles VS Code's OAuth flow by proxying to the Auth0 authorization endpoint
-func (s *Neo4jMCPServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
+// handleProtectedResourceMetadata returns protected resource metadata per RFC 9728
+// This endpoint tells OAuth clients:
+// 1. What resource identifier to use when requesting tokens (for RFC 8707 compliance)
+// 2. Where to find the authorization server(s) that can issue tokens for this resource
+//
+// Per MCP specification and RFC 9728, this endpoint is discovered via the WWW-Authenticate
+// header's realm parameter when the server returns 401 Unauthorized.
+func (s *Neo4jMCPServer) handleProtectedResourceMetadata(w http.ResponseWriter, _ *http.Request) {
+	if s.config.ResourceIdentifier == "" {
+		log.Printf("ERROR: Cannot serve protected resource metadata - MCP_RESOURCE_IDENTIFIER not configured")
+		http.Error(w, "Resource identifier not configured", http.StatusInternalServerError)
+		return
+	}
+
 	if s.config.Auth0Domain == "" {
-		http.Error(w, "Auth0 not configured", http.StatusInternalServerError)
+		log.Printf("ERROR: Cannot serve protected resource metadata - AUTH0_DOMAIN not configured")
+		http.Error(w, "Authorization server not configured", http.StatusInternalServerError)
 		return
 	}
 
-	// Parse existing query parameters from VS Code
-	params := r.URL.Query()
-
-	// Inject the audience parameter so Auth0 issues a JWT for our API
-	// Without this, Auth0 would issue an opaque token for the userinfo endpoint
-	if s.config.Auth0Audience != "" {
-		params.Set("audience", s.config.Auth0Audience)
-	}
-
-	// Build Auth0 authorization URL with modified parameters
-	auth0URL := "https://" + s.config.Auth0Domain + "/authorize?" + params.Encode()
-
-	log.Printf("→ Redirecting authorization to Auth0 (audience=%s)", s.config.Auth0Audience)
-	http.Redirect(w, r, auth0URL, http.StatusFound)
-}
-
-// handleToken proxies OAuth token requests to Auth0
-// This handles the token exchange after VS Code receives the authorization code
-func (s *Neo4jMCPServer) handleToken(w http.ResponseWriter, r *http.Request) {
-	if s.config.Auth0Domain == "" {
-		http.Error(w, "Auth0 not configured", http.StatusInternalServerError)
-		return
-	}
-
-	// Only accept POST requests
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Read the request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Failed to read token request body: %v", err)
-		http.Error(w, "Failed to read request", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	// Parse the form data to log it (optional, for debugging)
-	formData, _ := url.ParseQuery(string(body))
-	log.Printf("→ Proxying token request to Auth0 (grant_type=%s)", formData.Get("grant_type"))
-
-	// Create request to Auth0 token endpoint
-	auth0TokenURL := "https://" + s.config.Auth0Domain + "/oauth/token"
-	req, err := http.NewRequest("POST", auth0TokenURL, bytes.NewReader(body))
-	if err != nil {
-		log.Printf("Failed to create Auth0 token request: %v", err)
-		http.Error(w, "Failed to create request", http.StatusInternalServerError)
-		return
-	}
-
-	// Copy content-type header
-	req.Header.Set("Content-Type", r.Header.Get("Content-Type"))
-
-	// Forward the request to Auth0
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Failed to call Auth0 token endpoint: %v", err)
-		http.Error(w, "Failed to get token", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	// Read Auth0's response
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("Failed to read Auth0 token response: %v", err)
-		http.Error(w, "Failed to read response", http.StatusInternalServerError)
-		return
-	}
-
-	// Log success or failure
-	if resp.StatusCode == http.StatusOK {
-		log.Printf("← Token obtained successfully from Auth0")
-	} else {
-		log.Printf("← Auth0 token request failed: %d %s", resp.StatusCode, string(respBody))
-	}
-
-	// Copy response headers
-	for key, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-
-	// Return Auth0's response to VS Code
-	w.WriteHeader(resp.StatusCode)
-	if _, err := w.Write(respBody); err != nil {
-		log.Printf("Failed to write response to client: %v", err)
-	}
-}
-
-// handleOAuthMetadata returns OAuth authorization server metadata
-// This helps OAuth clients discover endpoints
-func (s *Neo4jMCPServer) handleOAuthMetadata(w http.ResponseWriter, r *http.Request) {
-	if s.config.Auth0Domain == "" {
-		http.Error(w, "Auth0 not configured", http.StatusInternalServerError)
-		return
-	}
-
-	// Determine the base URL for this server
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	baseURL := scheme + "://" + r.Host
-
+	// Per RFC 9728, the protected resource metadata includes:
+	// - resource: The unique identifier for this resource server (used in token requests)
+	// - authorization_servers: List of authorization servers that can issue tokens
 	metadata := map[string]interface{}{
-		"issuer":                           "https://" + s.config.Auth0Domain + "/",
-		"authorization_endpoint":           baseURL + "/authorize",
-		"token_endpoint":                   baseURL + "/token",
-		"jwks_uri":                         "https://" + s.config.Auth0Domain + "/.well-known/jwks.json",
-		"response_types_supported":         []string{"code"},
-		"grant_types_supported":            []string{"authorization_code"},
-		"code_challenge_methods_supported": []string{"S256", "plain"},
+		"resource": s.config.ResourceIdentifier,
+		"authorization_servers": []string{
+			"https://" + s.config.Auth0Domain + "/",
+		},
+		// "scopes_supported":         []string{"read:tools", "execute:tools"}, // todo: define scopes if needed
+		"bearer_methods_supported": []string{"header"},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(metadata)
-	if err != nil {
-		log.Printf("Failed to encode OAuth metadata: %v", err)
+	if err := json.NewEncoder(w).Encode(metadata); err != nil {
+		log.Printf("Failed to encode protected resource metadata: %v", err)
 		http.Error(w, "Failed to encode metadata", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("← Served OAuth authorization server metadata")
+	log.Printf("✓ Served protected resource metadata (resource=%s)", s.config.ResourceIdentifier)
+}
+
+// handleAuthorizationServerMetadata redirects to Auth0's authorization server metadata endpoint
+// VS Code expects this endpoint to discover OAuth endpoints (authorize, token, etc.)
+func (s *Neo4jMCPServer) handleAuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
+	if s.config.Auth0Domain == "" {
+		log.Printf("ERROR: Cannot serve authorization server metadata - AUTH0_DOMAIN not configured")
+		http.Error(w, "Authorization server not configured", http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect to Auth0's OpenID Connect Discovery endpoint
+	auth0MetadataURL := fmt.Sprintf("https://%s/.well-known/oauth-authorization-server", s.config.Auth0Domain)
+
+	log.Printf("→ Redirecting to Auth0 authorization server metadata")
+	log.Printf("  Auth0 URL: %s", auth0MetadataURL)
+
+	http.Redirect(w, r, auth0MetadataURL, http.StatusFound)
+}
+
+// handleAuthorize logs the request and redirects to Auth0 authorization endpoint
+func (s *Neo4jMCPServer) handleAuthorize(w http.ResponseWriter, r *http.Request) {
+	log.Printf("→ OAuth /authorize request received")
+	log.Printf("  Method: %s", r.Method)
+	log.Printf("  URL: %s", r.URL.String())
+	log.Printf("  Remote: %s", r.RemoteAddr)
+
+	// Log query parameters
+	for key, values := range r.URL.Query() {
+		for _, value := range values {
+			log.Printf("  Query: %s = %s", key, value)
+		}
+	}
+
+	// Redirect to Auth0 authorize endpoint
+	auth0URL := fmt.Sprintf("https://%s/authorize?%s", s.config.Auth0Domain, r.URL.RawQuery)
+	log.Printf("→ Redirecting to Auth0: %s", auth0URL)
+	http.Redirect(w, r, auth0URL, http.StatusFound)
+}
+
+// handleCallback logs the request and redirects to Auth0 callback endpoint
+func (s *Neo4jMCPServer) handleCallback(w http.ResponseWriter, r *http.Request) {
+	log.Printf("← OAuth /callback request received")
+	log.Printf("  Method: %s", r.Method)
+	log.Printf("  URL: %s", r.URL.String())
+	log.Printf("  Remote: %s", r.RemoteAddr)
+
+	// Log query parameters
+	for key, values := range r.URL.Query() {
+		for _, value := range values {
+			log.Printf("  Query: %s = %s", key, value)
+		}
+	}
+
+	// Redirect to Auth0 callback endpoint (typically not used, but for completeness)
+	auth0URL := fmt.Sprintf("https://%s/login/callback?%s", s.config.Auth0Domain, r.URL.RawQuery)
+	log.Printf("→ Redirecting to Auth0: %s", auth0URL)
+	http.Redirect(w, r, auth0URL, http.StatusFound)
+}
+
+// handleToken proxies OAuth token requests to Auth0 and injects the resource parameter
+// This endpoint is essential for PKCE flows where the client has the code_verifier
+func (s *Neo4jMCPServer) handleToken(w http.ResponseWriter, r *http.Request) {
+	log.Printf("→ OAuth /token request received")
+	log.Printf("  Method: %s", r.Method)
+	log.Printf("  URL: %s", r.URL.String())
+	log.Printf("  Remote: %s", r.RemoteAddr)
+	log.Printf("  Content-Type: %s", r.Header.Get("Content-Type"))
+
+	// Log form data if present
+	if err := r.ParseForm(); err == nil {
+		for key, values := range r.PostForm {
+			for _, value := range values {
+				log.Printf("  Form: %s = %s", key, value)
+			}
+		}
+	}
+
+	// Redirect to Auth0 token endpoint
+	auth0URL := fmt.Sprintf("https://%s/oauth/token", s.config.Auth0Domain)
+	log.Printf("→ Redirecting to Auth0: %s", auth0URL)
+	http.Redirect(w, r, auth0URL, http.StatusFound)
 }

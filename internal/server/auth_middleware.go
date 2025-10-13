@@ -14,7 +14,10 @@ import (
 
 type contextKey string
 
-const contextKeyJWTClaims contextKey = "jwt_claims"
+const (
+	contextKeyJWTClaims contextKey = "jwt_claims"
+	jwksCacheDuration              = 1 * time.Minute
+)
 
 // CustomClaims contains custom claims for JWT validation
 type CustomClaims struct {
@@ -30,15 +33,18 @@ func (c CustomClaims) Validate(_ context.Context) error {
 // It verifies:
 // - Token signature (via JWKS from Auth0)
 // - Token expiration (exp claim)
-// - Audience (aud claim)
+// - Audience (aud claim) - MUST contain this server's ResourceIdentifier (RFC 8707)
 // - Issuer (iss claim)
 //
 // Per RFC9728 Section 5.1, all 401 responses include the WWW-Authenticate header
 // with the resource server metadata URL.
+//
+// Per RFC 8707, tokens MUST be bound to the specific resource server via the audience claim.
+// This prevents token passthrough attacks where a token obtained for one server is reused on another.
 func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// If Auth0 is not configured, skip JWT validation and proceed
-		if s.config.Auth0Domain == "" || s.config.Auth0Audience == "" {
+		if s.config.Auth0Domain == "" || s.config.ResourceIdentifier == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -71,8 +77,45 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		// Validate the JWT token
 		token, err := jwtValidator.ValidateToken(r.Context(), tokenString)
 		if err != nil {
-			log.Printf("JWT validation failed from %s: %v", r.RemoteAddr, err)
+			// Log detailed validation failure for security monitoring
+			log.Printf("⚠ JWT validation FAILED from %s: %v %s", r.RemoteAddr, err, tokenString)
+			log.Printf("⚠ Expected audience(s): %s", s.config.ResourceIdentifier)
+			log.Printf("⚠ Request path: %s", r.URL.Path)
 			s.sendUnauthorized(w, "invalid_token", "The access token is invalid or expired")
+			return
+		}
+
+		// Extract and validate the registered claims
+		registeredClaims := token.(*validator.ValidatedClaims).RegisteredClaims
+
+		// Log successful validation with audience information for security audit
+		log.Printf("✓ JWT validation SUCCESS from %s", r.RemoteAddr)
+		log.Printf("  Token audience: %v", registeredClaims.Audience)
+		log.Printf("  Expected resource: %s", s.config.ResourceIdentifier)
+		log.Printf("  Token subject: %s", registeredClaims.Subject)
+		log.Printf("  Request path: %s", r.URL.Path)
+
+		// debug
+		log.Printf("  Full claims: %+v", token)
+
+		// Verify that the token's audience matches our resource identifier (RFC 8707 compliance check)
+		audienceMatches := false
+		for _, aud := range registeredClaims.Audience {
+			if aud == s.config.ResourceIdentifier {
+				audienceMatches = true
+				break
+			}
+		}
+
+		if !audienceMatches {
+			// This should not happen if the validator is configured correctly, but check anyway
+			log.Printf("⚠ SECURITY ALERT: Token audience mismatch!")
+			log.Printf("⚠ Token audience: %v", registeredClaims.Audience)
+			log.Printf("⚠ Expected resource: %s", s.config.ResourceIdentifier)
+			log.Printf("⚠ This may indicate a token passthrough attack attempt")
+
+			// Reject invalid audience - strict RFC 8707 compliance
+			s.sendUnauthorized(w, "invalid_token", "Token audience does not match this resource server")
 			return
 		}
 
@@ -86,15 +129,21 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 // as required by RFC9728 Section 5.1.
 //
 // The WWW-Authenticate header includes:
-// - realm: The resource server metadata URL (Auth0 .well-known endpoint)
+// - realm: The protected resource metadata URL (RFC 9728 - this server's metadata endpoint)
 // - error: OAuth 2.0 error code (e.g., "invalid_token", "invalid_request")
 // - error_description: Human-readable description of the error
+//
+// Per MCP spec and RFC 9728, the realm MUST point to this server's protected resource
+// metadata endpoint, which tells clients:
+// 1. What resource identifier to use in token requests
+// 2. Where to find the authorization server (Auth0)
 func (s *Neo4jMCPServer) sendUnauthorized(w http.ResponseWriter, errorCode, errorDescription string) {
-	// Construct the resource server metadata URL per RFC9728
-	metadataURL := "https://" + s.config.Auth0Domain + "/.well-known/oauth-authorization-server"
+	// Construct the protected resource metadata URL per RFC 9728
+	// This tells clients where to discover this resource server's configuration
+	metadataURL := "https://" + s.config.Auth0Domain + "/.well-known/oauth-protected-resource"
 
 	// Build WWW-Authenticate header value per RFC 6750 Section 3
-	wwwAuthenticate := `Bearer realm="` + metadataURL + `"`
+	wwwAuthenticate := `Bearer resource_metadata="` + metadataURL + `"`
 	if errorCode != "" {
 		wwwAuthenticate += `, error="` + errorCode + `"`
 	}
@@ -107,19 +156,26 @@ func (s *Neo4jMCPServer) sendUnauthorized(w http.ResponseWriter, errorCode, erro
 }
 
 // getJWTValidator creates and returns a JWT validator configured for Auth0
+// Per RFC 8707, the validator MUST verify that the token's audience (aud) claim
+// contains this specific server's ResourceIdentifier. This prevents tokens obtained
+// for one resource server from being accepted by another resource server.
 func (s *Neo4jMCPServer) getJWTValidator() (*validator.Validator, error) {
 	issuerURL, err := url.Parse("https://" + s.config.Auth0Domain + "/")
 	if err != nil {
 		return nil, err
 	}
 
-	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute) // todo: make cache duration configurable
+	provider := jwks.NewCachingProvider(issuerURL, jwksCacheDuration)
+
+	// Build audience list for validation
+	// Audience MUST be this server's ResourceIdentifier (RFC 8707 compliance)
+	audiences := []string{s.config.ResourceIdentifier}
 
 	jwtValidator, err := validator.New(
 		provider.KeyFunc,
 		validator.RS256,
 		issuerURL.String(),
-		[]string{s.config.Auth0Audience},
+		audiences,
 		validator.WithCustomClaims(
 			func() validator.CustomClaims {
 				return &CustomClaims{}
@@ -132,5 +188,6 @@ func (s *Neo4jMCPServer) getJWTValidator() (*validator.Validator, error) {
 		return nil, err
 	}
 
+	log.Printf("JWT validator configured with expected audience(s): %v", audiences)
 	return jwtValidator, nil
 }

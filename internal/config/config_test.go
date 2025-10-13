@@ -193,44 +193,44 @@ func TestLoadConfig_HTTPDefaults(t *testing.T) {
 
 func TestLoadConfig_HTTPMode_SecurityValidation(t *testing.T) {
 	tests := []struct {
-		name           string
-		httpHost       string
-		auth0Domain    string
-		auth0Audience  string
-		expectInsecure bool
-		description    string
+		name               string
+		httpHost           string
+		auth0Domain        string
+		resourceIdentifier string
+		expectInsecure     bool
+		description        string
 	}{
 		{
-			name:           "localhost with no auth - less risk",
-			httpHost:       "127.0.0.1",
-			auth0Domain:    "",
-			auth0Audience:  "",
-			expectInsecure: true,
-			description:    "Localhost without auth is insecure but lower risk",
+			name:               "localhost with no auth - less risk",
+			httpHost:           "127.0.0.1",
+			auth0Domain:        "",
+			resourceIdentifier: "",
+			expectInsecure:     true,
+			description:        "Localhost without auth is insecure but lower risk",
 		},
 		{
-			name:           "0.0.0.0 with no auth - high risk",
-			httpHost:       "0.0.0.0",
-			auth0Domain:    "",
-			auth0Audience:  "",
-			expectInsecure: true,
-			description:    "Binding to all interfaces without auth is dangerous",
+			name:               "0.0.0.0 with no auth - high risk",
+			httpHost:           "0.0.0.0",
+			auth0Domain:        "",
+			resourceIdentifier: "",
+			expectInsecure:     true,
+			description:        "Binding to all interfaces without auth is dangerous",
 		},
 		{
-			name:           "0.0.0.0 with auth - acceptable",
-			httpHost:       "0.0.0.0",
-			auth0Domain:    "test.auth0.com",
-			auth0Audience:  "https://test-api",
-			expectInsecure: false,
-			description:    "Binding to all interfaces with auth is acceptable",
+			name:               "0.0.0.0 with auth - acceptable",
+			httpHost:           "0.0.0.0",
+			auth0Domain:        "test.auth0.com",
+			resourceIdentifier: "https://test-api",
+			expectInsecure:     false,
+			description:        "Binding to all interfaces with auth is acceptable",
 		},
 		{
-			name:           "localhost with auth - secure",
-			httpHost:       "127.0.0.1",
-			auth0Domain:    "test.auth0.com",
-			auth0Audience:  "https://test-api",
-			expectInsecure: false,
-			description:    "Localhost with auth is secure",
+			name:               "localhost with auth - secure",
+			httpHost:           "127.0.0.1",
+			auth0Domain:        "test.auth0.com",
+			resourceIdentifier: "https://test-api",
+			expectInsecure:     false,
+			description:        "Localhost with auth is secure",
 		},
 	}
 
@@ -246,17 +246,17 @@ func TestLoadConfig_HTTPMode_SecurityValidation(t *testing.T) {
 				os.Unsetenv("AUTH0_DOMAIN")
 			}
 
-			if tt.auth0Audience != "" {
-				os.Setenv("AUTH0_AUDIENCE", tt.auth0Audience)
+			if tt.resourceIdentifier != "" {
+				os.Setenv("MCP_RESOURCE_IDENTIFIER", tt.resourceIdentifier)
 			} else {
-				os.Unsetenv("AUTH0_AUDIENCE")
+				os.Unsetenv("MCP_RESOURCE_IDENTIFIER")
 			}
 
 			defer func() {
 				os.Unsetenv("MCP_HTTP_HOST")
 				os.Unsetenv("MCP_TRANSPORT")
 				os.Unsetenv("AUTH0_DOMAIN")
-				os.Unsetenv("AUTH0_AUDIENCE")
+				os.Unsetenv("MCP_RESOURCE_IDENTIFIER")
 			}()
 
 			cfg, err := LoadConfig()
@@ -269,7 +269,7 @@ func TestLoadConfig_HTTPMode_SecurityValidation(t *testing.T) {
 				t.Errorf("HTTPHost = %v, want %v", cfg.HTTPHost, tt.httpHost)
 			}
 
-			hasAuth := cfg.Auth0Domain != "" && cfg.Auth0Audience != ""
+			hasAuth := cfg.Auth0Domain != "" && cfg.ResourceIdentifier != ""
 			isInsecure := !hasAuth
 
 			if isInsecure != tt.expectInsecure {

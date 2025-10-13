@@ -17,17 +17,17 @@ const (
 
 // Config holds the application configuration
 type Config struct {
-	URI            string
-	Username       string
-	Password       string
-	Database       string
-	TransportMode  TransportMode
-	HTTPHost       string
-	HTTPPort       string
-	HTTPPath       string
-	AllowedOrigins []string
-	Auth0Domain    string
-	Auth0Audience  string
+	URI                string
+	Username           string
+	Password           string
+	Database           string
+	TransportMode      TransportMode
+	HTTPHost           string
+	HTTPPort           string
+	HTTPPath           string
+	AllowedOrigins     []string
+	Auth0Domain        string
+	ResourceIdentifier string // RFC 8707: Unique identifier for this resource server
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -63,18 +63,22 @@ func LoadConfig() (*Config, error) {
 	allowedOriginsStr := getEnvWithDefault("MCP_ALLOWED_ORIGINS", defaultOrigins)
 	allowedOrigins := parseAllowedOrigins(allowedOriginsStr)
 
+	// Load Auth0 configuration
+	auth0Domain := os.Getenv("AUTH0_DOMAIN")
+	resourceIdentifier := os.Getenv("MCP_RESOURCE_IDENTIFIER")
+
 	cfg := &Config{
-		URI:            getEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username:       getEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password:       getEnvWithDefault("NEO4J_PASSWORD", "password"),
-		Database:       getEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		TransportMode:  transportMode,
-		HTTPHost:       getEnvWithDefault("MCP_HTTP_HOST", "127.0.0.1"),
-		HTTPPort:       getEnvWithDefault("MCP_HTTP_PORT", "8080"),
-		HTTPPath:       getEnvWithDefault("MCP_HTTP_PATH", "/mcp"),
-		AllowedOrigins: allowedOrigins,
-		Auth0Domain:    os.Getenv("AUTH0_DOMAIN"),
-		Auth0Audience:  os.Getenv("AUTH0_AUDIENCE"),
+		URI:                getEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username:           getEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:           getEnvWithDefault("NEO4J_PASSWORD", "password"),
+		Database:           getEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		TransportMode:      transportMode,
+		HTTPHost:           getEnvWithDefault("MCP_HTTP_HOST", "127.0.0.1"),
+		HTTPPort:           getEnvWithDefault("MCP_HTTP_PORT", "8080"),
+		HTTPPath:           getEnvWithDefault("MCP_HTTP_PATH", "/mcp"),
+		AllowedOrigins:     allowedOrigins,
+		Auth0Domain:        auth0Domain,
+		ResourceIdentifier: resourceIdentifier,
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -90,9 +94,10 @@ func LoadConfig() (*Config, error) {
 		}
 
 		// Validate Auth0 configuration for HTTP mode
-		if cfg.Auth0Domain == "" || cfg.Auth0Audience == "" {
+		if cfg.Auth0Domain == "" || cfg.ResourceIdentifier == "" {
 			log.Println("WARNING: Auth0 authentication is not configured")
-			log.Println("WARNING: Set AUTH0_DOMAIN and AUTH0_AUDIENCE environment variables")
+			log.Println("WARNING: Set AUTH0_DOMAIN and MCP_RESOURCE_IDENTIFIER environment variables")
+			log.Println("WARNING: For RFC 8707 compliance, MCP_RESOURCE_IDENTIFIER should be this server's unique URL")
 			log.Println("WARNING: HTTP server will start but authentication will be disabled")
 		}
 	}

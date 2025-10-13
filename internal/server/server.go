@@ -12,6 +12,8 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+
+	"github.com/rs/cors"
 )
 
 const httpReadHeaderTimeout = 10 * time.Second
@@ -108,15 +110,33 @@ func (s *Neo4jMCPServer) startHTTP() error {
 	mcpHandler := s.jwtAuthMiddleware(
 		s.originValidationMiddleware(s.httpServer),
 	)
+
 	mux.Handle(s.config.HTTPPath, mcpHandler)
 
-	// OAuth endpoints - NO authentication required (these are for obtaining tokens)
-	// Only apply origin validation for security
-	if s.config.Auth0Domain != "" {
+	// OAuth Discovery and Metadata endpoints - NO authentication required
+	if s.config.Auth0Domain != "" && s.config.ResourceIdentifier != "" {
+		// RFC 9728: Protected Resource Metadata
+		mux.HandleFunc("/.well-known/oauth-protected-resource", s.handleProtectedResourceMetadata)
+
+		// RFC 8414: Authorization Server Metadata
+		mux.HandleFunc("/.well-known/oauth-authorization-server", s.handleAuthorizationServerMetadata)
+
+		log.Printf("✓ OAuth discovery endpoints enabled")
+		log.Printf("  /.well-known/oauth-protected-resource - Protected resource metadata (RFC 9728)")
+		// log.Printf("  /.well-known/oauth-authorization-server - Authorization server metadata (RFC 8414)")
+		log.Printf("  Resource identifier: %s", s.config.ResourceIdentifier)
+		log.Printf("  Authorization server: https://%s/", s.config.Auth0Domain)
+
+		// todo: remove in main, since we don't want to implement our own auth server / or redirect
+		// OAuth proxy endpoints - NO authentication required
+		// These endpoints proxy OAuth requests to Auth0
 		mux.HandleFunc("/authorize", s.handleAuthorize)
+		mux.HandleFunc("/callback", s.handleCallback)
 		mux.HandleFunc("/token", s.handleToken)
-		mux.HandleFunc("/.well-known/oauth-authorization-server", s.handleOAuthMetadata)
-		log.Printf("OAuth endpoints enabled: /authorize, /token")
+		log.Printf("✓ OAuth proxy endpoints enabled")
+		log.Printf("  /authorize - Proxies authorization requests to Auth0 (adds resource parameter)")
+		log.Printf("  /callback - Returns authorization code to client")
+		log.Printf("  /token - Proxies token exchange to Auth0 (supports PKCE with code_verifier)")
 	}
 
 	log.Printf("Started Neo4j MCP HTTP Server on http://%s%s", addr, s.config.HTTPPath)
@@ -124,8 +144,8 @@ func (s *Neo4jMCPServer) startHTTP() error {
 	log.Printf("Accepts both GET and POST requests")
 
 	// Log authentication status
-	if s.config.Auth0Domain != "" && s.config.Auth0Audience != "" {
-		log.Printf("Auth0 JWT authentication enabled (domain: %s, audience: %s)", s.config.Auth0Domain, s.config.Auth0Audience)
+	if s.config.Auth0Domain != "" && s.config.ResourceIdentifier != "" {
+		log.Printf("Auth0 JWT authentication enabled (domain: %s, resource: %s)", s.config.Auth0Domain, s.config.ResourceIdentifier)
 	} else {
 		log.Printf("WARNING: Auth0 authentication is DISABLED - server is NOT SECURE")
 	}
@@ -135,7 +155,7 @@ func (s *Neo4jMCPServer) startHTTP() error {
 	// Start the HTTP server
 	httpServer := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           cors.AllowAll().Handler(mux), // todo: Allow all origins for testing; replace with s.config.AllowedOrigins in production, and maybe use a native middleware instead of rs/cors
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 	}
 
@@ -150,7 +170,7 @@ func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 // originValidationMiddleware validates the Origin header to prevent DNS rebinding attacks
 func (s *Neo4jMCPServer) originValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TEMPORARILY DISABLED - Allow all origins for testing
+		// todo: TEMPORARILY DISABLED - Allow all origins for testing
 		log.Printf("Origin validation disabled - accepting request from %s", r.RemoteAddr)
 		next.ServeHTTP(w, r)
 		// origin := r.Header.Get("Origin")
