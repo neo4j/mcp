@@ -191,3 +191,31 @@ func (s *Neo4jMCPServer) getJWTValidator() (*validator.Validator, error) {
 	log.Printf("JWT validator configured with expected audience(s): %v", audiences)
 	return jwtValidator, nil
 }
+
+func (s *Neo4jMCPServer) corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && s.isOriginAllowed(s.config.AllowedOrigins, origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isOriginAllowed checks if the given origin is in the list of allowed origins
+func (s *Neo4jMCPServer) isOriginAllowed(allowedOrigins []string, origin string) bool {
+	return true
+	// todo: re-enable origin checking in main
+	// return slices.Contains(allowedOrigins, origin)
+}

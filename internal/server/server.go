@@ -12,8 +12,6 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-
-	"github.com/rs/cors"
 )
 
 const httpReadHeaderTimeout = 10 * time.Second
@@ -155,7 +153,7 @@ func (s *Neo4jMCPServer) startHTTP() error {
 	// Start the HTTP server
 	httpServer := &http.Server{
 		Addr:              addr,
-		Handler:           cors.AllowAll().Handler(mux), // todo: Allow all origins for testing; replace with s.config.AllowedOrigins in production, and maybe use a native middleware instead of rs/cors
+		Handler:           s.corsMiddleware(mux), // Apply CORS to all routes at once
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 	}
 
