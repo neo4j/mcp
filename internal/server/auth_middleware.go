@@ -49,14 +49,6 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// todo: remove
-		// debug headers
-		for name, values := range r.Header {
-			for _, value := range values {
-				log.Printf("Header: %s=%s", name, value)
-			}
-		}
-
 		// Extract token from Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -85,8 +77,8 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		// Validate the JWT token
 		token, err := jwtValidator.ValidateToken(r.Context(), tokenString)
 		if err != nil {
-			// Log detailed validation failure for security monitoring
-			log.Printf("⚠ JWT validation FAILED from %s: %v %s", r.RemoteAddr, err, tokenString)
+			// Log validation failure for security monitoring (without token)
+			log.Printf("⚠ JWT validation FAILED from %s: %v", r.RemoteAddr, err)
 			log.Printf("⚠ Expected audience(s): %s", s.config.ResourceIdentifier)
 			log.Printf("⚠ Request path: %s", r.URL.Path)
 			s.sendUnauthorized(w, "The access token is invalid or expired")
