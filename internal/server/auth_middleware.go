@@ -49,11 +49,19 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// todo: remove
+		// debug headers
+		for name, values := range r.Header {
+			for _, value := range values {
+				log.Printf("Header: %s=%s", name, value)
+			}
+		}
+
 		// Extract token from Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			log.Printf("Missing Authorization header from %s", r.RemoteAddr)
-			s.sendUnauthorized(w, "invalid_request", "Missing Authorization header")
+			s.sendUnauthorized(w, "Missing Authorization header")
 			return
 		}
 
@@ -61,7 +69,7 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			log.Printf("Invalid Authorization header format from %s", r.RemoteAddr)
-			s.sendUnauthorized(w, "invalid_request", "Invalid Authorization header format")
+			s.sendUnauthorized(w, "Invalid Authorization header format")
 			return
 		}
 		tokenString := parts[1]
@@ -81,7 +89,7 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 			log.Printf("⚠ JWT validation FAILED from %s: %v %s", r.RemoteAddr, err, tokenString)
 			log.Printf("⚠ Expected audience(s): %s", s.config.ResourceIdentifier)
 			log.Printf("⚠ Request path: %s", r.URL.Path)
-			s.sendUnauthorized(w, "invalid_token", "The access token is invalid or expired")
+			s.sendUnauthorized(w, "The access token is invalid or expired")
 			return
 		}
 
@@ -115,7 +123,7 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 			log.Printf("⚠ This may indicate a token passthrough attack attempt")
 
 			// Reject invalid audience - strict RFC 8707 compliance
-			s.sendUnauthorized(w, "invalid_token", "Token audience does not match this resource server")
+			s.sendUnauthorized(w, "Token audience does not match this resource server")
 			return
 		}
 
@@ -130,28 +138,24 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 //
 // The WWW-Authenticate header includes:
 // - realm: The protected resource metadata URL (RFC 9728 - this server's metadata endpoint)
-// - error: OAuth 2.0 error code (e.g., "invalid_token", "invalid_request")
+// - error: OAuth 2.0 error code (e.g., "invalid_request")
 // - error_description: Human-readable description of the error
 //
 // Per MCP spec and RFC 9728, the realm MUST point to this server's protected resource
 // metadata endpoint, which tells clients:
 // 1. What resource identifier to use in token requests
 // 2. Where to find the authorization server (Auth0)
-func (s *Neo4jMCPServer) sendUnauthorized(w http.ResponseWriter, errorCode, errorDescription string) {
+func (s *Neo4jMCPServer) sendUnauthorized(w http.ResponseWriter, errorDescription string) {
 	// Construct the protected resource metadata URL per RFC 9728
 	// This tells clients where to discover this resource server's configuration
-	metadataURL := "https://" + s.config.Auth0Domain + "/.well-known/oauth-protected-resource"
+	// NOTE: This should point to THIS server's metadata endpoint, not Auth0's
+	metadataURL := "http://" + s.config.HTTPHost + ":" + s.config.HTTPPort + "/.well-known/oauth-protected-resource"
 
 	// Build WWW-Authenticate header value per RFC 6750 Section 3
 	wwwAuthenticate := `Bearer resource_metadata="` + metadataURL + `"`
-	if errorCode != "" {
-		wwwAuthenticate += `, error="` + errorCode + `"`
-	}
-	if errorDescription != "" {
-		wwwAuthenticate += `, error_description="` + errorDescription + `"`
-	}
 
-	w.Header().Set("WWW-Authenticate", wwwAuthenticate)
+	// Use direct header map assignment to ensure exact case for WWW-Authenticate
+	w.Header()["WWW-Authenticate"] = []string{wwwAuthenticate}
 	http.Error(w, "Unauthorized: "+errorDescription, http.StatusUnauthorized)
 }
 

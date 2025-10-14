@@ -117,7 +117,7 @@ func (s *Neo4jMCPServer) startHTTP() error {
 		mux.HandleFunc("/.well-known/oauth-protected-resource", s.handleProtectedResourceMetadata)
 
 		// RFC 8414: Authorization Server Metadata
-		mux.HandleFunc("/.well-known/oauth-authorization-server", s.handleAuthorizationServerMetadata)
+		// mux.HandleFunc("/.well-known/oauth-authorization-server", s.handleAuthorizationServerMetadata) todo: remove if not needed
 
 		log.Printf("✓ OAuth discovery endpoints enabled")
 		log.Printf("  /.well-known/oauth-protected-resource - Protected resource metadata (RFC 9728)")
@@ -125,16 +125,6 @@ func (s *Neo4jMCPServer) startHTTP() error {
 		log.Printf("  Resource identifier: %s", s.config.ResourceIdentifier)
 		log.Printf("  Authorization server: https://%s/", s.config.Auth0Domain)
 
-		// todo: remove in main, since we don't want to implement our own auth server / or redirect
-		// OAuth proxy endpoints - NO authentication required
-		// These endpoints proxy OAuth requests to Auth0
-		mux.HandleFunc("/authorize", s.handleAuthorize)
-		mux.HandleFunc("/callback", s.handleCallback)
-		mux.HandleFunc("/token", s.handleToken)
-		log.Printf("✓ OAuth proxy endpoints enabled")
-		log.Printf("  /authorize - Proxies authorization requests to Auth0 (adds resource parameter)")
-		log.Printf("  /callback - Returns authorization code to client")
-		log.Printf("  /token - Proxies token exchange to Auth0 (supports PKCE with code_verifier)")
 	}
 
 	log.Printf("Started Neo4j MCP HTTP Server on http://%s%s", addr, s.config.HTTPPath)
