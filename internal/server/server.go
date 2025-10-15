@@ -116,12 +116,8 @@ func (s *Neo4jMCPServer) startHTTP() error {
 		// RFC 9728: Protected Resource Metadata
 		mux.HandleFunc("/.well-known/oauth-protected-resource", s.handleProtectedResourceMetadata)
 
-		// RFC 8414: Authorization Server Metadata
-		// mux.HandleFunc("/.well-known/oauth-authorization-server", s.handleAuthorizationServerMetadata) todo: remove if not needed
-
 		log.Printf("✓ OAuth discovery endpoints enabled")
 		log.Printf("  /.well-known/oauth-protected-resource - Protected resource metadata (RFC 9728)")
-		// log.Printf("  /.well-known/oauth-authorization-server - Authorization server metadata (RFC 8414)")
 		log.Printf("  Resource identifier: %s", s.config.ResourceIdentifier)
 		log.Printf("  Authorization server: https://%s/", s.config.Auth0Domain)
 
