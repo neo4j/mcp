@@ -17,7 +17,7 @@ func TestReadCypherHandler(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
 			Return([]*neo4j.Record{}, nil)
@@ -54,7 +54,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("successful cypher execution without parameters", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
 			Return(neo4j.StatementTypeReadOnly, nil)
@@ -90,7 +90,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("invalid arguments binding", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 
 		deps := &ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
@@ -116,7 +116,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("missing required arguments", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		// The handler should NOT call ExecuteReadQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
@@ -146,7 +146,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("empty query parameter", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		// The handler should NOT call ExecuteReadQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
@@ -201,7 +201,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
 			Return(neo4j.StatementTypeReadOnly, nil)
@@ -234,7 +234,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
 			Return(neo4j.StatementTypeReadOnly, nil)
@@ -270,7 +270,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("non-read query type returns error", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "CREATE (n:Test)", gomock.Nil(), "testdb").
 			Return(neo4j.StatementTypeWriteOnly, nil)
@@ -299,7 +299,7 @@ func TestReadCypherHandler(t *testing.T) {
 	})
 
 	t.Run("explain query failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
 			Return(neo4j.StatementTypeUnknown, errors.New("driver error"))
