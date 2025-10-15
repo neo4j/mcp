@@ -3,8 +3,8 @@ module github.com/neo4j/mcp
 go 1.25.1
 
 require (
-	github.com/mark3labs/mcp-go v0.39.1
-	github.com/neo4j/neo4j-go-driver/v5 v5.28.3
+	github.com/mark3labs/mcp-go v0.41.1
+	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
 	go.uber.org/mock v0.6.0
 )
 
