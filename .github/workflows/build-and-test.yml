@@ -26,6 +26,13 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Generate mocks
+        run: go generate ./...
+
+      - name: Verify mocks are up-to-date
+        run: |
+          git diff --exit-code || (echo "Generated mocks are not up-to-date. Please run 'go generate ./...' locally and push the updated files." && exit 1)
+
       - name: Build
         run: go build -v ./...
 
