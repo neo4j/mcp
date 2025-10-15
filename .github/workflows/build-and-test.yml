@@ -31,12 +31,7 @@ jobs:
 
       - name: Verify mocks are up-to-date
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Generated mocks are not up-to-date. Please run 'go generate ./...' locally and push the updated files."
-            git status --porcelain
-            git diff
-            exit 1
-          fi
+          git diff --exit-code || (echo "Generated mocks are not up-to-date. Please run 'go generate ./...' locally and push the updated files." && git status --porcelain && git diff && exit 1)
 
       - name: Build
         run: go build -v ./...
