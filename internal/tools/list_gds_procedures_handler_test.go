@@ -1,0 +1,124 @@
+package tools
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"go.uber.org/mock/gomock"
+)
+
+func TestListGdsProceduresHandler(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("successful list-gds-procedures", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), "CALL gds.list() YIELD name, description, signature, type", gomock.Nil(), "testdb").
+			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return(`[{
+				"name": "gds.articleRank.stream", 
+				"description": "Article Rank is a variant of the Page Rank algorithm, which measures the transitive influence or connectivity of nodes.",
+				"signature": "gds.articleRank.stream(graphName :: STRING, configuration = {} :: MAP) :: (nodeId :: INTEGER, score :: FLOAT)",
+				type: "procedure" 
+			}]`, nil)
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := ListGdsProceduresHandler(deps)
+		request := mcp.CallToolRequest{}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if result == nil || result.IsError {
+			t.Error("Expected success result")
+		}
+	})
+
+	t.Run("nil database service", func(t *testing.T) {
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: nil,
+		}
+
+		handler := ListGdsProceduresHandler(deps)
+		request := mcp.CallToolRequest{}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for nil database service")
+		}
+	})
+
+	t.Run("database query execution failure", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			Return(nil, errors.New("Invalid Cypher"))
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			Return(nil, errors.New("syntax error"))
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := ListGdsProceduresHandler(deps)
+		request := mcp.CallToolRequest{}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for query execution failure")
+		}
+	})
+
+	t.Run("JSON formatting failure", func(t *testing.T) {
+		mockDB := mocks.NewMockDatabaseService(ctrl)
+
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return("", errors.New("JSON marshaling failed"))
+
+		deps := &ToolDependencies{
+			Config:    &config.Config{Database: "testdb"},
+			DBService: mockDB,
+		}
+
+		handler := ListGdsProceduresHandler(deps)
+		request := mcp.CallToolRequest{}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for JSON formatting failure")
+		}
+	})
+}
