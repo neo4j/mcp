@@ -26,6 +26,18 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Generate mocks
+        run: go generate ./...
+
+      - name: Verify mocks are up-to-date
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Generated mocks are not up-to-date. Please run 'go generate ./...' and commit the changes."
+            git status --porcelain
+            git diff
+            exit 1
+          fi
+
       - name: Build
         run: go build -v ./...
 
