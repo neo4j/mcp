@@ -125,32 +125,32 @@ func (mr *MockRecordFormatterMockRecorder) Neo4jRecordsToJSON(records any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Neo4jRecordsToJSON", reflect.TypeOf((*MockRecordFormatter)(nil).Neo4jRecordsToJSON), records)
 }
 
-// MockDatabaseService is a mock of DatabaseService interface.
-type MockDatabaseService struct {
+// MockService is a mock of Service interface.
+type MockService struct {
 	ctrl     *gomock.Controller
-	recorder *MockDatabaseServiceMockRecorder
+	recorder *MockServiceMockRecorder
 	isgomock struct{}
 }
 
-// MockDatabaseServiceMockRecorder is the mock recorder for MockDatabaseService.
-type MockDatabaseServiceMockRecorder struct {
-	mock *MockDatabaseService
+// MockServiceMockRecorder is the mock recorder for MockService.
+type MockServiceMockRecorder struct {
+	mock *MockService
 }
 
-// NewMockDatabaseService creates a new mock instance.
-func NewMockDatabaseService(ctrl *gomock.Controller) *MockDatabaseService {
-	mock := &MockDatabaseService{ctrl: ctrl}
-	mock.recorder = &MockDatabaseServiceMockRecorder{mock}
+// NewMockService creates a new mock instance.
+func NewMockService(ctrl *gomock.Controller) *MockService {
+	mock := &MockService{ctrl: ctrl}
+	mock.recorder = &MockServiceMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockDatabaseService) EXPECT() *MockDatabaseServiceMockRecorder {
+func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
 }
 
 // ExecuteReadQuery mocks base method.
-func (m *MockDatabaseService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
+func (m *MockService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExecuteReadQuery", ctx, cypher, params, database)
 	ret0, _ := ret[0].([]*neo4j.Record)
@@ -159,13 +159,13 @@ func (m *MockDatabaseService) ExecuteReadQuery(ctx context.Context, cypher strin
 }
 
 // ExecuteReadQuery indicates an expected call of ExecuteReadQuery.
-func (mr *MockDatabaseServiceMockRecorder) ExecuteReadQuery(ctx, cypher, params, database any) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExecuteReadQuery(ctx, cypher, params, database any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteReadQuery", reflect.TypeOf((*MockDatabaseService)(nil).ExecuteReadQuery), ctx, cypher, params, database)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteReadQuery", reflect.TypeOf((*MockService)(nil).ExecuteReadQuery), ctx, cypher, params, database)
 }
 
 // ExecuteWriteQuery mocks base method.
-func (m *MockDatabaseService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
+func (m *MockService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExecuteWriteQuery", ctx, cypher, params, database)
 	ret0, _ := ret[0].([]*neo4j.Record)
@@ -174,13 +174,13 @@ func (m *MockDatabaseService) ExecuteWriteQuery(ctx context.Context, cypher stri
 }
 
 // ExecuteWriteQuery indicates an expected call of ExecuteWriteQuery.
-func (mr *MockDatabaseServiceMockRecorder) ExecuteWriteQuery(ctx, cypher, params, database any) *gomock.Call {
+func (mr *MockServiceMockRecorder) ExecuteWriteQuery(ctx, cypher, params, database any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWriteQuery", reflect.TypeOf((*MockDatabaseService)(nil).ExecuteWriteQuery), ctx, cypher, params, database)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWriteQuery", reflect.TypeOf((*MockService)(nil).ExecuteWriteQuery), ctx, cypher, params, database)
 }
 
 // GetQueryType mocks base method.
-func (m *MockDatabaseService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
+func (m *MockService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params, database)
 	ret0, _ := ret[0].(neo4j.StatementType)
@@ -189,13 +189,13 @@ func (m *MockDatabaseService) GetQueryType(ctx context.Context, cypher string, p
 }
 
 // GetQueryType indicates an expected call of GetQueryType.
-func (mr *MockDatabaseServiceMockRecorder) GetQueryType(ctx, cypher, params, database any) *gomock.Call {
+func (mr *MockServiceMockRecorder) GetQueryType(ctx, cypher, params, database any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetQueryType", reflect.TypeOf((*MockDatabaseService)(nil).GetQueryType), ctx, cypher, params, database)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetQueryType", reflect.TypeOf((*MockService)(nil).GetQueryType), ctx, cypher, params, database)
 }
 
 // Neo4jRecordsToJSON mocks base method.
-func (m *MockDatabaseService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
+func (m *MockService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Neo4jRecordsToJSON", records)
 	ret0, _ := ret[0].(string)
@@ -204,7 +204,7 @@ func (m *MockDatabaseService) Neo4jRecordsToJSON(records []*neo4j.Record) (strin
 }
 
 // Neo4jRecordsToJSON indicates an expected call of Neo4jRecordsToJSON.
-func (mr *MockDatabaseServiceMockRecorder) Neo4jRecordsToJSON(records any) *gomock.Call {
+func (mr *MockServiceMockRecorder) Neo4jRecordsToJSON(records any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Neo4jRecordsToJSON", reflect.TypeOf((*MockDatabaseService)(nil).Neo4jRecordsToJSON), records)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Neo4jRecordsToJSON", reflect.TypeOf((*MockService)(nil).Neo4jRecordsToJSON), records)
 }

@@ -17,7 +17,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("successful schema retrieval", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{
@@ -47,7 +47,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	})
 
 	t.Run("database query failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return(nil, errors.New("connection failed"))
@@ -69,7 +69,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	})
 
 	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{
@@ -115,7 +115,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 	})
 	t.Run("No records returned from apoc query (empty database)", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
