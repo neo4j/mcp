@@ -67,5 +67,19 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	return mcp.NewToolResultText(response), nil
+	//Create standardized LLM response
+	LLMResponse := CreateLLMResponse(
+		SummaryQueryExecuted,
+		NewQueryResult(response),
+		NextStepsAfterReadQuery...,
+	)
+
+	//Convert to LLM-friendly JSON
+	jsonStr, err := LLMResponse.ToJSON()
+	if err != nil {
+		log.Printf("Error formatting LLM response: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	return mcp.NewToolResultText(jsonStr), nil
 }

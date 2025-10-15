@@ -42,15 +42,42 @@ func handleGetSchema(ctx context.Context, dbService database.Service, config *co
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	if len(records) == 0 {
-		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
+		//Create standardized LLM response for empty schema
+		LLMResponse := CreateLLMResponse(
+			"The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned.",
+			NewQueryResult("[]"),
+			NextStepsAfterSchema...,
+		)
+
+		jsonStr, err := LLMResponse.ToJSON()
+		if err != nil {
+			log.Printf("Error formatting LLM response: %v", err)
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		return mcp.NewToolResultText(jsonStr), nil
 	}
+
 	// Convert records to JSON using the existing utility function
 	response, err := dbService.Neo4jRecordsToJSON(records)
-
 	if err != nil {
 		log.Printf("Failed to format schema results to JSON: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	return mcp.NewToolResultText(response), nil
+	//Create standardized LLM response
+	LLMResponse := CreateLLMResponse(
+		SummarySchemaRetrieved,
+		NewQueryResult(response),
+		NextStepsAfterSchema...,
+	)
+
+	//Convert to LLM-friendly JSON
+	jsonStr, err := LLMResponse.ToJSON()
+	if err != nil {
+		log.Printf("Error formatting LLM response: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	return mcp.NewToolResultText(jsonStr), nil
 }
