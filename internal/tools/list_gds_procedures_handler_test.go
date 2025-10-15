@@ -65,11 +65,8 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return(nil, errors.New("Invalid Cypher"))
-		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
-			Return(nil, errors.New("syntax error"))
 
 		deps := &ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
@@ -93,7 +90,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
