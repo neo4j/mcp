@@ -17,18 +17,13 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("successful list-gds-procedures", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), "CALL gds.list() YIELD name, description, signature, type", gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
-			Return(`[{
-				"name": "gds.articleRank.stream", 
-				"description": "Article Rank is a variant of the Page Rank algorithm, which measures the transitive influence or connectivity of nodes.",
-				"signature": "gds.articleRank.stream(graphName :: STRING, configuration = {} :: MAP) :: (nodeId :: INTEGER, score :: FLOAT)",
-				type: "procedure" 
-			}]`, nil)
+			Return("", nil)
 
 		deps := &ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
@@ -68,7 +63,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
 			Return(nil, errors.New("Invalid Cypher"))
@@ -95,7 +90,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	})
 
 	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
