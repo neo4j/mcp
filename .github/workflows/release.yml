@@ -12,14 +12,14 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: "stable"
       - run: go install go.uber.org/mock/mockgen@latest
 
       - name: Get the latest version
         id: latest
-        uses: miniscruff/changie-action@v2
+        uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # v2
         with:
           version: latest
           args: latest
