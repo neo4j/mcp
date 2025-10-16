@@ -17,7 +17,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
 			Return([]*neo4j.Record{}, nil)
@@ -51,7 +51,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("successful cypher execution without parameters", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
@@ -84,7 +84,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("invalid arguments binding", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 
 		deps := &ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
@@ -110,7 +110,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("missing required arguments", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		// The handler should NOT call ExecuteWriteQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
@@ -140,7 +140,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("empty query parameter", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		// The handler should NOT call ExecuteWriteQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
@@ -195,7 +195,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
 			Return(nil, errors.New("syntax error"))
@@ -225,7 +225,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := mocks.NewMockDatabaseService(ctrl)
+		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
@@ -257,4 +257,3 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 	})
 }
-

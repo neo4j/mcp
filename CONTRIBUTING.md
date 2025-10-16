@@ -98,6 +98,56 @@ The Neo4j MCP capabilities can be tested using the `@modelcontextprotocol/inspec
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
 ```
 
+## MCP Error Handling
+
+MCP error handling follows a specific pattern that differs from standard Go error handling. According to the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#error-handling), tool handlers should communicate errors through the tool result structure rather than returning Go errors directly.
+
+### When to use MCP tool result errors vs direct Go errors:
+
+- **Use MCP tool result errors** (`NewToolResultError`) for:
+
+  - Business logic errors (invalid input, database constraints, etc.)
+  - Operational errors that the client should handle gracefully
+  - Any error that represents a meaningful response to the client
+
+- **Return Go errors directly** for:
+  - System-level failures (out of memory, network failures)
+  - Programming errors that indicate bugs in the server implementation
+  - Cases where the server cannot continue processing
+
+### Recommended MCP Tool Handler error handling pattern:
+
+When implementing MCP tool handlers, use the `mcp.NewToolResultError` helper function for cleaner error handling:
+
+```go
+func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
+    return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+        // Bind and validate arguments
+        var args MyToolInput
+        if err := request.BindArguments(&args); err != nil {
+            return mcp.NewToolResultError("Invalid arguments: " + err.Error()), nil
+        }
+
+        // Business logic validation
+        if args.SomeField == "" {
+            return mcp.NewToolResultError("SomeField is required"), nil
+        }
+
+        // Execute operation
+        result, err := someOperation(ctx, args)
+        if err != nil {
+            // Use MCP error for business/operational errors
+            return mcp.NewToolResultError("Operation failed: " + err.Error()), nil
+        }
+
+        // Success case
+        return mcp.NewToolResultText(result), nil
+    }
+}
+```
+
+**Note:** Always return `nil` as the second parameter when using `NewToolResultError`, as the error information is embedded within the `CallToolResult` structure.
+
 ## Adding New MCP Tools
 
 1. **Define tool specifications** in `internal/tools/`:
