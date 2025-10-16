@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -30,13 +31,14 @@ func handleListGdsProcedures(ctx context.Context, dbService database.Service, co
 	}
 	records, err := dbService.ExecuteReadQuery(ctx, listGdsProceduresQuery, nil, config.Database)
 	if err != nil {
-		log.Printf("Failed to execute list-gds-procedure query: %v", err)
-		return mcp.NewToolResultError(err.Error()), nil
+		formattedErrorMessage := fmt.Errorf("failed to execute list-gds-procedure query: %v. Ensure that the Graph Data Science (GDS) library is installed and properly configured in your Neo4j database", err)
+		log.Printf("%s", formattedErrorMessage.Error())
+		return mcp.NewToolResultError(formattedErrorMessage.Error()), nil
 	}
 
 	response, err := dbService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		log.Printf("Failed to format schema results to JSON: %v", err)
+		log.Printf("Failed to format list-gds-procedures results to JSON: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
