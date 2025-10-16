@@ -1,6 +1,6 @@
 package database
 
-//go:generate mockgen -destination=mocks/mock_database.go -package=mocks github.com/neo4j/mcp/internal/database DatabaseService
+//go:generate mockgen -destination=mocks/mock_database.go -package=mocks github.com/neo4j/mcp/internal/database Service
 
 import (
 	"context"

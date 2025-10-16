@@ -20,7 +20,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	mockDB := mocks.NewMockDatabaseService(ctrl)
+	mockDB := mocks.NewMockService(ctrl)
 
 	t.Run("creates server successfully", func(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
@@ -42,7 +42,7 @@ func TestNeo4jMCPServer_RegisterTools(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	mockDB := mocks.NewMockDatabaseService(ctrl)
+	mockDB := mocks.NewMockService(ctrl)
 	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
 	err := s.RegisterTools()
@@ -62,7 +62,7 @@ func TestNeo4jMCPServer_Stop(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	mockDB := mocks.NewMockDatabaseService(ctrl)
+	mockDB := mocks.NewMockService(ctrl)
 	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
 	err := s.Stop()
