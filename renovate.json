@@ -1,0 +1,23 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": ["config:best-practices"],
+    "rebaseWhen": "conflicted",
+    "automerge": false,
+    "timezone": "Europe/London",
+    "schedule": ["before 3am on Tuesday"],
+    "vulnerabilityAlerts": {
+        "labels": ["security"]
+    },
+    "separateMajorMinor": true,
+    "minimumReleaseAge": "3 days",
+    "packageRules": [
+        {
+            "matchUpdateTypes": ["major"],
+            "groupName": null
+        },
+        {
+            "matchUpdateTypes": ["minor", "patch"],
+            "groupName": "minor-and-patch"
+        }
+    ]
+}

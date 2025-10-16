@@ -1,0 +1,5 @@
+kind: Minor
+body: |
+  Introduces a new tool, `list-gds-procedures`, to list available Graph Data Science (GDS) procedures in a Neo4j database.
+  This enhances the user experience within Neo4j MCP for GDS tasks by enabling LLMs to discover and utilize GDS graph algorithms.
+time: 2025-10-15T17:26:42.274347+01:00
