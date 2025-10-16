@@ -27,6 +27,12 @@ func GetAllTools(deps *ToolDependencies) []server.ServerTool {
 			Tool:    WriteCypherSpec(),
 			Handler: WriteCypherHandler(deps),
 		},
+		// GDS Category/Section
+		{
+			Tool:    ListGDSProceduresSpec(),
+			Handler: ListGdsProceduresHandler(deps),
+		},
+		// Add other categories below...
 	}
 }
 
