@@ -47,9 +47,9 @@ func TestMCPIntegration_MyFeature(t *testing.T) {
 ## Running Tests
 
 ```bash
-go test ./test/integration/... -v              # All tests
-go test ./test/integration/... -run MyFeature  # Specific test
-go test ./test/integration/... -race           # With race detection
+go test -tags=integration ./test/integration/... -v              # All tests
+go test -tags=integration ./test/integration/... -run MyFeature  # Specific test
+go test -tags=integration ./test/integration/... -race           # With race detection
 ```
 
 ## Important

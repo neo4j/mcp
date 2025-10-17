@@ -1,3 +1,5 @@
+//go:build integration
+
 package integration_test
 
 import (
@@ -43,7 +45,7 @@ func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string
 			"NEO4J_apoc_export_file_enabled":              "true",
 			"NEO4J_apoc_import_file_enabled":              "true",
 		},
-		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(120 * time.Second),
+		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(119 * time.Second),
 	}
 
 	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
