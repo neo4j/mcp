@@ -34,7 +34,8 @@ func (s *Neo4jMCPServer) handleProtectedResourceMetadata(w http.ResponseWriter, 
 		"authorization_servers": []string{
 			"https://" + s.config.Auth0Domain,
 		},
-		"scopes_supported":         []string{"read:schema", "write:cypher", "read:cypher"}, // todo: define scopes if needed
+		"scopes_supported": []string{"read:schema", "read:data", "write:data", "admin:all", "read:gds"}, // these should match Auth0 API scopes
+		// "token_endpoint":           "https://" + s.config.Auth0Domain + "/oauth/token", // todo: can we override this with an Aura endpoint?
 		"bearer_methods_supported": []string{"header"},
 	}
 

@@ -42,13 +42,25 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	}
 }
 
-// RegisterTools registers all available MCP tools
+// RegisterTools registers all available MCP tools with permission checking
 func (s *Neo4jMCPServer) RegisterTools() error {
 	deps := &tools.ToolDependencies{
 		Config:    s.config,
 		DBService: s.dbService,
 	}
-	tools.RegisterAllTools(s.mcpServer, deps)
+
+	// Get all tools and wrap their handlers with permission checking
+	allTools := tools.GetAllTools(deps)
+	wrappedTools := make([]server.ServerTool, 0, len(allTools))
+
+	for _, tool := range allTools {
+		wrappedTools = append(wrappedTools, server.ServerTool{
+			Tool:    tool.Tool,
+			Handler: WithPermissionCheck(tool.Handler),
+		})
+	}
+
+	s.mcpServer.AddTools(wrappedTools...)
 	return nil
 }
 

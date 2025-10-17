@@ -16,8 +16,42 @@ type contextKey string
 
 const (
 	contextKeyJWTClaims contextKey = "jwt_claims"
+	contextKeyUserCtx   contextKey = "user_context"
 	jwksCacheDuration              = 1 * time.Minute
 )
+
+// UserContext contains user identity and permissions extracted from JWT
+type UserContext struct {
+	UserID      string
+	Permissions []string
+}
+
+// GetUserContext extracts UserContext from the request context
+// Returns nil if no user context is found (e.g., when auth is disabled)
+func GetUserContext(ctx context.Context) *UserContext {
+	userCtx, ok := ctx.Value(contextKeyUserCtx).(*UserContext)
+	if !ok {
+		return nil
+	}
+	return userCtx
+}
+
+// extractPermissionsFromClaims parses permissions from validated JWT claims
+// Permissions are extracted from the scope claim as a space-separated string
+func extractPermissionsFromClaims(validatedClaims *validator.ValidatedClaims) []string {
+	customClaims, ok := validatedClaims.CustomClaims.(*CustomClaims)
+	if !ok {
+		log.Printf("⚠ Failed to extract custom claims")
+		return []string{}
+	}
+
+	// Parse permissions from scope claim (space-separated string)
+	if customClaims.Scope == "" {
+		return []string{}
+	}
+
+	return strings.Fields(customClaims.Scope)
+}
 
 // CustomClaims contains custom claims for JWT validation
 type CustomClaims struct {
@@ -86,7 +120,8 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Extract and validate the registered claims
-		registeredClaims := token.(*validator.ValidatedClaims).RegisteredClaims
+		validatedClaims := token.(*validator.ValidatedClaims)
+		registeredClaims := validatedClaims.RegisteredClaims
 
 		// Log successful validation with audience information for security audit
 		log.Printf("✓ JWT validation SUCCESS from %s", r.RemoteAddr)
@@ -94,6 +129,10 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 		log.Printf("  Expected resource: %s", s.config.ResourceIdentifier)
 		log.Printf("  Token subject: %s", registeredClaims.Subject)
 		log.Printf("  Request path: %s", r.URL.Path)
+
+		// Extract permissions from JWT claims
+		permissions := extractPermissionsFromClaims(validatedClaims)
+		log.Printf("  User permissions: %v", permissions)
 
 		// debug
 		log.Printf("  Full claims: %+v", token)
@@ -119,8 +158,15 @@ func (s *Neo4jMCPServer) jwtAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Token is valid, add claims to context if needed
+		// Create UserContext with extracted information
+		userCtx := &UserContext{
+			UserID:      registeredClaims.Subject,
+			Permissions: permissions,
+		}
+
+		// Token is valid, add both claims and user context
 		ctx := context.WithValue(r.Context(), contextKeyJWTClaims, token)
+		ctx = context.WithValue(ctx, contextKeyUserCtx, userCtx)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
