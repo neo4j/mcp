@@ -7,10 +7,12 @@ linters:
     - bodyclose
     - gocritic
     - gosec
+    - godox
     - makezero
     - misspell
     - nakedret
     - revive
+    - unused
   exclusions:
     generated: lax
     presets:
@@ -19,6 +21,13 @@ linters:
       - legacy
       - std-error-handling
   settings:
+    godox:
+      keywords:
+        - TODO
+        - FIXME
+        - HACK
+        - BUG
+        - XXX
     staticcheck:
       checks:
         - "all"
