@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -35,15 +36,15 @@ func makeTestID() string {
 
 func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "neo4j:5.24.2-community",
+		Image:        config.GetEnvWithDefault("NEO4J_IMAGE", "neo4j:5.24.2-community"),
 		ExposedPorts: []string{"7687/tcp"},
 		Env: map[string]string{
-			"NEO4J_AUTH":        "neo4j/password",
-			"NEO4JLABS_PLUGINS": `["apoc","graph-data-science"]`,
-			"NEO4J_dbms_security_procedures_unrestricted": "apoc.*,gds.*",
-			"NEO4J_dbms_security_procedures_allowlist":    "apoc.*,gds.*",
-			"NEO4J_apoc_export_file_enabled":              "true",
-			"NEO4J_apoc_import_file_enabled":              "true",
+			"NEO4J_AUTH":        fmt.Sprintf("%s/%s", config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"), config.GetEnvWithDefault("NEO4J_PASSWORD", "password")),
+			"NEO4JLABS_PLUGINS": config.GetEnvWithDefault("NEO4JLABS_PLUGINS", `["apoc","graph-data-science"]`),
+			"NEO4J_dbms_security_procedures_unrestricted": config.GetEnvWithDefault("NEO4J_PROCEDURES_UNRESTRICTED", "apoc.*,gds.*"),
+			"NEO4J_dbms_security_procedures_allowlist":    config.GetEnvWithDefault("NEO4J_PROCEDURES_ALLOWLIST", "apoc.*,gds.*"),
+			"NEO4J_apoc_export_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_EXPORT_ENABLED", "true"),
+			"NEO4J_apoc_import_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_IMPORT_ENABLED", "true"),
 		},
 		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(119 * time.Second),
 	}
