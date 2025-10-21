@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to create driver: %v", err)
 	}
 
-	if err := waitForConnectivityNoT(ctx, ctr, &drv); err != nil {
+	if err := waitForConnectivity(ctx, ctr, &drv); err != nil {
 		_ = drv.Close(ctx)
 		_ = ctr.Terminate(ctx)
 		log.Fatalf("failed to verify connectivity: %v", err)

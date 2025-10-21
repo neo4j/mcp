@@ -71,8 +71,8 @@ func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string
 	return ctr, boltURI, nil
 }
 
-// waitForConnectivityNoT waits for Neo4j connectivity with exponential backoff.
-func waitForConnectivityNoT(ctx context.Context, ctr testcontainers.Container, drv *neo4j.DriverWithContext) error {
+// waitForConnectivity waits for Neo4j connectivity with exponential backoff.
+func waitForConnectivity(ctx context.Context, ctr testcontainers.Container, drv *neo4j.DriverWithContext) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
