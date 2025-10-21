@@ -1,4 +1,4 @@
-package tools
+package cypher
 
 import (
 	"github.com/mark3labs/mcp-go/mcp"

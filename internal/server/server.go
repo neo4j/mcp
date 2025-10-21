@@ -7,12 +7,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/tools"
 )
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	mcpServer *server.MCPServer
+	MCPServer *server.MCPServer
 	config    *config.Config
 	dbService database.Service
 	version   string
@@ -30,21 +29,11 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return &Neo4jMCPServer{
-		mcpServer: mcpServer,
+		MCPServer: mcpServer,
 		config:    cfg,
 		dbService: dbService,
 		version:   version,
 	}
-}
-
-// RegisterTools registers all available MCP tools
-func (s *Neo4jMCPServer) RegisterTools() error {
-	deps := &tools.ToolDependencies{
-		Config:    s.config,
-		DBService: s.dbService,
-	}
-	tools.RegisterAllTools(s.mcpServer, deps)
-	return nil
 }
 
 // Start initializes and starts the MCP server using stdio transport
@@ -57,7 +46,7 @@ func (s *Neo4jMCPServer) Start() error {
 	}
 	log.Println("Started Neo4j MCP Server. Now listening for input...")
 	// Note: ServeStdio handles its own signal management for graceful shutdown
-	return server.ServeStdio(s.mcpServer)
+	return server.ServeStdio(s.MCPServer)
 }
 
 // Stop gracefully stops the server

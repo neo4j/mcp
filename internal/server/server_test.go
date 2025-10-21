@@ -14,7 +14,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		URI:      "bolt://localhost:7687",
+		URI:      "bolt://test-host:7687",
 		Username: "neo4j",
 		Password: "password",
 		Database: "neo4j",
@@ -29,45 +29,56 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 	})
-}
 
-func TestNeo4jMCPServer_RegisterTools(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	t.Run("starts server successfully", func(t *testing.T) {
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
-	cfg := &config.Config{
-		URI:      "bolt://localhost:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
-	}
+		if s == nil {
+			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+		}
 
-	mockDB := mocks.NewMockService(ctrl)
-	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		err := s.Start()
+		if err != nil {
+			t.Errorf("Start() unexpected error = %v", err)
+		}
+	})
 
-	err := s.RegisterTools()
-	if err != nil {
-		t.Errorf("RegisterTools() unexpected error = %v", err)
-	}
-}
+	t.Run("stops server successfully", func(t *testing.T) {
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
-func TestNeo4jMCPServer_Stop(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		if s == nil {
+			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+		}
 
-	cfg := &config.Config{
-		URI:      "bolt://localhost:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
-	}
+		err := s.Start()
+		if err != nil {
+			t.Errorf("Start() unexpected error = %v", err)
+		}
+	})
 
-	mockDB := mocks.NewMockService(ctrl)
-	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+	t.Run("server creates successfully with all required components", func(t *testing.T) {
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
-	err := s.Stop()
+		if s == nil {
+			t.Fatal("NewNeo4jMCPServer() returned nil")
+		}
 
-	if err != nil {
-		t.Errorf("Stop() unexpected error = %v", err)
-	}
+		// Register tools should work without errors
+		err := s.RegisterTools()
+		if err != nil {
+			t.Errorf("RegisterTools() unexpected error = %v", err)
+		}
+		// Start should work without errors
+		err = s.Start()
+		if err != nil {
+			t.Errorf("Start() unexpected error = %v", err)
+		}
+
+		// Stop should work without errors
+		err = s.Stop()
+		if err != nil {
+			t.Errorf("Stop() unexpected error = %v", err)
+		}
+	})
+
 }

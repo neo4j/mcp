@@ -1,4 +1,4 @@
-package tools
+package cypher_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
@@ -30,12 +32,12 @@ func TestGetSchemaHandler(t *testing.T) {
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`{"schema": "data"}`, nil)
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -52,12 +54,12 @@ func TestGetSchemaHandler(t *testing.T) {
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return(nil, errors.New("connection failed"))
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -82,12 +84,12 @@ func TestGetSchemaHandler(t *testing.T) {
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return("", errors.New("JSON marshaling failed"))
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -99,12 +101,12 @@ func TestGetSchemaHandler(t *testing.T) {
 	})
 
 	t.Run("nil database service", func(t *testing.T) {
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "test"},
 			DBService: nil,
 		}
 
-		handler := GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -120,12 +122,12 @@ func TestGetSchemaHandler(t *testing.T) {
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
 			Return([]*neo4j.Record{}, nil)
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {

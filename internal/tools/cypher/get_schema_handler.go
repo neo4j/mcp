@@ -1,4 +1,4 @@
-package tools
+package cypher
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/tools"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 )
 
 // GetSchemaHandler returns a handler function for the get_schema tool
-func GetSchemaHandler(deps *ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return handleGetSchema(ctx, deps.DBService, deps.Config)
 	}
