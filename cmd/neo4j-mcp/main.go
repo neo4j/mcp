@@ -21,6 +21,13 @@ func main() {
 		fmt.Printf("neo4j-mcp version: %s\n", Version)
 		return
 	}
+
+	// Handle help flag
+	if len(os.Args) > 1 && (os.Args[1] == "-h" || os.Args[1] == "--help") {
+		printHelp()
+		return
+	}
+
 	// get config from environment variables
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -69,4 +76,30 @@ func main() {
 		log.Printf("Server error: %v", err)
 		return // so that defer can run
 	}
+}
+
+func printHelp() {
+	log.Printf("Neo4j MCP Server")
+	log.Printf("\nUsage:")
+	log.Printf("  neo4j-mcp [flags]")
+	log.Printf("\nFlags:")
+	log.Printf("  -v          Show version")
+	log.Printf("  -h, --help  Show this help message")
+	log.Printf("\nEnvironment Variables:")
+	log.Printf("  NEO4J_URI         Neo4j connection URI (default: bolt://localhost:7687)")
+	log.Printf("  NEO4J_USERNAME    Neo4j username (default: neo4j)")
+	log.Printf("  NEO4J_PASSWORD    Neo4j password (default: password)")
+	log.Printf("  NEO4J_DATABASE    Neo4j database name (default: neo4j)")
+	log.Printf("  MCP_TRANSPORT     Transport mode: 'stdio' or 'http' (default: stdio)")
+	log.Printf("\nHTTP Mode Environment Variables (when MCP_TRANSPORT=http):")
+	log.Printf("  MCP_HTTP_HOST     HTTP server host (default: 127.0.0.1)")
+	log.Printf("  MCP_HTTP_PORT     HTTP server port (default: 8080)")
+	log.Printf("  MCP_HTTP_PATH     HTTP endpoint path (default: /mcp)")
+	log.Printf("\nExamples:")
+	log.Printf("  # Run in stdio mode (default)")
+	log.Printf("  neo4j-mcp")
+	log.Printf("\n  # Run in HTTP mode")
+	log.Printf("  MCP_TRANSPORT=http neo4j-mcp")
+	log.Printf("\n  # Run in HTTP mode on custom port")
+	log.Printf("  MCP_TRANSPORT=http MCP_HTTP_PORT=9000 neo4j-mcp")
 }
