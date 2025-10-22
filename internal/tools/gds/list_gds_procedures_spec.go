@@ -1,4 +1,4 @@
-package tools
+package gds
 
 import "github.com/mark3labs/mcp-go/mcp"
 

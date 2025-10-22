@@ -1,4 +1,4 @@
-package tools
+package cypher
 
 import (
 	"context"
@@ -7,10 +7,11 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-func ReadCypherHandler(deps *ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return handleReadCypher(ctx, request, deps.DBService, deps.Config)
 	}

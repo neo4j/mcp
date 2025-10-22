@@ -1,4 +1,4 @@
-package tools
+package cypher_test
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
@@ -25,12 +27,12 @@ func TestWriteCypherHandler(t *testing.T) {
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`[{"n": {"name": "Alice"}}]`, nil)
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -59,12 +61,12 @@ func TestWriteCypherHandler(t *testing.T) {
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`[{"count(n)": 42}]`, nil)
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -86,12 +88,12 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("invalid arguments binding", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		// Test with invalid argument structure that should cause BindArguments to fail
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
@@ -114,12 +116,12 @@ func TestWriteCypherHandler(t *testing.T) {
 		// The handler should NOT call ExecuteWriteQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -144,12 +146,12 @@ func TestWriteCypherHandler(t *testing.T) {
 		// The handler should NOT call ExecuteWriteQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -170,12 +172,12 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("nil database service", func(t *testing.T) {
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: nil,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -200,12 +202,12 @@ func TestWriteCypherHandler(t *testing.T) {
 			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
 			Return(nil, errors.New("syntax error"))
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{
@@ -233,12 +235,12 @@ func TestWriteCypherHandler(t *testing.T) {
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return("", errors.New("JSON marshaling failed"))
 
-		deps := &ToolDependencies{
+		deps := &tools.ToolDependencies{
 			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
-		handler := WriteCypherHandler(deps)
+		handler := cypher.WriteCypherHandler(deps)
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]any{

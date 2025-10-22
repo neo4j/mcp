@@ -1,4 +1,4 @@
-package tools
+package gds
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/tools"
 )
 
 const listGdsProceduresQuery = `
@@ -17,7 +18,7 @@ AND name CONTAINS "stream"
 AND NOT (name CONTAINS "estimate")
 RETURN name, description, signature, type`
 
-func ListGdsProceduresHandler(deps *ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func ListGdsProceduresHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return handleListGdsProcedures(ctx, deps.DBService, deps.Config)
 	}
