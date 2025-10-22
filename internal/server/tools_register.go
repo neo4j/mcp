@@ -17,7 +17,7 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 	return nil
 }
 
-// RegisterAllTools registers all available MCP tools
+// registerAllTools registers all available MCP tools
 func registerAllTools(mcpServer *server.MCPServer, deps *tools.ToolDependencies) {
 	tools := getAllTools(deps)
 	mcpServer.AddTools(tools...)
