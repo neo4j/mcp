@@ -49,12 +49,12 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-    if err := drv.Close(context.Background()); err != nil {
-      log.Printf("Warning: failed to close driver: %v", err)
-    }
-    if err := ctr.Terminate(context.Background()); err != nil {
-      log.Printf("Warning: failed to terminate container: %v", err)
-    }
+	if err := drv.Close(context.Background()); err != nil {
+		log.Printf("Warning: failed to close driver: %v", err)
+	}
+	if err := ctr.Terminate(context.Background()); err != nil {
+		log.Printf("Warning: failed to terminate container: %v", err)
+	}
 
 	os.Exit(code)
 }
