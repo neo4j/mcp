@@ -235,10 +235,7 @@ func (tc *TestContext) VerifyNodeInDB(label string, props map[string]any) *neo4j
 	}
 	whereClause := ""
 	if len(whereClauses) > 0 {
-		whereClause = " WHERE " + whereClauses[0]
-		for i := 1; i < len(whereClauses); i++ {
-			whereClause += " AND " + whereClauses[i]
-		}
+		whereClause = " WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
 	query := fmt.Sprintf("MATCH (n:%s)%s RETURN n", label, whereClause)
