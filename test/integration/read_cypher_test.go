@@ -30,7 +30,11 @@ func TestMCPIntegration_ReadCypher(t *testing.T) {
 		t.Fatalf("expected 1 record, got %d", len(records))
 	}
 
-	pNode := records[0]["p"].(map[string]any)
+    pNode, ok := records[0]["p"].(map[string]any)
+    if !ok {
+        t.Fatalf("expected p to be map[string]any, got %T",
+    records[0]["p"])
+    }
 	AssertNodeProperties(t, pNode, map[string]any{"name": "Alice"})
 	AssertNodeHasLabel(t, pNode, "Person")
 }
