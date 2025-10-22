@@ -26,12 +26,8 @@ func TestGetAllTools(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
 		// Expected tools that should be registered
-		expectedTools := []string{
-			"get-schema",
-			"read-cypher",
-			"write-cypher",
-			"list-gds-procedures",
-		}
+		// update this number when a tool is added or removed.
+		expectedTotalToolsCount := 4
 
 		// Register tools
 		err := s.RegisterTools()
@@ -40,8 +36,8 @@ func TestGetAllTools(t *testing.T) {
 		}
 		registeredTools := len(s.MCPServer.ListTools())
 
-		if len(expectedTools) != registeredTools {
-			t.Errorf("Expected 4 tools, but test configuration shows %d", len(expectedTools))
+		if registeredTools != expectedTotalToolsCount {
+			t.Errorf("Expected 4 tools, but test configuration shows %d", expectedTotalToolsCount)
 		}
 	})
 
