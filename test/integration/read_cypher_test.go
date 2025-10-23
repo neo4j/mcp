@@ -5,19 +5,20 @@ package integration
 import (
 	"testing"
 
-	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/internal/tools/cypher"
+	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestMCPIntegration_ReadCypher(t *testing.T) {
 	t.Parallel()
 
-	tc := NewTestContext(t)
+	tc := helpers.NewTestContext(t)
 
 	if err := tc.SeedNode("Person", map[string]any{"name": "Alice"}); err != nil {
 		t.Fatalf("failed to seed data: %v", err)
 	}
 
-	read := tools.ReadCypherHandler(tc.Deps)
+	read := cypher.ReadCypherHandler(tc.Deps)
 	res := tc.CallTool(read, map[string]any{
 		"query":  "MATCH (p:Person {name: $name, test_id: $testID}) RETURN p",
 		"params": map[string]any{"name": "Alice", "testID": tc.TestID},
@@ -35,6 +36,6 @@ func TestMCPIntegration_ReadCypher(t *testing.T) {
 		t.Fatalf("expected p to be map[string]any, got %T",
 			records[0]["p"])
 	}
-	AssertNodeProperties(t, pNode, map[string]any{"name": "Alice"})
-	AssertNodeHasLabel(t, pNode, "Person")
+	helpers.AssertNodeProperties(t, pNode, map[string]any{"name": "Alice"})
+	helpers.AssertNodeHasLabel(t, pNode, "Person")
 }

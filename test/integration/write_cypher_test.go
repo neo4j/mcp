@@ -5,15 +5,16 @@ package integration
 import (
 	"testing"
 
-	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/internal/tools/cypher"
+	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestMCPIntegration_WriteCypher(t *testing.T) {
 	t.Parallel()
 
-	tc := NewTestContext(t)
+	tc := helpers.NewTestContext(t)
 
-	write := tools.WriteCypherHandler(tc.Deps)
+	write := cypher.WriteCypherHandler(tc.Deps)
 	tc.CallTool(write, map[string]any{
 		"query":  "CREATE (p:Person {name: $name, test_id: $testID}) RETURN p",
 		"params": map[string]any{"name": "Alice", "testID": tc.TestID},

@@ -5,13 +5,14 @@ package integration
 import (
 	"testing"
 
-	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/internal/tools/cypher"
+	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestMCPIntegration_GetSchema(t *testing.T) {
 	t.Parallel()
 
-	tc := NewTestContext(t)
+	tc := helpers.NewTestContext(t)
 
 	if err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30}); err != nil {
 		t.Fatalf("failed to seed Person node: %v", err)
@@ -20,7 +21,7 @@ func TestMCPIntegration_GetSchema(t *testing.T) {
 		t.Fatalf("failed to seed Company node: %v", err)
 	}
 
-	getSchema := tools.GetSchemaHandler(tc.Deps)
+	getSchema := cypher.GetSchemaHandler(tc.Deps)
 	res := tc.CallTool(getSchema, nil)
 
 	var schemaArray []map[string]any
@@ -43,6 +44,6 @@ func TestMCPIntegration_GetSchema(t *testing.T) {
 		schemaMap[key] = value
 	}
 
-	AssertSchemaHasNodeType(t, schemaMap, "Person", []string{"name", "age"})
-	AssertSchemaHasNodeType(t, schemaMap, "Company", []string{"name", "founded"})
+	helpers.AssertSchemaHasNodeType(t, schemaMap, "Person", []string{"name", "age"})
+	helpers.AssertSchemaHasNodeType(t, schemaMap, "Company", []string{"name", "founded"})
 }

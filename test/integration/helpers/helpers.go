@@ -1,12 +1,13 @@
 //go:build integration
 
-package integration
+package helpers
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -30,92 +31,47 @@ type TestContext struct {
 	Deps    *tools.ToolDependencies
 }
 
-// makeTestID returns a unique test id suitable for tagging resources created by tests.
-func makeTestID() string {
-	return fmt.Sprintf("test-%s", uuid.NewString())
-}
+var cfg *config.Config
+var container testcontainers.Container
+var driver neo4j.DriverWithContext
 
-func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string, error) {
-	req := testcontainers.ContainerRequest{
-		Image:        config.GetEnvWithDefault("NEO4J_IMAGE", "neo4j:5.24.2-community"),
-		ExposedPorts: []string{"7687/tcp"},
-		Env: map[string]string{
-			"NEO4J_AUTH":        fmt.Sprintf("%s/%s", config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"), config.GetEnvWithDefault("NEO4J_PASSWORD", "password")),
-			"NEO4JLABS_PLUGINS": config.GetEnvWithDefault("NEO4JLABS_PLUGINS", `["apoc","graph-data-science"]`),
-			"NEO4J_dbms_security_procedures_unrestricted": config.GetEnvWithDefault("NEO4J_PROCEDURES_UNRESTRICTED", "apoc.*,gds.*"),
-			"NEO4J_dbms_security_procedures_allowlist":    config.GetEnvWithDefault("NEO4J_PROCEDURES_ALLOWLIST", "apoc.*,gds.*"),
-			"NEO4J_apoc_export_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_EXPORT_ENABLED", "true"),
-			"NEO4J_apoc_import_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_IMPORT_ENABLED", "true"),
-		},
-		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(119 * time.Second),
-	}
-
-	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
+// Start initializes shared resources for integration tests
+func Start(ctx context.Context) {
+	ctr, boltURI, err := createNeo4jContainer(ctx)
 	if err != nil {
-		return nil, "", err
+		log.Fatalf("failed to start shared neo4j container: %v", err)
+	}
+	container = ctr
+
+	cfg = &config.Config{
+		URI:      boltURI,
+		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		Database: config.GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 	}
 
-	host, err := ctr.Host(ctx)
+	drv, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
 		_ = ctr.Terminate(ctx)
-		return nil, "", err
+		log.Fatalf("failed to create driver: %v", err)
 	}
-	port, err := ctr.MappedPort(ctx, "7687/tcp")
-	if err != nil {
-		_ = ctr.Terminate(ctx)
-		return nil, "", err
-	}
+	driver = drv
 
-	boltURI := fmt.Sprintf("bolt://%s:%s", host, port.Port())
-	return ctr, boltURI, nil
+	if err := waitForConnectivity(ctx, ctr, &driver); err != nil {
+		_ = driver.Close(ctx)
+		_ = ctr.Terminate(ctx)
+		log.Fatalf("failed to verify connectivity: %v", err)
+	}
 }
 
-// waitForConnectivity waits for Neo4j connectivity with exponential backoff.
-func waitForConnectivity(ctx context.Context, ctr testcontainers.Container, drv *neo4j.DriverWithContext) error {
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
-
-	backoff := 100 * time.Millisecond
-	maxBackoff := 2 * time.Second
-
-	var lastErr error
-	for {
-		if err := (*drv).VerifyConnectivity(ctx); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-
-		if ctx.Err() != nil {
-			break
-		}
-
-		time.Sleep(backoff)
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
+// Close cleans up shared resources used in integration tests
+func Close(ctx context.Context) {
+	if err := driver.Close(ctx); err != nil {
+		log.Printf("Warning: failed to close driver: %v", err)
 	}
-
-	var logs string
-	if ctr != nil {
-		rc, err := ctr.Logs(context.Background())
-		if err == nil && rc != nil {
-			b, rerr := io.ReadAll(rc)
-			_ = rc.Close()
-			if rerr == nil {
-				logs = string(b)
-			}
-		}
+	if err := container.Terminate(ctx); err != nil {
+		log.Printf("Warning: failed to terminate container: %v", err)
 	}
-
-	if logs != "" {
-		return fmt.Errorf("neo4j connectivity not ready: %v\ncontainer logs:\n%s", lastErr, logs)
-	}
-	return fmt.Errorf("neo4j connectivity not ready: %v", lastErr)
 }
 
 // NewTestContext creates a new test context with automatic cleanup
@@ -124,11 +80,11 @@ func NewTestContext(t *testing.T) *TestContext {
 
 	ctx := context.Background()
 	testID := makeTestID()
-	svc, err := database.NewNeo4jService(sharedDrv)
+	svc, err := database.NewNeo4jService(driver)
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
-	deps := &tools.ToolDependencies{Config: sharedCfg, DBService: svc}
+	deps := &tools.ToolDependencies{Config: cfg, DBService: svc}
 
 	tc := &TestContext{
 		Ctx:     ctx,
@@ -151,7 +107,7 @@ func (tc *TestContext) Cleanup() {
 		context.Background(),
 		"MATCH (n) WHERE n.test_id = $testID DETACH DELETE n",
 		map[string]any{"testID": tc.TestID},
-		sharedCfg.Database,
+		cfg.Database,
 	)
 }
 
@@ -162,7 +118,7 @@ func (tc *TestContext) SeedNode(label string, props map[string]any) error {
 	// Always add test_id to props
 	props["test_id"] = tc.TestID
 
-	session := (sharedDrv).NewSession(tc.Ctx, neo4j.SessionConfig{})
+	session := (driver).NewSession(tc.Ctx, neo4j.SessionConfig{})
 	defer session.Close(tc.Ctx)
 
 	query := fmt.Sprintf("CREATE (n:%s $props) RETURN n", label)
@@ -227,7 +183,7 @@ func (tc *TestContext) VerifyNodeInDB(label string, props map[string]any) *neo4j
 	// Build WHERE clause for each property
 	props["test_id"] = tc.TestID
 
-	session := (sharedDrv).NewSession(tc.Ctx, neo4j.SessionConfig{})
+	session := (driver).NewSession(tc.Ctx, neo4j.SessionConfig{})
 	defer session.Close(tc.Ctx)
 
 	// Build WHERE clause dynamically
@@ -326,4 +282,94 @@ func AssertSchemaHasNodeType(t *testing.T, schemaMap map[string]map[string]any, 
 			t.Errorf("expected %s to have '%s' property", label, prop)
 		}
 	}
+}
+
+// makeTestID returns a unique test id suitable for tagging resources created by tests.
+func makeTestID() string {
+	return fmt.Sprintf("test-%s", uuid.NewString())
+}
+
+// waitForConnectivity waits for Neo4j connectivity with exponential backoff.
+func waitForConnectivity(ctx context.Context, ctr testcontainers.Container, driver *neo4j.DriverWithContext) error {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	backoff := 100 * time.Millisecond
+	maxBackoff := 2 * time.Second
+
+	var lastErr error
+	for {
+		if err := (*driver).VerifyConnectivity(ctx); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+
+		if ctx.Err() != nil {
+			break
+		}
+
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+
+	var logs string
+	if ctr != nil {
+		rc, err := ctr.Logs(context.Background())
+		if err == nil && rc != nil {
+			b, rerr := io.ReadAll(rc)
+			_ = rc.Close()
+			if rerr == nil {
+				logs = string(b)
+			}
+		}
+	}
+
+	if logs != "" {
+		return fmt.Errorf("neo4j connectivity not ready: %v\ncontainer logs:\n%s", lastErr, logs)
+	}
+	return fmt.Errorf("neo4j connectivity not ready: %v", lastErr)
+}
+
+// createNeo4jContainer starts a Neo4j container for testing
+func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string, error) {
+	req := testcontainers.ContainerRequest{
+		Image:        config.GetEnvWithDefault("NEO4J_IMAGE", "neo4j:5.24.2-community"),
+		ExposedPorts: []string{"7687/tcp"},
+		Env: map[string]string{
+			"NEO4J_AUTH":        fmt.Sprintf("%s/%s", config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"), config.GetEnvWithDefault("NEO4J_PASSWORD", "password")),
+			"NEO4JLABS_PLUGINS": config.GetEnvWithDefault("NEO4JLABS_PLUGINS", `["apoc","graph-data-science"]`),
+			"NEO4J_dbms_security_procedures_unrestricted": config.GetEnvWithDefault("NEO4J_PROCEDURES_UNRESTRICTED", "apoc.*,gds.*"),
+			"NEO4J_dbms_security_procedures_allowlist":    config.GetEnvWithDefault("NEO4J_PROCEDURES_ALLOWLIST", "apoc.*,gds.*"),
+			"NEO4J_apoc_export_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_EXPORT_ENABLED", "true"),
+			"NEO4J_apoc_import_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_IMPORT_ENABLED", "true"),
+		},
+		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(119 * time.Second),
+	}
+
+	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	host, err := ctr.Host(ctx)
+	if err != nil {
+		_ = ctr.Terminate(ctx)
+		return nil, "", err
+	}
+	port, err := ctr.MappedPort(ctx, "7687/tcp")
+	if err != nil {
+		_ = ctr.Terminate(ctx)
+		return nil, "", err
+	}
+
+	boltURI := fmt.Sprintf("bolt://%s:%s", host, port.Port())
+
+	return ctr, boltURI, nil
 }

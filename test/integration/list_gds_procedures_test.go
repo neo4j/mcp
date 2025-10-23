@@ -6,15 +6,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/internal/tools/gds"
+	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestMCPIntegration_ListGdsProcedures(t *testing.T) {
 	t.Parallel()
 
-	tc := NewTestContext(t)
+	tc := helpers.NewTestContext(t)
 
-	listGds := tools.ListGdsProceduresHandler(tc.Deps)
+	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
 
 	var procedures []map[string]any
@@ -66,9 +67,9 @@ func TestMCPIntegration_ListGdsProcedures(t *testing.T) {
 func TestMCPIntegration_ListGdsProcedures_KnownProcedures(t *testing.T) {
 	t.Parallel()
 
-	tc := NewTestContext(t)
+	tc := helpers.NewTestContext(t)
 
-	listGds := tools.ListGdsProceduresHandler(tc.Deps)
+	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
 
 	var procedures []map[string]any
