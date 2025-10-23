@@ -88,7 +88,7 @@ func Close(ctx context.Context) {
 func NewTestContext(t *testing.T) *TestContext {
 	t.Helper()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	testID := makeTestID()
 
 	tc := &TestContext{
@@ -98,7 +98,8 @@ func NewTestContext(t *testing.T) *TestContext {
 	}
 
 	t.Cleanup(func() {
-		tc.Cleanup()
+		tc.Cleanup() // Clean up test data
+		cancel()     // Release context resources immediately
 	})
 
 	svc, err := database.NewNeo4jService(driver)
@@ -115,12 +116,21 @@ func NewTestContext(t *testing.T) *TestContext {
 
 // Cleanup removes all test data tagged with this test ID
 func (tc *TestContext) Cleanup() {
-	_, _ = tc.Service.ExecuteWriteQuery(
-		context.Background(),
+	if tc.Service == nil {
+		return // Service wasn't initialized, nothing to clean up
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if _, err := tc.Service.ExecuteWriteQuery(
+		ctx,
 		"MATCH (n) WHERE n.test_id = $testID DETACH DELETE n",
 		map[string]any{"testID": tc.TestID},
 		cfg.Database,
-	)
+	); err != nil {
+		log.Printf("Warning: cleanup failed for test_id=%s: %v", tc.TestID, err)
+	}
 }
 
 // SeedNode creates a test node and returns it
