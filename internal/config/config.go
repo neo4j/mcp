@@ -40,10 +40,10 @@ func (c *Config) Validate() error {
 // LoadConfig loads configuration from environment variables with defaults
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
-		URI:      getEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username: getEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: getEnvWithDefault("NEO4J_PASSWORD", "password"),
-		Database: getEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		URI:      GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username: GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password: GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		Database: GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -53,7 +53,7 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-func getEnvWithDefault(key, defaultValue string) string {
+func GetEnvWithDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
