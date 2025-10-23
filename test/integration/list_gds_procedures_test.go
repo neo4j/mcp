@@ -10,6 +10,8 @@ import (
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
+// TODO: Add more tests. The current tests showcase how to use the integration test framework, but are not exhaustive.
+
 func TestMCPIntegration_ListGdsProcedures(t *testing.T) {
 	t.Parallel()
 
