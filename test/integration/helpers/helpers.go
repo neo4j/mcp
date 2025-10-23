@@ -80,23 +80,25 @@ func NewTestContext(t *testing.T) *TestContext {
 
 	ctx := context.Background()
 	testID := makeTestID()
+
+	tc := &TestContext{
+		Ctx:    ctx,
+		T:      t,
+		TestID: testID,
+	}
+
+	t.Cleanup(func() {
+		tc.Cleanup()
+	})
+
 	svc, err := database.NewNeo4jService(driver)
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
 	deps := &tools.ToolDependencies{Config: cfg, DBService: svc}
 
-	tc := &TestContext{
-		Ctx:     ctx,
-		T:       t,
-		TestID:  testID,
-		Service: svc,
-		Deps:    deps,
-	}
-
-	t.Cleanup(func() {
-		tc.Cleanup()
-	})
+	tc.Service = svc
+	tc.Deps = deps
 
 	return tc
 }
