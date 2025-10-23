@@ -14,10 +14,13 @@ func TestMCPIntegration_GetSchema(t *testing.T) {
 
 	tc := helpers.NewTestContext(t)
 
-	if err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30}); err != nil {
+	// Use TestID as identifier to create unique labels
+	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30})
+	if err != nil {
 		t.Fatalf("failed to seed Person node: %v", err)
 	}
-	if err := tc.SeedNode("Company", map[string]any{"name": "Neo4j", "founded": 2007}); err != nil {
+	companyLabel, err := tc.SeedNode("Company", map[string]any{"name": "Neo4j", "founded": 2007})
+	if err != nil {
 		t.Fatalf("failed to seed Company node: %v", err)
 	}
 
@@ -44,6 +47,7 @@ func TestMCPIntegration_GetSchema(t *testing.T) {
 		schemaMap[key] = value
 	}
 
-	helpers.AssertSchemaHasNodeType(t, schemaMap, "Person", []string{"name", "age"})
-	helpers.AssertSchemaHasNodeType(t, schemaMap, "Company", []string{"name", "founded"})
+	// Check for the unique labels created
+	helpers.AssertSchemaHasNodeType(t, schemaMap, personLabel, []string{"name", "age"})
+	helpers.AssertSchemaHasNodeType(t, schemaMap, companyLabel, []string{"name", "founded"})
 }

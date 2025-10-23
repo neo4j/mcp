@@ -14,14 +14,15 @@ func TestMCPIntegration_ReadCypher(t *testing.T) {
 
 	tc := helpers.NewTestContext(t)
 
-	if err := tc.SeedNode("Person", map[string]any{"name": "Alice"}); err != nil {
+	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice"})
+	if err != nil {
 		t.Fatalf("failed to seed data: %v", err)
 	}
 
 	read := cypher.ReadCypherHandler(tc.Deps)
 	res := tc.CallTool(read, map[string]any{
-		"query":  "MATCH (p:Person {name: $name, test_id: $testID}) RETURN p",
-		"params": map[string]any{"name": "Alice", "testID": tc.TestID},
+		"query":  "MATCH (p:" + personLabel + " {name: $name}) RETURN p",
+		"params": map[string]any{"name": "Alice"},
 	})
 
 	var records []map[string]any
@@ -37,5 +38,5 @@ func TestMCPIntegration_ReadCypher(t *testing.T) {
 			records[0]["p"])
 	}
 	helpers.AssertNodeProperties(t, pNode, map[string]any{"name": "Alice"})
-	helpers.AssertNodeHasLabel(t, pNode, "Person")
+	helpers.AssertNodeHasLabel(t, pNode, personLabel)
 }

@@ -14,16 +14,18 @@ func TestMCPIntegration_WriteThenRead(t *testing.T) {
 
 	tc := helpers.NewTestContext(t)
 
+	companyLabel := tc.GetUniqueLabel("Company")
+
 	write := cypher.WriteCypherHandler(tc.Deps)
 	tc.CallTool(write, map[string]any{
-		"query":  "CREATE (c:Company {name: $name, industry: $industry, test_id: $testID}) RETURN c",
-		"params": map[string]any{"name": "Neo4j", "industry": "Database", "testID": tc.TestID},
+		"query":  "CREATE (c:" + companyLabel + " {name: $name, industry: $industry}) RETURN c",
+		"params": map[string]any{"name": "Neo4j", "industry": "Database"},
 	})
 
 	read := cypher.ReadCypherHandler(tc.Deps)
 	res := tc.CallTool(read, map[string]any{
-		"query":  "MATCH (c:Company {test_id: $testID}) RETURN c",
-		"params": map[string]any{"testID": tc.TestID},
+		"query":  "MATCH (c:" + companyLabel + ") RETURN c",
+		"params": map[string]any{},
 	})
 
 	var records []map[string]any
@@ -38,5 +40,5 @@ func TestMCPIntegration_WriteThenRead(t *testing.T) {
 		"name":     "Neo4j",
 		"industry": "Database",
 	})
-	helpers.AssertNodeHasLabel(t, company, "Company")
+	helpers.AssertNodeHasLabel(t, company, companyLabel)
 }

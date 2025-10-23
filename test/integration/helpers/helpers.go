@@ -23,13 +23,23 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+type UniqueLabel string
+
+// String returns the string representation of the UniqueLabel.
+// This implements the fmt.Stringer interface, making it work seamlessly with fmt functions.
+func (ul UniqueLabel) String() string {
+	return string(ul)
+}
+
 // TestContext holds common test dependencies
 type TestContext struct {
-	Ctx     context.Context
-	T       *testing.T
-	TestID  string
-	Service database.Service
-	Deps    *tools.ToolDependencies
+	Ctx           context.Context
+	T             *testing.T
+	TestID        string
+	Service       database.Service
+	Deps          *tools.ToolDependencies
+	createdLabels map[string]bool
+	labelMutex    sync.Mutex
 }
 
 var (
@@ -92,9 +102,10 @@ func NewTestContext(t *testing.T) *TestContext {
 	testID := makeTestID()
 
 	tc := &TestContext{
-		Ctx:    ctx,
-		T:      t,
-		TestID: testID,
+		Ctx:           ctx,
+		T:             t,
+		TestID:        testID,
+		createdLabels: make(map[string]bool),
 	}
 
 	t.Cleanup(func() {
@@ -114,7 +125,7 @@ func NewTestContext(t *testing.T) *TestContext {
 	return tc
 }
 
-// Cleanup removes all test data tagged with this test ID
+// Cleanup removes all test data by deleting nodes with labels created during the test
 func (tc *TestContext) Cleanup() {
 	if tc.Service == nil {
 		return // Service wasn't initialized, nothing to clean up
@@ -123,27 +134,46 @@ func (tc *TestContext) Cleanup() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if _, err := tc.Service.ExecuteWriteQuery(
-		ctx,
-		"MATCH (n) WHERE n.test_id = $testID DETACH DELETE n",
-		map[string]any{"testID": tc.TestID},
-		cfg.Database,
-	); err != nil {
-		log.Printf("Warning: cleanup failed for test_id=%s: %v", tc.TestID, err)
+	tc.labelMutex.Lock()
+	labels := make([]string, 0, len(tc.createdLabels))
+	for label := range tc.createdLabels {
+		labels = append(labels, label)
+	}
+	tc.labelMutex.Unlock()
+
+	// Delete nodes for each unique label
+	for _, label := range labels {
+		query := fmt.Sprintf("MATCH (n:%s) DETACH DELETE n", label)
+		if _, err := tc.Service.ExecuteWriteQuery(
+			ctx,
+			query,
+			map[string]any{},
+			cfg.Database,
+		); err != nil {
+			log.Printf("Warning: cleanup failed for label=%s: %v", label, err)
+		}
 	}
 }
 
-// SeedNode creates a test node and returns it
-func (tc *TestContext) SeedNode(label string, props map[string]any) error {
+// SeedNode creates a test node with a unique label and returns it.
+func (tc *TestContext) SeedNode(label string, props map[string]any) (UniqueLabel, error) {
 	tc.T.Helper()
 
-	// Always add test_id to props
-	props["test_id"] = tc.TestID
+	if tc.TestID == "" {
+		panic("SeedNode: TestID is not set in TestContext. Did you forget to use NewTestContext?")
+	}
+
+	uniqueLabel := UniqueLabel(fmt.Sprintf("%s_%s", label, tc.TestID))
+
+	// Track this label for cleanup
+	tc.labelMutex.Lock()
+	tc.createdLabels[string(uniqueLabel)] = true
+	tc.labelMutex.Unlock()
 
 	session := (driver).NewSession(tc.Ctx, neo4j.SessionConfig{})
 	defer session.Close(tc.Ctx)
 
-	query := fmt.Sprintf("CREATE (n:%s $props) RETURN n", label)
+	query := fmt.Sprintf("CREATE (n:%s $props) RETURN n", uniqueLabel)
 	_, err := session.ExecuteWrite(tc.Ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, err := tx.Run(tc.Ctx, query, map[string]any{"props": props})
 		if err != nil {
@@ -153,7 +183,23 @@ func (tc *TestContext) SeedNode(label string, props map[string]any) error {
 		return nil, err
 	})
 
-	return err
+	return uniqueLabel, err
+}
+
+// GetUniqueLabel returns a unique label for the given base label and identifier.
+func (tc *TestContext) GetUniqueLabel(label string) UniqueLabel {
+	if tc.TestID == "" {
+		panic("GetUniqueLabel: TestID is not set in TestContext. Did you forget to use NewTestContext?")
+	}
+
+	uniqueLabel := UniqueLabel(fmt.Sprintf("%s_%s", label, tc.TestID))
+
+	// Track this label for cleanup
+	tc.labelMutex.Lock()
+	tc.createdLabels[string(uniqueLabel)] = true
+	tc.labelMutex.Unlock()
+
+	return uniqueLabel
 }
 
 // CallTool invokes an MCP tool and returns the response
@@ -198,12 +244,10 @@ func (tc *TestContext) ParseJSONResponse(res *mcp.CallToolResult, v any) {
 	}
 }
 
-// VerifyNodeInDB verifies that a node exists in the database with the given properties
-func (tc *TestContext) VerifyNodeInDB(label string, props map[string]any) *neo4j.Record {
+// VerifyNodeInDB verifies that a node exists in the database with the given properties.
+// The label parameter should be the unique label (e.g., "Person_test_abc123").
+func (tc *TestContext) VerifyNodeInDB(label UniqueLabel, props map[string]any) *neo4j.Record {
 	tc.T.Helper()
-
-	// Build WHERE clause for each property
-	props["test_id"] = tc.TestID
 
 	session := (driver).NewSession(tc.Ctx, neo4j.SessionConfig{})
 	defer session.Close(tc.Ctx)
@@ -262,7 +306,7 @@ func AssertNodeProperties(t *testing.T, node map[string]any, expectedProps map[s
 }
 
 // AssertNodeHasLabel checks if a node has a specific label
-func AssertNodeHasLabel(t *testing.T, node map[string]any, expectedLabel string) {
+func AssertNodeHasLabel(t *testing.T, node map[string]any, expectedLabel UniqueLabel) {
 	t.Helper()
 
 	labels, ok := node["Labels"].([]any)
@@ -271,7 +315,7 @@ func AssertNodeHasLabel(t *testing.T, node map[string]any, expectedLabel string)
 	}
 
 	for _, label := range labels {
-		if labelStr, ok := label.(string); ok && labelStr == expectedLabel {
+		if labelStr, ok := label.(string); ok && labelStr == string(expectedLabel) {
 			return
 		}
 	}
@@ -280,10 +324,10 @@ func AssertNodeHasLabel(t *testing.T, node map[string]any, expectedLabel string)
 }
 
 // AssertSchemaHasNodeType checks if the schema contains a node type with expected properties
-func AssertSchemaHasNodeType(t *testing.T, schemaMap map[string]map[string]any, label string, expectedProps []string) {
+func AssertSchemaHasNodeType(t *testing.T, schemaMap map[string]map[string]any, label UniqueLabel, expectedProps []string) {
 	t.Helper()
 
-	schema, ok := schemaMap[label]
+	schema, ok := schemaMap[string(label)]
 	if !ok {
 		t.Errorf("expected schema to contain '%s' label", label)
 		return
@@ -308,7 +352,8 @@ func AssertSchemaHasNodeType(t *testing.T, schemaMap map[string]map[string]any, 
 
 // makeTestID returns a unique test id suitable for tagging resources created by tests.
 func makeTestID() string {
-	return fmt.Sprintf("test-%s", uuid.NewString())
+	id := fmt.Sprintf("test-%s", uuid.NewString())
+	return strings.ReplaceAll(id, "-", "_")
 }
 
 // waitForConnectivity waits for Neo4j connectivity with exponential backoff.

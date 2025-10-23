@@ -14,11 +14,13 @@ func TestMCPIntegration_WriteCypher(t *testing.T) {
 
 	tc := helpers.NewTestContext(t)
 
+	personLabel := tc.GetUniqueLabel("Person")
+
 	write := cypher.WriteCypherHandler(tc.Deps)
 	tc.CallTool(write, map[string]any{
-		"query":  "CREATE (p:Person {name: $name, test_id: $testID}) RETURN p",
-		"params": map[string]any{"name": "Alice", "testID": tc.TestID},
+		"query":  "CREATE (p:" + personLabel + " {name: $name}) RETURN p",
+		"params": map[string]any{"name": "Alice"},
 	})
 
-	tc.VerifyNodeInDB("Person", map[string]any{"name": "Alice"})
+	tc.VerifyNodeInDB(personLabel, map[string]any{"name": "Alice"})
 }

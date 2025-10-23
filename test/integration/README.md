@@ -7,16 +7,19 @@ Integration tests for the Neo4j MCP server using a shared Neo4j container (inclu
 ```go
 func TestMCPIntegration_MyFeature(t *testing.T) {
     t.Parallel()
-    tc := NewTestContext(t)
+    tc := helpers.NewTestContext(t)
 
-    // Seed test data (automatically isolated and cleaned up)
-    tc.SeedNode("Person", map[string]any{"name": "Alice"})
+    // Seed test data (automatically isolated with unique labels and cleaned up)
+    personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice"})
+    if err != nil {
+        t.Fatalf("failed to seed data: %v", err)
+    }
 
     // Call tool
-    handler := tools.ReadCypherHandler(tc.Deps)
+    handler := cypher.ReadCypherHandler(tc.Deps)
     res := tc.CallTool(handler, map[string]any{
-        "query":  "MATCH (p:Person {test_id: $testID}) RETURN p",
-        "params": map[string]any{"testID": tc.TestID},
+        "query":  "MATCH (p:" + personLabel + " {name: $name}) RETURN p",
+        "params": map[string]any{"name": "Alice"},
     })
 
     // Parse and assert
@@ -24,7 +27,8 @@ func TestMCPIntegration_MyFeature(t *testing.T) {
     tc.ParseJSONResponse(res, &records)
 
     person := records[0]["p"].(map[string]any)
-    AssertNodeProperties(t, person, map[string]any{"name": "Alice"})
+    helpers.AssertNodeProperties(t, person, map[string]any{"name": "Alice"})
+    helpers.AssertNodeHasLabel(t, person, personLabel)
 }
 ```
 
@@ -32,17 +36,18 @@ func TestMCPIntegration_MyFeature(t *testing.T) {
 
 **TestContext:**
 
-- `NewTestContext(t)` - Auto-isolation + cleanup
-- `SeedNode(label, props)` - Create test data
+- `helpers.NewTestContext(t)` - Auto-isolation + cleanup
+- `SeedNode(label, props)` - Create test data with unique label, returns `(UniqueLabel, error)`
+- `GetUniqueLabel(label)` - Get a unique label for creating nodes manually
 - `CallTool(handler, args)` - Invoke MCP tool
 - `ParseJSONResponse(res, &v)` - Parse response
 - `VerifyNodeInDB(label, props)` - Check DB state
 
 **Assertions:**
 
-- `AssertNodeProperties(t, node, props)`
-- `AssertNodeHasLabel(t, node, label)`
-- `AssertSchemaHasNodeType(t, schema, label, props)`
+- `helpers.AssertNodeProperties(t, node, props)`
+- `helpers.AssertNodeHasLabel(t, node, label)`
+- `helpers.AssertSchemaHasNodeType(t, schema, label, props)`
 
 ## Running Tests
 
@@ -75,5 +80,6 @@ go test -tags=integration ./test/integration/... -v
 ## Important
 
 - Always use `t.Parallel()` for parallel execution
-- Always include `test_id` in queries for isolation
-- Test data is automatically tagged with unique IDs and cleaned up
+- Always use the `UniqueLabel` returned by `SeedNode()` or `GetUniqueLabel()` in your queries for isolation
+- Test data is automatically tagged with unique labels and cleaned up after each test
+- Import the helpers package: `"github.com/neo4j/mcp/test/integration/helpers"`
