@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,12 +32,21 @@ type TestContext struct {
 	Deps    *tools.ToolDependencies
 }
 
-var cfg *config.Config
-var container testcontainers.Container
-var driver neo4j.DriverWithContext
+var (
+	cfg       *config.Config
+	container testcontainers.Container
+	driver    neo4j.DriverWithContext
+	once      sync.Once
+)
 
 // Start initializes shared resources for integration tests
 func Start(ctx context.Context) {
+	once.Do(func() {
+		startOnce(ctx)
+	})
+}
+
+func startOnce(ctx context.Context) {
 	ctr, boltURI, err := createNeo4jContainer(ctx)
 	if err != nil {
 		log.Fatalf("failed to start shared neo4j container: %v", err)
