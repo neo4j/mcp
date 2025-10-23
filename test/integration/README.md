@@ -56,16 +56,12 @@ go test -tags=integration ./test/integration/... -race           # With race det
 
 The integration tests use environment variables to configure the Neo4j test container. All variables have sensible defaults:
 
-| Environment Variable            | Default                         | Description               |
-| ------------------------------- | ------------------------------- | ------------------------- |
-| `NEO4J_IMAGE`                   | `neo4j:5.24.2-community`        | Neo4j Docker image to use |
-| `NEO4J_USERNAME`                | `neo4j`                         | Database username         |
-| `NEO4J_PASSWORD`                | `password`                      | Database password         |
-| `NEO4JLABS_PLUGINS`             | `["apoc","graph-data-science"]` | Plugins to install        |
-| `NEO4J_PROCEDURES_UNRESTRICTED` | `apoc.*,gds.*`                  | Unrestricted procedures   |
-| `NEO4J_PROCEDURES_ALLOWLIST`    | `apoc.*,gds.*`                  | Allowed procedures        |
-| `NEO4J_APOC_EXPORT_ENABLED`     | `true`                          | Enable APOC export        |
-| `NEO4J_APOC_IMPORT_ENABLED`     | `true`                          | Enable APOC import        |
+| Environment Variable | Default                         | Description               |
+| -------------------- | ------------------------------- | ------------------------- |
+| `NEO4J_IMAGE`        | `neo4j:5.24.2-community`        | Neo4j Docker image to use |
+| `NEO4J_USERNAME`     | `neo4j`                         | Database username         |
+| `NEO4J_PASSWORD`     | `password`                      | Database password         |
+| `NEO4JLABS_PLUGINS`  | `["apoc","graph-data-science"]` | Plugins to install        |
 
 **Example with custom configuration:**
 

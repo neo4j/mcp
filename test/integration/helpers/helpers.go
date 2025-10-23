@@ -364,10 +364,6 @@ func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string
 		Env: map[string]string{
 			"NEO4J_AUTH":        fmt.Sprintf("%s/%s", config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"), config.GetEnvWithDefault("NEO4J_PASSWORD", "password")),
 			"NEO4JLABS_PLUGINS": config.GetEnvWithDefault("NEO4JLABS_PLUGINS", `["apoc","graph-data-science"]`),
-			"NEO4J_dbms_security_procedures_unrestricted": config.GetEnvWithDefault("NEO4J_PROCEDURES_UNRESTRICTED", "apoc.*,gds.*"),
-			"NEO4J_dbms_security_procedures_allowlist":    config.GetEnvWithDefault("NEO4J_PROCEDURES_ALLOWLIST", "apoc.*,gds.*"),
-			"NEO4J_apoc_export_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_EXPORT_ENABLED", "true"),
-			"NEO4J_apoc_import_file_enabled":              config.GetEnvWithDefault("NEO4J_APOC_IMPORT_ENABLED", "true"),
 		},
 		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(119 * time.Second),
 	}
