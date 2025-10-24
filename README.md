@@ -108,17 +108,16 @@ Notes:
 
 Provided tools:
 
-| Tool                  | Purpose                                              | Notes                                                                                                                          |
-| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `get-schema`          | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                                                        |
-| `read-cypher`         | Execute arbitrary Cypher (read mode)                 | Read-only. rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead.                           |
-| `write-cypher`        | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. Disabled if `NEO4J_READ_ONLY=true`. |
-| `list-gds-procedures` | List GDS procedures available in the Neo4j instance  | Read-only. Help the client LLM to have a better visibility on the GDS procedures available                                     |
-
+| Tool                  | ReadOnly | Purpose                                              | Notes                                                                                                                          |
+| --------------------- | -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `get-schema`          | `true`   | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                                                        |
+| `read-cypher`         | `true`   | Execute arbitrary Cypher (read mode)                 | Read-only. rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead.                           |
+| `write-cypher`        | `false`  | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. Disabled if `NEO4J_READ_ONLY=true`. |
+| `list-gds-procedures` | `true`   | List GDS procedures available in the Neo4j instance  | Read-only. Help the client LLM to have a better visibility on the GDS procedures available                                     |
 
 ### Readonly mode flag
 
-Enable readonly mode by setting the `NEO4J_READ_ONLY` environment variable to `true` (for example, `"NEO4J_READ_ONLY": "true"`). 
+Enable readonly mode by setting the `NEO4J_READ_ONLY` environment variable to `true` (for example, `"NEO4J_READ_ONLY": "true"`).
 When enabled, write tools (for example, `write-cypher`) are not exposed to clients.
 
 ### Query Classification
@@ -131,7 +130,6 @@ Important notes:
 - **Admin queries**: Commands like `SHOW USERS`, `SHOW DATABASES`, etc., are treated as non-read queries and must use `write-cypher` instead.
 - **Profile queries**: `EXPLAIN PROFILE` queries are treated as non-read queries, even if the underlying statement is read-only.
 - **Schema operations**: `CREATE INDEX`, `DROP CONSTRAINT`, etc., are treated as non-read queries.
-
 
 ## Example Natural Language Prompts
 
