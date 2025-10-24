@@ -41,6 +41,7 @@ export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
 export NEO4J_DATABASE="neo4j"
+export NEO4J_READ_ONLY="true" // Optional: disables write tools
 ```
 
 ## Build / Test / Run
@@ -157,10 +158,14 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
        return mcp.NewTool("my-tool",
            mcp.WithDescription("Tool description"),
            mcp.WithInputSchema[MyToolInput](),
+           mcp.WithReadOnlyHintAnnotation(true), // This flag will be used filter tools for the read-only mode.
        )
    }
    ```
-
+    **Note:** WithReadOnlyHintAnnotation marks a tool with a read-only hint is used for filtering.
+    When set to true, the tool will be considered read-only and included when selecting
+    tools for read-only mode. If the annotation is not present or set to false,
+    the tool is treated as a write-capable tool (i.e., not considered read-only).
 2. **Implement tool handler**:
 
    ```go
@@ -171,7 +176,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
    }
    ```
 
-3. **Register in tool_register.go**:
+3. **Register in tool_register.go, in the right section (cypher/GDS/etc...)**:
 
    ```go
    {

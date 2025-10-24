@@ -13,14 +13,32 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 		Config:    s.config,
 		DBService: s.dbService,
 	}
-	registerAllTools(s.MCPServer, deps)
+	registerEnabledTools(s.MCPServer, deps)
 	return nil
 }
 
-// registerAllTools registers all available MCP tools
-func registerAllTools(mcpServer *server.MCPServer, deps *tools.ToolDependencies) {
-	tools := getAllTools(deps)
-	mcpServer.AddTools(tools...)
+// registerEnabledTools registers all available MCP tools and adds them to the provided MCP server.
+// Tools are filtered according to the server configuration. For example, when the read-only
+// mode is enabled (e.g. via the NEO4J_READ_ONLY environment variable or the Config.ReadOnly flag),
+// any tool that performs state mutation will be excluded; only tools annotated as read-only will be registered.
+// Note: this read-only filtering relies on the tool annotation "readonly" (ReadOnlyHint). If the annotation
+// is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).
+func registerEnabledTools(mcpServer *server.MCPServer, deps *tools.ToolDependencies) {
+	all := getAllTools(deps)
+
+	// If read-only mode is enabled, expose only tools annotated as read-only.
+	if deps != nil && deps.Config != nil && deps.Config.ReadOnly == "true" {
+		readOnlyTools := make([]server.ServerTool, 0, len(all))
+		for _, t := range all {
+			if t.Tool.Annotations.ReadOnlyHint != nil && *t.Tool.Annotations.ReadOnlyHint {
+				readOnlyTools = append(readOnlyTools, t)
+			}
+		}
+		mcpServer.AddTools(readOnlyTools...)
+		return
+	}
+
+	mcpServer.AddTools(all...)
 }
 
 // getAllTools returns all available tools with their specs and handlers

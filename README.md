@@ -54,7 +54,8 @@ Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/custo
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
         "NEO4J_PASSWORD": "password",
-        "NEO4J_DATABASE": "neo4j"
+        "NEO4J_DATABASE": "neo4j",
+        "NEO4J_READ_ONLY": "true" // Optional: disables write tools
       }
     }
   }
@@ -87,7 +88,8 @@ You’ll then add the `neo4j-mcp` MCP in the mcpServers key:
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
         "NEO4J_PASSWORD": "password",
-        "NEO4J_DATABASE": "neo4j"
+        "NEO4J_DATABASE": "neo4j",
+        "NEO4J_READ_ONLY": "true" // Optional: disables write tools
       }
     }
   }
@@ -97,6 +99,8 @@ You’ll then add the `neo4j-mcp` MCP in the mcpServers key:
 Notes:
 
 - Adjust env vars for your setup (defaults shown above).
+- Set `NEO4J_READ_ONLY=true` to disable all write tools (e.g., `write-cypher`).
+- When enabled, only read operations are available; write tools are not exposed to clients.
 - Neo4j Desktop default URI: `bolt://localhost:7687`.
 - Aura: use the connection string from the Aura console.
 
@@ -104,12 +108,17 @@ Notes:
 
 Provided tools:
 
-| Tool                  | Purpose                                              | Notes                                                                                                |
-| --------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `get-schema`          | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                              |
-| `read-cypher`         | Execute arbitrary Cypher (read mode)                 | Read-only. rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead. |
-| `write-cypher`        | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments.           |
-| `list-gds-procedures` | List GDS procedures available in the Neo4j instance  | Read-only. Help the client LLM to have a better visibility on the GDS procedures available           |
+| Tool                  | ReadOnly | Purpose                                              | Notes                                                                                                                          |
+| --------------------- | -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `get-schema`          | `true`   | Introspect labels, relationship types, property keys | Provide valuable context to the client LLMs.                                                                                   |
+| `read-cypher`         | `true`   | Execute arbitrary Cypher (read mode)                 | Rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead.                                      |
+| `write-cypher`        | `false`  | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. Disabled if `NEO4J_READ_ONLY=true`. |
+| `list-gds-procedures` | `true`   | List GDS procedures available in the Neo4j instance  | Help the client LLM to have a better visibility on the GDS procedures available                                                |
+
+### Readonly mode flag
+
+Enable readonly mode by setting the `NEO4J_READ_ONLY` environment variable to `true` (for example, `"NEO4J_READ_ONLY": "true"`).
+When enabled, write tools (for example, `write-cypher`) are not exposed to clients.
 
 ### Query Classification
 

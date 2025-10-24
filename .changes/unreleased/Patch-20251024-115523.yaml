@@ -1,0 +1,4 @@
+kind: Patch
+body: |
+  Add NEO4J_READ_ONLY env var to enable read-only mode. When enabled, only tools annotated as read-only are registered.
+time: 2025-10-24T11:55:23.771684+01:00
