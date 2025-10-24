@@ -41,6 +41,7 @@ export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
 export NEO4J_DATABASE="neo4j"
+export NEO4J_READ_ONLY="true" // Optional: disables write tools
 ```
 
 ## Build / Test / Run
@@ -171,7 +172,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
    }
    ```
 
-3. **Register in tool_register.go**:
+3. **Register in tool_register.go, in the right section (cypher/GDS/etc...)**:
 
    ```go
    {

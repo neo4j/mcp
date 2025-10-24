@@ -13,16 +13,37 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 		Config:    s.config,
 		DBService: s.dbService,
 	}
-	tools := getTools(deps)
-	s.MCPServer.AddTools(tools...)
+	registerEnabledTools(s.MCPServer, deps)
 	return nil
 }
 
-// getTools returns the available tools with their specs and handlers.
-// The list of tools returned is filtered based on the defined configuration.
-// For instance, with "Config.ReadOnly" all tools that can perform state mutations will not be returned.
-func getTools(deps *tools.ToolDependencies) []server.ServerTool {
-	cypherTools := []server.ServerTool{
+// registerEnabledTools registers all available MCP tools and adds them to the provided MCP server.
+// Tools are filtered according to the server configuration. For example, when the read-only
+// mode is enabled (e.g. via the NEO4J_READ_ONLY environment variable or the Config.ReadOnly flag),
+// any tool that performs state mutation will be excluded; only tools annotated as read-only will be registered.
+// Note: this read-only filtering relies on the tool annotation "readonly" (ReadOnlyHint). If the annotation
+// is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).
+func registerEnabledTools(mcpServer *server.MCPServer, deps *tools.ToolDependencies) {
+	all := getAllTools(deps)
+
+	// If read-only mode is enabled, expose only tools annotated as read-only.
+	if deps != nil && deps.Config != nil && deps.Config.ReadOnly == "true" {
+		readOnlyTools := make([]server.ServerTool, 0, len(all))
+		for _, t := range all {
+			if t.Tool.Annotations.ReadOnlyHint != nil && *t.Tool.Annotations.ReadOnlyHint {
+				readOnlyTools = append(readOnlyTools, t)
+			}
+		}
+		mcpServer.AddTools(readOnlyTools...)
+		return
+	}
+
+	mcpServer.AddTools(all...)
+}
+
+// getAllTools returns all available tools with their specs and handlers
+func getAllTools(deps *tools.ToolDependencies) []server.ServerTool {
+	return []server.ServerTool{
 		{
 			Tool:    cypher.GetSchemaSpec(),
 			Handler: cypher.GetSchemaHandler(deps),
@@ -35,26 +56,11 @@ func getTools(deps *tools.ToolDependencies) []server.ServerTool {
 			Tool:    cypher.WriteCypherSpec(),
 			Handler: cypher.WriteCypherHandler(deps),
 		},
-	}
-	// GDS Category/Section
-	gdsTools := []server.ServerTool{
+		// GDS Category/Section
 		{
 			Tool:    gds.ListGDSProceduresSpec(),
 			Handler: gds.ListGdsProceduresHandler(deps),
 		},
+		// Add other categories below...
 	}
-	// Add other categories/modules below...
-
-	allTools := append(cypherTools, gdsTools...)
-	// filter out the returned tools:
-	if deps.Config.ReadOnly == "true" {
-		readOnlyTools := make([]server.ServerTool, 0, len(allTools))
-		for _, tool := range allTools {
-			if tool.Tool.Annotations.ReadOnlyHint != nil && *tool.Tool.Annotations.ReadOnlyHint == true {
-				readOnlyTools = append(readOnlyTools, tool)
-			}
-		}
-		return readOnlyTools
-	}
-	return allTools
 }
