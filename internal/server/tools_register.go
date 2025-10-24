@@ -13,19 +13,16 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 		Config:    s.config,
 		DBService: s.dbService,
 	}
-	registerAllTools(s.MCPServer, deps)
+	tools := getTools(deps)
+	s.MCPServer.AddTools(tools...)
 	return nil
 }
 
-// registerAllTools registers all available MCP tools
-func registerAllTools(mcpServer *server.MCPServer, deps *tools.ToolDependencies) {
-	tools := getAllTools(deps)
-	mcpServer.AddTools(tools...)
-}
-
-// getAllTools returns all available tools with their specs and handlers
-func getAllTools(deps *tools.ToolDependencies) []server.ServerTool {
-	return []server.ServerTool{
+// getTools returns the available tools with their specs and handlers.
+// The list of tools returned is filtered based on the defined configuration.
+// For instance, with "Config.ReadOnly" all tools that can perform state mutations will not be returned.
+func getTools(deps *tools.ToolDependencies) []server.ServerTool {
+	cypherTools := []server.ServerTool{
 		{
 			Tool:    cypher.GetSchemaSpec(),
 			Handler: cypher.GetSchemaHandler(deps),
@@ -38,11 +35,26 @@ func getAllTools(deps *tools.ToolDependencies) []server.ServerTool {
 			Tool:    cypher.WriteCypherSpec(),
 			Handler: cypher.WriteCypherHandler(deps),
 		},
-		// GDS Category/Section
+	}
+	// GDS Category/Section
+	gdsTools := []server.ServerTool{
 		{
 			Tool:    gds.ListGDSProceduresSpec(),
 			Handler: gds.ListGdsProceduresHandler(deps),
 		},
-		// Add other categories below...
 	}
+	// Add other categories/modules below...
+
+	allTools := append(cypherTools, gdsTools...)
+	// filter out the returned tools:
+	if deps.Config.ReadOnly == "true" {
+		readOnlyTools := make([]server.ServerTool, 0, len(allTools))
+		for _, tool := range allTools {
+			if tool.Tool.Annotations.ReadOnlyHint != nil && *tool.Tool.Annotations.ReadOnlyHint == true {
+				readOnlyTools = append(readOnlyTools, tool)
+			}
+		}
+		return readOnlyTools
+	}
+	return allTools
 }
