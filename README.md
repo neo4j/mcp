@@ -110,10 +110,10 @@ Provided tools:
 
 | Tool                  | ReadOnly | Purpose                                              | Notes                                                                                                                          |
 | --------------------- | -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `get-schema`          | `true`   | Introspect labels, relationship types, property keys | Read-only. Provide valuable context to the client LLMs.                                                                        |
-| `read-cypher`         | `true`   | Execute arbitrary Cypher (read mode)                 | Read-only. rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead.                           |
+| `get-schema`          | `true`   | Introspect labels, relationship types, property keys | Provide valuable context to the client LLMs.                                                                                   |
+| `read-cypher`         | `true`   | Execute arbitrary Cypher (read mode)                 | Rejects writes, schema/admin operations, and PROFILE queries. Use `write-cypher` instead.                                      |
 | `write-cypher`        | `false`  | Execute arbitrary Cypher (write mode)                | **Caution:** LLM-generated queries could cause harm. Use only in development environments. Disabled if `NEO4J_READ_ONLY=true`. |
-| `list-gds-procedures` | `true`   | List GDS procedures available in the Neo4j instance  | Read-only. Help the client LLM to have a better visibility on the GDS procedures available                                     |
+| `list-gds-procedures` | `true`   | List GDS procedures available in the Neo4j instance  | Help the client LLM to have a better visibility on the GDS procedures available                                                |
 
 ### Readonly mode flag
 
