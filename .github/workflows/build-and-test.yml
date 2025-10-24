@@ -42,5 +42,8 @@ jobs:
           version: latest
           args: --timeout=1m
 
-      - name: Run tests
+      - name: Run unit tests
         run: go test -v -race ./...
+
+      - name: Run integration tests
+        run: go test -v -tags=integration ./test/integration/...

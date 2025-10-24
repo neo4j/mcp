@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"strings"
 	"sync"
@@ -19,8 +18,8 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 )
 
 type UniqueLabel string
@@ -43,10 +42,11 @@ type TestContext struct {
 }
 
 var (
-	cfg       *config.Config
-	container testcontainers.Container
-	driver    neo4j.DriverWithContext
-	once      sync.Once
+	cfg      *config.Config
+	pool     *dockertest.Pool
+	resource *dockertest.Resource
+	driver   neo4j.DriverWithContext
+	once     sync.Once
 )
 
 // Start initializes shared resources for integration tests
@@ -57,11 +57,12 @@ func Start(ctx context.Context) {
 }
 
 func startOnce(ctx context.Context) {
-	ctr, boltURI, err := createNeo4jContainer(ctx)
+	p, res, boltURI, err := createNeo4jContainer(ctx)
 	if err != nil {
 		log.Fatalf("failed to start shared neo4j container: %v", err)
 	}
-	container = ctr
+	pool = p
+	resource = res
 
 	cfg = &config.Config{
 		URI:      boltURI,
@@ -72,14 +73,14 @@ func startOnce(ctx context.Context) {
 
 	drv, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
-		_ = ctr.Terminate(ctx)
+		_ = pool.Purge(resource)
 		log.Fatalf("failed to create driver: %v", err)
 	}
 	driver = drv
 
-	if err := waitForConnectivity(ctx, ctr, &driver); err != nil {
+	if err := waitForConnectivity(ctx, &driver); err != nil {
 		_ = driver.Close(ctx)
-		_ = ctr.Terminate(ctx)
+		_ = pool.Purge(resource)
 		log.Fatalf("failed to verify connectivity: %v", err)
 	}
 }
@@ -89,8 +90,10 @@ func Close(ctx context.Context) {
 	if err := driver.Close(ctx); err != nil {
 		log.Printf("Warning: failed to close driver: %v", err)
 	}
-	if err := container.Terminate(ctx); err != nil {
-		log.Printf("Warning: failed to terminate container: %v", err)
+	if pool != nil && resource != nil {
+		if err := pool.Purge(resource); err != nil {
+			log.Printf("Warning: failed to purge container: %v", err)
+		}
 	}
 }
 
@@ -357,7 +360,7 @@ func makeTestID() string {
 }
 
 // waitForConnectivity waits for Neo4j connectivity with exponential backoff.
-func waitForConnectivity(ctx context.Context, ctr testcontainers.Container, driver *neo4j.DriverWithContext) error {
+func waitForConnectivity(ctx context.Context, driver *neo4j.DriverWithContext) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
@@ -383,56 +386,55 @@ func waitForConnectivity(ctx context.Context, ctr testcontainers.Container, driv
 		}
 	}
 
-	var logs string
-	if ctr != nil {
-		rc, err := ctr.Logs(context.Background())
-		if err == nil && rc != nil {
-			b, rerr := io.ReadAll(rc)
-			_ = rc.Close()
-			if rerr == nil {
-				logs = string(b)
-			}
-		}
-	}
-
-	if logs != "" {
-		return fmt.Errorf("neo4j connectivity not ready: %v\ncontainer logs:\n%s", lastErr, logs)
-	}
 	return fmt.Errorf("neo4j connectivity not ready: %v", lastErr)
 }
 
 // createNeo4jContainer starts a Neo4j container for testing
-func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string, error) {
-	req := testcontainers.ContainerRequest{
-		Image:        config.GetEnvWithDefault("NEO4J_IMAGE", "neo4j:5.24.2-community"),
-		ExposedPorts: []string{"7687/tcp"},
-		Env: map[string]string{
-			"NEO4J_AUTH":        fmt.Sprintf("%s/%s", config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"), config.GetEnvWithDefault("NEO4J_PASSWORD", "password")),
-			"NEO4JLABS_PLUGINS": config.GetEnvWithDefault("NEO4JLABS_PLUGINS", `["apoc","graph-data-science"]`),
-		},
-		WaitingFor: wait.ForListeningPort("7687/tcp").WithStartupTimeout(119 * time.Second),
+func createNeo4jContainer(ctx context.Context) (*dockertest.Pool, *dockertest.Resource, string, error) {
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("could not construct pool: %w", err)
 	}
 
-	ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
+	// Set max wait time for the container to become ready
+	pool.MaxWait = 120 * time.Second
+
+	// Parse image and tag
+	imageName := config.GetEnvWithDefault("NEO4J_IMAGE", "neo4j:5.24.2-community")
+	parts := strings.Split(imageName, ":")
+	repository := parts[0]
+	tag := "5.24.2-community"
+	if len(parts) > 1 {
+		tag = parts[1]
+	}
+
+	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: repository,
+		Tag:        tag,
+		Env: []string{
+			fmt.Sprintf("NEO4J_AUTH=%s/%s",
+				config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+				config.GetEnvWithDefault("NEO4J_PASSWORD", "password")),
+			fmt.Sprintf("NEO4JLABS_PLUGINS=%s",
+				config.GetEnvWithDefault("NEO4JLABS_PLUGINS", `["apoc","graph-data-science"]`)),
+		},
+		ExposedPorts: []string{"7687/tcp"},
+		PortBindings: map[docker.Port][]docker.PortBinding{
+			"7687/tcp": {{HostPort: "0"}},
+		},
+	}, func(config *docker.HostConfig) {
+		// Set AutoRemove to true so that stopped container goes away by itself
+		config.AutoRemove = true
+		config.RestartPolicy = docker.RestartPolicy{Name: "no"}
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", fmt.Errorf("could not start resource: %w", err)
 	}
 
-	host, err := ctr.Host(ctx)
-	if err != nil {
-		_ = ctr.Terminate(ctx)
-		return nil, "", err
-	}
-	port, err := ctr.MappedPort(ctx, "7687/tcp")
-	if err != nil {
-		_ = ctr.Terminate(ctx)
-		return nil, "", err
-	}
+	// Get the host and port
+	host := "localhost"
+	port := resource.GetPort("7687/tcp")
+	boltURI := fmt.Sprintf("bolt://%s:%s", host, port)
 
-	boltURI := fmt.Sprintf("bolt://%s:%s", host, port.Port())
-
-	return ctr, boltURI, nil
+	return pool, resource, boltURI, nil
 }
