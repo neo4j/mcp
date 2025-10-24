@@ -42,5 +42,12 @@ jobs:
           version: latest
           args: --timeout=1m
 
-      - name: Run tests
+      - name: Run unit tests
         run: go test -v -race ./...
+
+      - name: Run integration tests
+        run: go test -v -tags=integration ./test/integration/...
+        env:
+          USE_CONTAINER: "false"
+          NEO_PASSWORD: ${{ secrets.AURA_PASSWORD }}
+          NEO_URL: ${{ secrets.AURA_URI }}
