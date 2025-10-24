@@ -162,7 +162,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
        )
    }
    ```
-    **Note:**: WithReadOnlyHintAnnotation marks a tool with a read-only hint is used for filtering.
+    **Note:** WithReadOnlyHintAnnotation marks a tool with a read-only hint is used for filtering.
     When set to true, the tool will be considered read-only and included when selecting
     tools for read-only mode. If the annotation is not present or set to false,
     the tool is treated as a write-capable tool (i.e., not considered read-only).
