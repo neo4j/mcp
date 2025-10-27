@@ -5,7 +5,7 @@ Integration tests for the Neo4j MCP server using a shared Neo4j container (inclu
 ## Quick Start
 
 ```go
-func TestMCPIntegration_MyFeature(t *testing.T) {
+func TestMyFeature(t *testing.T) {
     t.Parallel()
     tc := helpers.NewTestContext(t)
 

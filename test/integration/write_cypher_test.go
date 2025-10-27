@@ -9,7 +9,7 @@ import (
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
-func TestMCPIntegration_WriteCypher(t *testing.T) {
+func TestWriteCypher(t *testing.T) {
 	t.Parallel()
 
 	tc := helpers.NewTestContext(t)
