@@ -1,0 +1,17 @@
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  build:
+    cmds:
+      - go build -C cmd/neo4j-mcp -o ../../bin/
+  int:
+    cmds:
+      - go test -tags=integration ./test/integration/... {{.CLI_ARGS}}
+  run:
+    cmds:
+      - go run ./cmd/neo4j-mcp
+  inspect:
+    cmds:
+      - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
