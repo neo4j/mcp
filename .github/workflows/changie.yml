@@ -33,7 +33,7 @@ jobs:
           args: latest
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
         with:
           title: Release ${{ steps.latest.outputs.output }}
           branch: release/${{ steps.latest.outputs.output }}
