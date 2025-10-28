@@ -1,3 +1,5 @@
+//go:build unit
+
 package database_test
 
 import (
@@ -22,10 +24,10 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 		expectedRecords := []*neo4j.Record{}
 
 		mockService.EXPECT().
-			ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10}, "neo4j").
+			ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10}).
 			Return(expectedRecords, nil)
 
-		records, err := mockService.ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10}, "neo4j")
+		records, err := mockService.ExecuteReadQuery(ctx, "MATCH (n:Person) RETURN n", map[string]any{"limit": 10})
 
 		if err != nil {
 			t.Errorf("expected no error, got: %v", err)
@@ -39,10 +41,10 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 		mockService := mocks.NewMockService(ctrl)
 
 		mockService.EXPECT().
-			ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j").
+			ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil).
 			Return(nil, errors.New("query execution failed"))
 
-		_, err := mockService.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil, "neo4j")
+		_, err := mockService.ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil)
 
 		if err == nil {
 			t.Errorf("expected error, got nil")
@@ -68,7 +70,6 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 				ctx,
 				"MATCH (p:Person {name: $name}) RETURN p.name as name, p.age as age, p.email as email",
 				map[string]any{"name": "Alice"},
-				"neo4j",
 			).
 			Return(mockRecords, nil)
 
@@ -76,7 +77,6 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 			ctx,
 			"MATCH (p:Person {name: $name}) RETURN p.name as name, p.age as age, p.email as email",
 			map[string]any{"name": "Alice"},
-			"neo4j",
 		)
 
 		if err != nil {
@@ -98,7 +98,6 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 				ctx,
 				"MATCH (p:Person WHERE p.name = $name RETURN p",
 				map[string]any{"name": "Alice"},
-				"neo4j",
 			).
 			Return(nil, errors.New("syntax error"))
 
@@ -106,7 +105,6 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 			ctx,
 			"MATCH (p:Person WHERE p.name = $name RETURN p",
 			map[string]any{"name": "Alice"},
-			"neo4j",
 		)
 
 		if err == nil {
@@ -117,7 +115,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 
 func TestNewNeo4jService(t *testing.T) {
 	t.Run("nil driver error", func(t *testing.T) {
-		service, err := database.NewNeo4jService(nil)
+		service, err := database.NewNeo4jService(nil, "")
 
 		if err == nil {
 			t.Errorf("expected error when driver is nil, got nil")
@@ -142,10 +140,10 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 		expectedRecords := []*neo4j.Record{}
 
 		mockService.EXPECT().
-			ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "neo4j").
+			ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}).
 			Return(expectedRecords, nil)
 
-		records, err := mockService.ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "neo4j")
+		records, err := mockService.ExecuteWriteQuery(ctx, "CREATE (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"})
 
 		if err != nil {
 			t.Errorf("expected no error, got: %v", err)
@@ -159,10 +157,10 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 		mockService := mocks.NewMockService(ctrl)
 
 		mockService.EXPECT().
-			ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j").
+			ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil).
 			Return(nil, errors.New("query execution failed"))
 
-		_, err := mockService.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil, "neo4j")
+		_, err := mockService.ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil)
 
 		if err == nil {
 			t.Errorf("expected error, got nil")
@@ -188,7 +186,6 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 				ctx,
 				"CREATE (p:Person {name: $name}) SET p.createdAt = datetime() RETURN id(p) as id, p.name as name, p.createdAt as createdAt",
 				map[string]any{"name": "NewPerson"},
-				"neo4j",
 			).
 			Return(mockRecords, nil)
 
@@ -196,7 +193,6 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 			ctx,
 			"CREATE (p:Person {name: $name}) SET p.createdAt = datetime() RETURN id(p) as id, p.name as name, p.createdAt as createdAt",
 			map[string]any{"name": "NewPerson"},
-			"neo4j",
 		)
 
 		if err != nil {
@@ -218,7 +214,6 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 				ctx,
 				"CREATE (p:Person {name: $name RETURN p",
 				map[string]any{"name": "Alice"},
-				"neo4j",
 			).
 			Return(nil, errors.New("syntax error"))
 
@@ -226,7 +221,6 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 			ctx,
 			"CREATE (p:Person {name: $name RETURN p",
 			map[string]any{"name": "Alice"},
-			"neo4j",
 		)
 
 		if err == nil {

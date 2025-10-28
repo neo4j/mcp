@@ -3,15 +3,27 @@
 version: "3"
 
 tasks:
-  build:
-    cmds:
-      - go build -C cmd/neo4j-mcp -o ../../bin/
-  int:
-    cmds:
-      - go test -tags=integration ./test/integration/... {{.CLI_ARGS}}
   run:
     cmds:
       - go run ./cmd/neo4j-mcp
+  build:
+    cmds:
+      - go build -C cmd/neo4j-mcp -o ../../bin/
+  generate:
+    cmds:
+      - go generate ./...
+  test:
+    cmds:
+      - go test ./... {{.CLI_ARGS}}
+  test:unit:
+    cmds:
+      - go test -tags=unit ./... {{.CLI_ARGS}}
+  test:int:
+    cmds:
+      - go test -tags=integration ./test/integration/... {{.CLI_ARGS}}
+  lint:
+    cmds:
+      - golangci-lint run
   inspect:
     cmds:
       - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp

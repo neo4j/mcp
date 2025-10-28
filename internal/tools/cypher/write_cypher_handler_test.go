@@ -1,3 +1,5 @@
+//go:build unit
+
 package cypher_test
 
 import (
@@ -21,14 +23,14 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}, "testdb").
+			ExecuteWriteQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}).
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`[{"n": {"name": "Alice"}}]`, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -55,14 +57,14 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("successful cypher execution without parameters", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil(), "testdb").
+			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`[{"count(n)": 42}]`, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -89,7 +91,7 @@ func TestWriteCypherHandler(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -117,7 +119,7 @@ func TestWriteCypherHandler(t *testing.T) {
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -147,7 +149,7 @@ func TestWriteCypherHandler(t *testing.T) {
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -173,7 +175,7 @@ func TestWriteCypherHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: nil,
 		}
 
@@ -199,11 +201,11 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil(), "testdb").
+			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil()).
 			Return(nil, errors.New("syntax error"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -229,14 +231,14 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("JSON formatting failure", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil(), "testdb").
+			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 

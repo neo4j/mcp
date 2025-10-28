@@ -1,3 +1,5 @@
+//go:build unit
+
 package gds_test
 
 import (
@@ -21,14 +23,14 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	t.Run("successful list-gds-procedures", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return("", nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -47,7 +49,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: nil,
 		}
 
@@ -67,11 +69,11 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return(nil, errors.New("Invalid Cypher"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -92,14 +94,14 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
+			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
