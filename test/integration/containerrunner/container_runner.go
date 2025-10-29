@@ -29,8 +29,8 @@ func Start(ctx context.Context) {
 	})
 }
 
-// GetContainerDriver get a driver associated with the instance created
-func GetContainerDriver() *neo4j.DriverWithContext {
+// GetDriver get a driver associated with the instance created
+func GetDriver() *neo4j.DriverWithContext {
 	if driver == nil {
 		log.Fatal("driver is not initialized")
 	}

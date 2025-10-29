@@ -13,7 +13,7 @@ import (
 func TestGetSchema(t *testing.T) {
 	t.Parallel()
 
-	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	// Use TestID as identifier to create unique labels
 	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30})

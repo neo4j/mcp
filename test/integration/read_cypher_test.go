@@ -12,7 +12,7 @@ import (
 
 func TestReadCypher(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice"})
 	if err != nil {

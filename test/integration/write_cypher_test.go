@@ -12,7 +12,7 @@ import (
 
 func TestWriteCypher(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	personLabel := tc.GetUniqueLabel("Person")
 

@@ -12,7 +12,7 @@ import (
 
 func TestWriteThenRead(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	companyLabel := tc.GetUniqueLabel("Company")
 

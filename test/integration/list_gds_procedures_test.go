@@ -13,7 +13,7 @@ import (
 
 func TestListGdsProcedures(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
@@ -66,7 +66,7 @@ func TestListGdsProcedures(t *testing.T) {
 
 func TestListGdsProcedures_KnownProcedures(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
