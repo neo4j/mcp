@@ -101,6 +101,7 @@ func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string
 		_ = ctr.Terminate(ctx)
 		return nil, "", err
 	}
+
 	port, err := ctr.MappedPort(ctx, "7687/tcp")
 	if err != nil {
 		_ = ctr.Terminate(ctx)
