@@ -60,8 +60,7 @@ func startOnce(ctx context.Context) {
 	}
 
 	if err := waitForConnectivity(ctx, ctr); err != nil {
-		_ = drv.Close(ctx)
-		_ = ctr.Terminate(ctx)
+		Close(ctx)
 		log.Fatalf("failed to verify connectivity: %v", err)
 	}
 
@@ -102,6 +101,7 @@ func createNeo4jContainer(ctx context.Context) (testcontainers.Container, string
 		_ = ctr.Terminate(ctx)
 		return nil, "", err
 	}
+
 	port, err := ctr.MappedPort(ctx, "7687/tcp")
 	if err != nil {
 		_ = ctr.Terminate(ctx)

@@ -7,17 +7,19 @@ import (
 	"os"
 	"testing"
 
-	"github.com/neo4j/mcp/test/integration/containerrunner"
+	"github.com/neo4j/mcp/test/integration/dbservice"
 )
+
+var dbs = dbservice.NewDBService()
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	containerrunner.Start(ctx)
+	dbs.Start(ctx)
 
 	code := m.Run()
 
-	containerrunner.Close(ctx)
+	dbs.Stop(ctx)
 
 	os.Exit(code)
 }
