@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/gds"
-	"github.com/neo4j/mcp/test/integration/container_runner"
+	"github.com/neo4j/mcp/test/integration/containerrunner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestListGdsProcedures(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, container_runner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
@@ -66,7 +66,7 @@ func TestListGdsProcedures(t *testing.T) {
 
 func TestListGdsProcedures_KnownProcedures(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, container_runner.GetContainerDriver())
+	tc := helpers.NewTestContext(t, containerrunner.GetContainerDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)

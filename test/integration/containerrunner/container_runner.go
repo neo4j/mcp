@@ -1,6 +1,6 @@
 //go:build integration
 
-package container_runner
+package containerrunner
 
 import (
 	"context"
