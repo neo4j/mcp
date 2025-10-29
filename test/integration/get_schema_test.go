@@ -6,14 +6,13 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
-	"github.com/neo4j/mcp/test/integration/containerrunner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestGetSchema(t *testing.T) {
 	t.Parallel()
 
-	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
+	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	// Use TestID as identifier to create unique labels
 	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30})

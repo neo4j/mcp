@@ -36,7 +36,7 @@ func TestMyFeature(t *testing.T) {
 
 **TestContext:**
 
-- `helpers.NewTestContext(t, containerrunner.GetDriver())` - Auto-isolation + cleanup
+- `helpers.NewTestContext(t, dbs.GetDriver())` - Auto-isolation + cleanup
 - `SeedNode(label, props)` - Create test data with unique label, returns `(UniqueLabel, error)`
 - `GetUniqueLabel(label)` - Get a unique label for creating nodes manually
 - `CallTool(handler, args)` - Invoke MCP tool

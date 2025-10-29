@@ -6,13 +6,12 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
-	"github.com/neo4j/mcp/test/integration/containerrunner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestReadCypher(t *testing.T) {
 	t.Parallel()
-	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
+	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice"})
 	if err != nil {
