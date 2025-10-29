@@ -22,8 +22,10 @@ tasks:
       - go test ./internal/... {{.CLI_ARGS}}
   test:int:
     cmds:
-      - go clean -testcache
       - go test -tags=integration ./test/integration/... {{.CLI_ARGS}}
+  test:clean:
+    cmds:
+      - go clean -testcache
   lint:
     cmds:
       - golangci-lint run
