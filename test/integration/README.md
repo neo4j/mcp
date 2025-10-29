@@ -59,19 +59,30 @@ go test -tags=integration ./test/integration/... -race           # With race det
 
 ## Configuration
 
-The integration tests use environment variables to configure the Neo4j test container. All variables have sensible defaults:
+The integration tests use environment variables to configure how they connect to Neo4j. All variables have sensible defaults.
 
-| Environment Variable | Default                         | Description               |
-| -------------------- | ------------------------------- | ------------------------- |
-| `NEO4J_IMAGE`        | `neo4j:5.24.2-community`        | Neo4j Docker image to use |
-| `NEO4J_USERNAME`     | `neo4j`                         | Database username         |
-| `NEO4J_PASSWORD`     | `password`                      | Database password         |
-| `NEO4JLABS_PLUGINS`  | `["apoc","graph-data-science"]` | Plugins to install        |
+### Container vs. External Database
 
-**Example with custom configuration:**
+Use `MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS` to control whether tests start a Neo4j container or connect to an external database:
+
+| Environment Variable                      | Default | Description                                                                  |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------------------- |
+| `MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS` | `true`  | When `true`, starts a Docker container; when `false`, uses external database |
+
+**Example with container (default):**
 
 ```bash
-NEO4J_IMAGE=neo4j:5.25.0-enterprise \
+NEO4J_IMAGE=neo4j:5-community \
+NEO4J_USERNAME=admin \
+NEO4J_PASSWORD=secret \
+go test -tags=integration ./test/integration/... -v
+```
+
+**Example with external database:**
+
+```bash
+MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS=false \
+NEO4J_URI=bolt://neo4j.example.com:7687 \
 NEO4J_USERNAME=admin \
 NEO4J_PASSWORD=secret \
 go test -tags=integration ./test/integration/... -v
