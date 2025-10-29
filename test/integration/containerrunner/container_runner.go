@@ -60,8 +60,7 @@ func startOnce(ctx context.Context) {
 	}
 
 	if err := waitForConnectivity(ctx, ctr); err != nil {
-		_ = drv.Close(ctx)
-		_ = ctr.Terminate(ctx)
+		Close(ctx)
 		log.Fatalf("failed to verify connectivity: %v", err)
 	}
 
