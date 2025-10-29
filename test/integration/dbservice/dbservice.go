@@ -19,7 +19,7 @@ type dbService struct {
 func NewDBService() *dbService {
 	return &dbService{
 		driver:       nil,
-		useContainer: config.GetEnvWithDefault("MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS", "true") == "true",
+		useContainer: config.GetEnvWithDefault("USE_CONTAINER", "true") == "true",
 	}
 }
 

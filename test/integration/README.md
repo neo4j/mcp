@@ -63,11 +63,11 @@ The integration tests use environment variables to configure how they connect to
 
 ### Container vs. External Database
 
-Use `MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS` to control whether tests start a Neo4j container or connect to an external database:
+Use `USE_CONTAINER` to control whether tests start a Neo4j container or connect to an external database:
 
-| Environment Variable                      | Default | Description                                                                  |
-| ----------------------------------------- | ------- | ---------------------------------------------------------------------------- |
-| `MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS` | `true`  | When `true`, starts a Docker container; when `false`, uses external database |
+| Environment Variable | Default | Description                                                                  |
+| -------------------- | ------- | ---------------------------------------------------------------------------- |
+| `USE_CONTAINER`      | `true`  | When `true`, starts a Docker container; when `false`, uses external database |
 
 **Example with container (default):**
 
@@ -81,7 +81,7 @@ go test -tags=integration ./test/integration/... -v
 **Example with external database:**
 
 ```bash
-MCP_USE_CONTAINER_FOR_INTEGRATION_TESTS=false \
+USE_CONTAINER=false \
 NEO4J_URI=bolt://neo4j.example.com:7687 \
 NEO4J_USERNAME=admin \
 NEO4J_PASSWORD=secret \
