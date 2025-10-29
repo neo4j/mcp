@@ -9,9 +9,11 @@ tasks:
   build:
     cmds:
       - go build -C cmd/neo4j-mcp -o ../../bin/
+
   generate:
     cmds:
       - go generate ./...
+  # pass CLI args as task:test -- -v
   test:
     cmds:
       - go test ./... {{.CLI_ARGS}}

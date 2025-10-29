@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -35,7 +34,6 @@ type TestContext struct {
 	Service       database.Service
 	Deps          *tools.ToolDependencies
 	createdLabels map[string]bool
-	labelMutex    sync.Mutex
 }
 
 // NewTestContext creates a new test context with automatic cleanup
@@ -74,12 +72,10 @@ func (tc *TestContext) Cleanup() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	tc.labelMutex.Lock()
 	labels := make([]string, 0, len(tc.createdLabels))
 	for label := range tc.createdLabels {
 		labels = append(labels, label)
 	}
-	tc.labelMutex.Unlock()
 
 	// Delete nodes for each unique label
 	for _, label := range labels {
@@ -105,9 +101,7 @@ func (tc *TestContext) SeedNode(label string, props map[string]any) (UniqueLabel
 	uniqueLabel := UniqueLabel(fmt.Sprintf("%s_%s", label, tc.TestID))
 
 	// Track this label for cleanup
-	tc.labelMutex.Lock()
 	tc.createdLabels[string(uniqueLabel)] = true
-	tc.labelMutex.Unlock()
 
 	query := fmt.Sprintf("CREATE (n:%s $props) RETURN n", uniqueLabel)
 	_, err := tc.Service.ExecuteWriteQuery(tc.Ctx, query, map[string]any{"props": props})
@@ -124,9 +118,8 @@ func (tc *TestContext) GetUniqueLabel(label string) UniqueLabel {
 	uniqueLabel := UniqueLabel(fmt.Sprintf("%s_%s", label, tc.TestID))
 
 	// Track this label for cleanup
-	tc.labelMutex.Lock()
+
 	tc.createdLabels[string(uniqueLabel)] = true
-	tc.labelMutex.Unlock()
 
 	return uniqueLabel
 }
