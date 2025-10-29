@@ -29,6 +29,7 @@ func Start(ctx context.Context) {
 	})
 }
 
+// GetContainerDriver get a driver associated with the instance created
 func GetContainerDriver() *neo4j.DriverWithContext {
 	if driver == nil {
 		log.Fatal("driver is not initialized")
@@ -36,6 +37,7 @@ func GetContainerDriver() *neo4j.DriverWithContext {
 	return driver
 }
 
+// startOnce start the testcontainer imaged
 func startOnce(ctx context.Context) {
 	ctr, boltURI, err := createNeo4jContainer(ctx)
 	if err != nil {
