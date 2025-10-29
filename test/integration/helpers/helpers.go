@@ -37,7 +37,7 @@ type TestContext struct {
 }
 
 // NewTestContext creates a new test context with automatic cleanup
-func NewTestContext(t *testing.T, databaseService database.Service) *TestContext {
+func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -54,7 +54,10 @@ func NewTestContext(t *testing.T, databaseService database.Service) *TestContext
 		tc.Cleanup() // Clean up test data
 		cancel()     // Release context resources immediately
 	})
-
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
+	if err != nil {
+		t.Fatalf("failed to create Neo4j service: %v", err)
+	}
 	deps := &tools.ToolDependencies{DBService: databaseService}
 
 	tc.Service = databaseService
