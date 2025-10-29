@@ -38,13 +38,8 @@ type TestContext struct {
 	labelMutex    sync.Mutex
 }
 
-var (
-	driver neo4j.DriverWithContext
-	once   sync.Once
-)
-
 // NewTestContext creates a new test context with automatic cleanup
-func NewTestContext(t *testing.T) *TestContext {
+func NewTestContext(t *testing.T, databaseService database.Service) *TestContext {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -62,13 +57,9 @@ func NewTestContext(t *testing.T) *TestContext {
 		cancel()     // Release context resources immediately
 	})
 
-	svc, err := database.NewNeo4jService(driver, cfg.Database)
-	if err != nil {
-		t.Fatalf("failed to create Neo4j service: %v", err)
-	}
-	deps := &tools.ToolDependencies{Config: cfg, DBService: svc}
+	deps := &tools.ToolDependencies{DBService: databaseService}
 
-	tc.Service = svc
+	tc.Service = databaseService
 	tc.Deps = deps
 
 	return tc
@@ -118,20 +109,10 @@ func (tc *TestContext) SeedNode(label string, props map[string]any) (UniqueLabel
 	tc.createdLabels[string(uniqueLabel)] = true
 	tc.labelMutex.Unlock()
 
-	session := (driver).NewSession(tc.Ctx, neo4j.SessionConfig{})
-	defer session.Close(tc.Ctx)
-
 	query := fmt.Sprintf("CREATE (n:%s $props) RETURN n", uniqueLabel)
-	_, err := session.ExecuteWrite(tc.Ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		result, err := tx.Run(tc.Ctx, query, map[string]any{"props": props})
-		if err != nil {
-			return nil, err
-		}
-		_, err = result.Collect(tc.Ctx)
-		return nil, err
-	})
-
+	_, err := tc.Service.ExecuteWriteQuery(tc.Ctx, query, map[string]any{"props": props})
 	return uniqueLabel, err
+
 }
 
 // GetUniqueLabel returns a unique label for the given base label and identifier.
@@ -197,9 +178,6 @@ func (tc *TestContext) ParseJSONResponse(res *mcp.CallToolResult, v any) {
 func (tc *TestContext) VerifyNodeInDB(label UniqueLabel, props map[string]any) *neo4j.Record {
 	tc.T.Helper()
 
-	session := (driver).NewSession(tc.Ctx, neo4j.SessionConfig{})
-	defer session.Close(tc.Ctx)
-
 	// Build WHERE clause dynamically
 	whereClauses := []string{}
 	for key := range props {
@@ -211,19 +189,11 @@ func (tc *TestContext) VerifyNodeInDB(label UniqueLabel, props map[string]any) *
 	}
 
 	query := fmt.Sprintf("MATCH (n:%s)%s RETURN n", label, whereClause)
-	result, err := session.ExecuteRead(tc.Ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		res, err := tx.Run(tc.Ctx, query, props)
-		if err != nil {
-			return nil, err
-		}
-		return res.Collect(tc.Ctx)
-	})
+	records, err := tc.Service.ExecuteReadQuery(tc.Ctx, query, props)
 	if err != nil {
 		tc.T.Fatalf("failed to verify node in DB: %v", err)
 	}
-
-	records, ok := result.([]*neo4j.Record)
-	if !ok || len(records) != 1 {
+	if len(records) != 1 {
 		tc.T.Fatalf("expected 1 record in DB, got %d", len(records))
 	}
 

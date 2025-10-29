@@ -7,17 +7,17 @@ import (
 	"os"
 	"testing"
 
-	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/integration/container_runner"
 )
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	helpers.Start(ctx)
+	container_runner.Start(ctx)
 
 	code := m.Run()
 
-	helpers.Close(ctx)
+	container_runner.Close(ctx)
 
 	os.Exit(code)
 }

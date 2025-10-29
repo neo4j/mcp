@@ -7,7 +7,7 @@ Integration tests for the Neo4j MCP server using a shared Neo4j container (inclu
 ```go
 func TestMyFeature(t *testing.T) {
     t.Parallel()
-    tc := helpers.NewTestContext(t)
+    tc := helpers.NewTestContext(t, container_runner.GetContainerDriver())
 
     // Seed test data (automatically isolated with unique labels and cleaned up)
     personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice"})
@@ -36,7 +36,7 @@ func TestMyFeature(t *testing.T) {
 
 **TestContext:**
 
-- `helpers.NewTestContext(t)` - Auto-isolation + cleanup
+- `helpers.NewTestContext(t, container_runner.GetContainerDriver())` - Auto-isolation + cleanup
 - `SeedNode(label, props)` - Create test data with unique label, returns `(UniqueLabel, error)`
 - `GetUniqueLabel(label)` - Get a unique label for creating nodes manually
 - `CallTool(handler, args)` - Invoke MCP tool

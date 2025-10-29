@@ -5,14 +5,20 @@ package integration
 import (
 	"testing"
 
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools/cypher"
+	"github.com/neo4j/mcp/test/integration/container_runner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestGetSchema(t *testing.T) {
 	t.Parallel()
-
-	tc := helpers.NewTestContext(t)
+	driver := container_runner.GetContainerDriver()
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
+	if err != nil {
+		t.Fatalf("failed to create Neo4j service: %v", err)
+	}
+	tc := helpers.NewTestContext(t, databaseService)
 
 	// Use TestID as identifier to create unique labels
 	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30})

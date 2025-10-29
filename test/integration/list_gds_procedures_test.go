@@ -6,14 +6,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools/gds"
+	"github.com/neo4j/mcp/test/integration/container_runner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
 func TestListGdsProcedures(t *testing.T) {
 	t.Parallel()
-
-	tc := helpers.NewTestContext(t)
+	driver := container_runner.GetContainerDriver()
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
+	if err != nil {
+		t.Fatalf("failed to create Neo4j service: %v", err)
+	}
+	tc := helpers.NewTestContext(t, databaseService)
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
@@ -66,8 +72,12 @@ func TestListGdsProcedures(t *testing.T) {
 
 func TestListGdsProcedures_KnownProcedures(t *testing.T) {
 	t.Parallel()
-
-	tc := helpers.NewTestContext(t)
+	driver := container_runner.GetContainerDriver()
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
+	if err != nil {
+		t.Fatalf("failed to create Neo4j service: %v", err)
+	}
+	tc := helpers.NewTestContext(t, databaseService)
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)

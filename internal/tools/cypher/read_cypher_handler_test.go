@@ -1,5 +1,3 @@
-//go:build unit
-
 package cypher_test
 
 import (
@@ -8,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
@@ -33,7 +30,6 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(`[{"n": {"name": "Alice"}}]`, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -70,7 +66,6 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(`[{"count(n)": 42}]`, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -97,7 +92,6 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -125,7 +119,6 @@ func TestReadCypherHandler(t *testing.T) {
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -155,7 +148,6 @@ func TestReadCypherHandler(t *testing.T) {
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -181,7 +173,6 @@ func TestReadCypherHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: nil,
 		}
 
@@ -214,7 +205,6 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(nil, errors.New("syntax error"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -250,7 +240,6 @@ func TestReadCypherHandler(t *testing.T) {
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -280,7 +269,6 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(neo4j.StatementTypeWriteOnly, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 
@@ -309,7 +297,6 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(neo4j.StatementTypeUnknown, errors.New("driver error"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{},
 			DBService: mockDB,
 		}
 

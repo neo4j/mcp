@@ -12,7 +12,7 @@ import (
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver neo4j.DriverWithContext
+	driver   neo4j.DriverWithContext
 	database string
 }
 
@@ -23,7 +23,7 @@ func NewNeo4jService(driver neo4j.DriverWithContext, database string) (Service, 
 	}
 
 	return &Neo4jService{
-		driver: driver,
+		driver:   driver,
 		database: database,
 	}, nil
 }

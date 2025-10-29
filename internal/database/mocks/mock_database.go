@@ -6,7 +6,7 @@
 //	mockgen -destination=mocks/mock_database.go -package=mocks github.com/neo4j/mcp/internal/database Service
 //
 
-// Package mocks is a generated GoMock package.
+// package mocks is a generated GoMock package.
 package mocks
 
 import (

@@ -17,7 +17,7 @@ tasks:
       - go test ./... {{.CLI_ARGS}}
   test:unit:
     cmds:
-      - go test -tags=unit ./... {{.CLI_ARGS}}
+      - go test ./internal/... {{.CLI_ARGS}}
   test:int:
     cmds:
       - go test -tags=integration ./test/integration/... {{.CLI_ARGS}}

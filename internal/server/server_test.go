@@ -1,5 +1,3 @@
-//go:build unit
-
 package server_test
 
 import (
