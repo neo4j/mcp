@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
+	"github.com/neo4j/mcp/test/integration/containerrunner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
-func TestMCPIntegration_ReadCypher(t *testing.T) {
+func TestReadCypher(t *testing.T) {
 	t.Parallel()
-
-	tc := helpers.NewTestContext(t)
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice"})
 	if err != nil {

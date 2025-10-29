@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -13,11 +12,11 @@ import (
 
 func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleReadCypher(ctx, request, deps.DBService, deps.Config)
+		return handleReadCypher(ctx, request, deps.DBService)
 	}
 }
 
-func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, config *config.Config) (*mcp.CallToolResult, error) {
+func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
 	var args ReadCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -43,7 +42,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 	}
 
 	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
-	queryType, err := dbService.GetQueryType(ctx, Query, Params, config.Database)
+	queryType, err := dbService.GetQueryType(ctx, Query, Params)
 	if err != nil {
 		log.Printf("Error while classifying Cypher query: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
@@ -56,7 +55,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 	}
 
 	// Execute the Cypher query using the database service (now confirmed read-only)
-	records, err := dbService.ExecuteReadQuery(ctx, Query, Params, config.Database)
+	records, err := dbService.ExecuteReadQuery(ctx, Query, Params)
 	if err != nil {
 		log.Printf("Error executing Cypher query: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil

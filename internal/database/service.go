@@ -12,24 +12,26 @@ import (
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver neo4j.DriverWithContext
+	driver   neo4j.DriverWithContext
+	database string
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.DriverWithContext) (Service, error) {
+func NewNeo4jService(driver neo4j.DriverWithContext, database string) (Service, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
 
 	return &Neo4jService{
-		driver: driver,
+		driver:   driver,
+		database: database,
 	}, nil
 }
 
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
-func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
+func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
 
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithReadersRouting())
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithReadersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
 		log.Printf("Error in ExecuteReadQuery: %v", wrappedErr)
@@ -40,8 +42,8 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 }
 
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
-func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any, database string) ([]*neo4j.Record, error) {
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database), neo4j.ExecuteQueryWithWritersRouting())
+func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithWritersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
 		log.Printf("Error in ExecuteWriteQuery: %v", wrappedErr)
@@ -53,7 +55,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
-func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any, database string) (neo4j.StatementType, error) {
+func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
 	if s.driver == nil {
 		err := fmt.Errorf("neo4j driver is not initialized")
 		log.Printf("Error in GetQueryType: %v", err)
@@ -61,7 +63,7 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	}
 
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(database))
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database))
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
 		log.Printf("Error during GetQueryType: %v", wrappedErr)

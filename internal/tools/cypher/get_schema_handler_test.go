@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
@@ -21,7 +20,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("successful schema retrieval", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return([]*neo4j.Record{
 				{
 					Values: []any{"value1"},
@@ -33,7 +32,6 @@ func TestGetSchemaHandler(t *testing.T) {
 			Return(`{"schema": "data"}`, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
@@ -51,11 +49,10 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("database query failure", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return(nil, errors.New("connection failed"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
@@ -73,7 +70,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("JSON formatting failure", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return([]*neo4j.Record{
 				{
 					Values: []any{"value1"},
@@ -85,7 +82,6 @@ func TestGetSchemaHandler(t *testing.T) {
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 
@@ -102,7 +98,6 @@ func TestGetSchemaHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "test"},
 			DBService: nil,
 		}
 
@@ -119,11 +114,10 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("No records returned from apoc query (empty database)", func(t *testing.T) {
 		mockDB := mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil(), "testdb").
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
 
 		deps := &tools.ToolDependencies{
-			Config:    &config.Config{Database: "testdb"},
 			DBService: mockDB,
 		}
 

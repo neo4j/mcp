@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
@@ -24,12 +23,12 @@ const (
 // GetSchemaHandler returns a handler function for the get_schema tool
 func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleGetSchema(ctx, deps.DBService, deps.Config)
+		return handleGetSchema(ctx, deps.DBService)
 	}
 }
 
 // handleGetSchema retrieves Neo4j schema information using APOC
-func handleGetSchema(ctx context.Context, dbService database.Service, config *config.Config) (*mcp.CallToolResult, error) {
+func handleGetSchema(ctx context.Context, dbService database.Service) (*mcp.CallToolResult, error) {
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)
@@ -37,7 +36,7 @@ func handleGetSchema(ctx context.Context, dbService database.Service, config *co
 	}
 
 	// Execute the APOC schema query
-	records, err := dbService.ExecuteReadQuery(ctx, schemaQuery, nil, config.Database)
+	records, err := dbService.ExecuteReadQuery(ctx, schemaQuery, nil)
 	if err != nil {
 		log.Printf("Failed to execute schema query: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil

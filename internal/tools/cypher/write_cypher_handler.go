@@ -5,18 +5,17 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
 
 func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleWriteCypher(ctx, request, deps.DBService, deps.Config)
+		return handleWriteCypher(ctx, request, deps.DBService)
 	}
 }
 
-func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, config *config.Config) (*mcp.CallToolResult, error) {
+func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
 	var args WriteCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -42,7 +41,7 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 	}
 
 	// Execute the Cypher query using the database service
-	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params, config.Database)
+	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {
 		log.Printf("Error executing Cypher query: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil

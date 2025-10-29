@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/gds"
+	"github.com/neo4j/mcp/test/integration/containerrunner"
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
-func TestMCPIntegration_ListGdsProcedures(t *testing.T) {
+func TestListGdsProcedures(t *testing.T) {
 	t.Parallel()
-
-	tc := helpers.NewTestContext(t)
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
@@ -64,10 +64,9 @@ func TestMCPIntegration_ListGdsProcedures(t *testing.T) {
 	t.Logf("Found %d GDS streaming procedures", len(procedures))
 }
 
-func TestMCPIntegration_ListGdsProcedures_KnownProcedures(t *testing.T) {
+func TestListGdsProcedures_KnownProcedures(t *testing.T) {
 	t.Parallel()
-
-	tc := helpers.NewTestContext(t)
+	tc := helpers.NewTestContext(t, containerrunner.GetDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
 	res := tc.CallTool(listGds, nil)
