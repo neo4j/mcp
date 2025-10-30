@@ -50,4 +50,4 @@ jobs:
         env:
           USE_CONTAINER: "false"
           NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
-          NEO4J_URL: ${{ secrets.AURA_URI }}
+          NEO4J_URL: ${{ secrets.AURA_URL }}
