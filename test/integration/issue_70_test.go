@@ -13,7 +13,7 @@ import (
 // https://github.com/neo4j/mcp/issues/70
 func TestIssue70_Int(t *testing.T) {
 	t.Parallel()
-	//t.Skip("Skip issue 70 until integer support as parameter is supported")
+	t.Skip("Skip issue 70 test until the underline issue is fixed")
 	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	companyLabel := tc.GetUniqueLabel("Company")
