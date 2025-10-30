@@ -49,5 +49,5 @@ jobs:
         run: go test -v -tags=integration ./test/integration/...
         env:
           USE_CONTAINER: "false"
-          NEO_PASSWORD: ${{ secrets.AURA_PASSWORD }}
-          NEO_URL: ${{ secrets.AURA_URI }}
+          NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
+          NEO4J_URL: ${{ secrets.AURA_URI }}
