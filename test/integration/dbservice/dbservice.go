@@ -47,7 +47,7 @@ func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
 		cfg := &config.Config{
 			URI:      config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
 			Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-			Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "longerpassword"),
+			Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
 			Database: config.GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		}
 
