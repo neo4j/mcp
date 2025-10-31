@@ -16,7 +16,7 @@ const (
         YIELD value
         UNWIND keys(value) AS key
         WITH key, value[key] AS value
-        RETURN key, value { .labels, .properties, .type, .relationships } as value
+        RETURN key, value { .properties, .type, .relationships } as value
     `
 )
 

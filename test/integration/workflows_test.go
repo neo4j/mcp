@@ -35,9 +35,9 @@ func TestWriteThenRead(t *testing.T) {
 	}
 
 	company := records[0]["c"].(map[string]any)
-	helpers.AssertNodeProperties(t, company, map[string]any{
+	tc.AssertNodeProperties(company, map[string]any{
 		"name":     "Neo4j",
 		"industry": "Database",
 	})
-	helpers.AssertNodeHasLabel(t, company, companyLabel)
+	tc.AssertNodeHasLabel(company, companyLabel)
 }
