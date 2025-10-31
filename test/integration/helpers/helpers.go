@@ -28,8 +28,8 @@ func (ul UniqueLabel) String() string {
 
 // TestContext holds common test dependencies
 type TestContext struct {
-	Ctx           context.Context
-	T             *testing.T
+	ctx           context.Context
+	t             *testing.T
 	TestID        string
 	Service       database.Service
 	Deps          *tools.ToolDependencies
@@ -44,8 +44,8 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	testID := makeTestID()
 
 	tc := &TestContext{
-		Ctx:           ctx,
-		T:             t,
+		ctx:           ctx,
+		t:             t,
 		TestID:        testID,
 		createdLabels: make(map[string]bool),
 	}
@@ -95,7 +95,7 @@ func (tc *TestContext) Cleanup() {
 
 // SeedNode creates a test node with a unique label and returns it.
 func (tc *TestContext) SeedNode(label string, props map[string]any) (UniqueLabel, error) {
-	tc.T.Helper()
+	tc.t.Helper()
 
 	if tc.TestID == "" {
 		panic("SeedNode: TestID is not set in TestContext. Did you forget to use NewTestContext?")
@@ -107,7 +107,7 @@ func (tc *TestContext) SeedNode(label string, props map[string]any) (UniqueLabel
 	tc.createdLabels[string(uniqueLabel)] = true
 
 	query := fmt.Sprintf("CREATE (n:%s $props) RETURN n", uniqueLabel)
-	_, err := tc.Service.ExecuteWriteQuery(tc.Ctx, query, map[string]any{"props": props})
+	_, err := tc.Service.ExecuteWriteQuery(tc.ctx, query, map[string]any{"props": props})
 	return uniqueLabel, err
 
 }
@@ -129,7 +129,7 @@ func (tc *TestContext) GetUniqueLabel(label string) UniqueLabel {
 
 // CallTool invokes an MCP tool and returns the response
 func (tc *TestContext) CallTool(handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), args map[string]any) *mcp.CallToolResult {
-	tc.T.Helper()
+	tc.t.Helper()
 
 	req := mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -137,42 +137,86 @@ func (tc *TestContext) CallTool(handler func(context.Context, mcp.CallToolReques
 		},
 	}
 
-	res, err := handler(tc.Ctx, req)
+	res, err := handler(tc.ctx, req)
 	if err != nil {
-		tc.T.Fatalf("tool call failed: %v", err)
+		tc.t.Fatalf("tool call failed: %v", err)
 	}
 	if res == nil {
-		tc.T.Fatal("tool returned nil response")
+		tc.t.Fatal("tool returned nil response")
 	}
 	if res.IsError {
-		tc.T.Fatalf("tool returned error: %+v", res)
+		tc.t.Fatalf("tool returned error: %+v", res)
 	}
 
 	return res
 }
 
-// ParseJSONResponse parses JSON response into the provided interface
-func (tc *TestContext) ParseJSONResponse(res *mcp.CallToolResult, v any) {
-	tc.T.Helper()
+// Similar to CallTool but returns the error to assert error handlings, if mcp.CallToolResult.isError is false then fails
+func (tc *TestContext) GetToolError(handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), args map[string]any) string {
+	tc.t.Helper()
 
-	if len(res.Content) == 0 {
-		tc.T.Fatal("response has no content")
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: args,
+		},
+	}
+
+	res, err := handler(tc.ctx, req)
+	if err != nil {
+		tc.t.Fatalf("tool call failed: %v", err)
+	}
+	if res == nil {
+		tc.t.Fatal("tool returned nil response")
+	}
+	if res.IsError == false {
+		tc.t.Fatal("no error returned")
 	}
 
 	textContent, ok := mcp.AsTextContent(res.Content[0])
 	if !ok {
-		tc.T.Fatalf("expected TextContent, got %T", res.Content[0])
+		tc.t.Fatalf("expected error as TextContent, got %T", res.Content[0])
+	}
+	return textContent.Text
+
+}
+
+// ParseJSONResponse parses JSON response into the provided interface
+func (tc *TestContext) ParseJSONResponse(res *mcp.CallToolResult, v any) {
+	tc.t.Helper()
+
+	if len(res.Content) == 0 {
+		tc.t.Fatal("response has no content")
+	}
+
+	textContent, ok := mcp.AsTextContent(res.Content[0])
+	if !ok {
+		tc.t.Fatalf("expected TextContent, got %T", res.Content[0])
 	}
 
 	if err := json.Unmarshal([]byte(textContent.Text), v); err != nil {
-		tc.T.Fatalf("failed to parse JSON response: %v\nraw: %s", err, textContent.Text)
+		tc.t.Fatalf("failed to parse JSON response: %v\nraw: %s", err, textContent.Text)
 	}
+}
+
+// ParseTextResponse parses Text response and returns a string
+func (tc *TestContext) ParseTextResponse(res *mcp.CallToolResult) string {
+	tc.t.Helper()
+
+	if len(res.Content) == 0 {
+		tc.t.Fatal("response has no content")
+	}
+
+	textContent, ok := mcp.AsTextContent(res.Content[0])
+	if !ok {
+		tc.t.Fatalf("expected TextContent, got %T", res.Content[0])
+	}
+	return textContent.Text
 }
 
 // VerifyNodeInDB verifies that a node exists in the database with the given properties.
 // The label parameter should be the unique label (e.g., "Person_test_abc123").
 func (tc *TestContext) VerifyNodeInDB(label UniqueLabel, props map[string]any) *neo4j.Record {
-	tc.T.Helper()
+	tc.t.Helper()
 
 	// Build WHERE clause dynamically
 	whereClauses := []string{}
@@ -185,47 +229,47 @@ func (tc *TestContext) VerifyNodeInDB(label UniqueLabel, props map[string]any) *
 	}
 
 	query := fmt.Sprintf("MATCH (n:%s)%s RETURN n", label, whereClause)
-	records, err := tc.Service.ExecuteReadQuery(tc.Ctx, query, props)
+	records, err := tc.Service.ExecuteReadQuery(tc.ctx, query, props)
 	if err != nil {
-		tc.T.Fatalf("failed to verify node in DB: %v", err)
+		tc.t.Fatalf("failed to verify node in DB: %v", err)
 	}
 	if len(records) != 1 {
-		tc.T.Fatalf("expected 1 record in DB, got %d", len(records))
+		tc.t.Fatalf("expected 1 record in DB, got %d", len(records))
 	}
 
 	return records[0]
 }
 
 // AssertNodeProperties validates node properties match expected values
-func AssertNodeProperties(t *testing.T, node map[string]any, expectedProps map[string]any) {
-	t.Helper()
+func (tc *TestContext) AssertNodeProperties(node map[string]any, expectedProps map[string]any) {
+	tc.t.Helper()
 
 	props, ok := node["Props"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected 'Props' to be a map, got %T: %+v", node["Props"], node)
+		tc.t.Fatalf("expected 'Props' to be a map, got %T: %+v", node["Props"], node)
 	}
 
 	for key, expectedVal := range expectedProps {
 		actualVal, exists := props[key]
 		if !exists {
-			t.Errorf("property %q not found in node", key)
+			tc.t.Errorf("property %q not found in node", key)
 			continue
 		}
 
 		if actualVal != expectedVal {
-			t.Errorf("property %q: expected %v (type=%T), got %v (type=%T)",
+			tc.t.Errorf("property %q: expected %v (type=%T), got %v (type=%T)",
 				key, expectedVal, expectedVal, actualVal, actualVal)
 		}
 	}
 }
 
 // AssertNodeHasLabel checks if a node has a specific label
-func AssertNodeHasLabel(t *testing.T, node map[string]any, expectedLabel UniqueLabel) {
-	t.Helper()
+func (tc *TestContext) AssertNodeHasLabel(node map[string]any, expectedLabel UniqueLabel) {
+	tc.t.Helper()
 
 	labels, ok := node["Labels"].([]any)
 	if !ok {
-		t.Fatalf("expected 'Labels' to be a slice, got %T", node["Labels"])
+		tc.t.Fatalf("expected 'Labels' to be a slice, got %T", node["Labels"])
 	}
 
 	for _, label := range labels {
@@ -234,32 +278,32 @@ func AssertNodeHasLabel(t *testing.T, node map[string]any, expectedLabel UniqueL
 		}
 	}
 
-	t.Errorf("expected node to have label %q, got labels=%v", expectedLabel, labels)
+	tc.t.Errorf("expected node to have label %q, got labels=%v", expectedLabel, labels)
 }
 
 // AssertSchemaHasNodeType checks if the schema contains a node type with expected properties
-func AssertSchemaHasNodeType(t *testing.T, schemaMap map[string]map[string]any, label UniqueLabel, expectedProps []string) {
-	t.Helper()
+func (tc *TestContext) AssertSchemaHasNodeType(schemaMap map[string]map[string]any, label UniqueLabel, expectedProps []string) {
+	tc.t.Helper()
 
 	schema, ok := schemaMap[string(label)]
 	if !ok {
-		t.Errorf("expected schema to contain '%s' label", label)
+		tc.t.Errorf("expected schema to contain '%s' label", label)
 		return
 	}
 
 	if schema["type"] != "node" {
-		t.Errorf("expected %s type to be 'node', got %v", label, schema["type"])
+		tc.t.Errorf("expected %s type to be 'node', got %v", label, schema["type"])
 	}
 
 	props, ok := schema["properties"].(map[string]any)
 	if !ok {
-		t.Errorf("expected %s to have properties", label)
+		tc.t.Errorf("expected %s to have properties", label)
 		return
 	}
 
 	for _, prop := range expectedProps {
 		if _, exists := props[prop]; !exists {
-			t.Errorf("expected %s to have '%s' property", label, prop)
+			tc.t.Errorf("expected %s to have '%s' property", label, prop)
 		}
 	}
 }
