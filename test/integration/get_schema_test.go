@@ -93,7 +93,7 @@ func TestGetSchema(t *testing.T) {
 				Type:      "INTEGER",
 			},
 		}
-		assertSchemaEntryHasProperties(t, personEntry.Value.Properties, personProperties, true)
+		assertSchemaEntryHasProperties(t, personEntry.Value.Properties, personProperties)
 
 		companyEntry := getSchemaEntryByTypeOrLabel(schemaEntries, companyLabel.String())
 		companyProperties := map[string]SchemaPropertyType{
@@ -110,14 +110,13 @@ func TestGetSchema(t *testing.T) {
 				Type:      "INTEGER",
 			},
 		}
-		assertSchemaEntryHasProperties(t, companyEntry.Value.Properties, companyProperties, true)
+		assertSchemaEntryHasProperties(t, companyEntry.Value.Properties, companyProperties)
 	})
 
 	// TODO keep extending the coverage of the schema tests:
 	// - test different types such as float, duration etc ...
 	// - test primitive array such as []float
 	// - test Relationship
-	// - test indexes and constraints
 }
 
 // assertSchemaHasLabel checks if the schema contains a node type with expected label
@@ -139,26 +138,25 @@ func getSchemaEntryByTypeOrLabel(schemaEntries []SchemaEntry, labelOrType string
 	return schemaEntries[idx]
 }
 
-func assertSchemaEntryHasProperties(t *testing.T, entryProperties map[string]SchemaPropertyType, expectedProperties map[string]SchemaPropertyType, validateMeta bool) {
+func assertSchemaEntryHasProperties(t *testing.T, entryProperties map[string]SchemaPropertyType, expectedProperties map[string]SchemaPropertyType) {
 	for name, expected := range expectedProperties {
 		got, ok := entryProperties[name]
 		if !ok {
 			t.Fatalf("property %s expected for schema properties but not found, found properties: %v", name, entryProperties)
 		}
 
-		if validateMeta {
-			if got.Array != expected.Array {
-				t.Fatalf("property %s not found: Array mismatch (expected=%t got=%t)", name, expected.Array, got.Array)
-			}
-			if got.Existence != expected.Existence {
-				t.Fatalf("property %s not found: Existence mismatch (expected=%t got=%t)", name, expected.Existence, got.Existence)
-			}
-			if got.Indexed != expected.Indexed {
-				t.Fatalf("property %s not found: Indexed mismatch (expected=%t got=%t)", name, expected.Indexed, got.Indexed)
-			}
-			if got.Type != expected.Type {
-				t.Fatalf("property %s not found: Type mismatch (expected=%s got=%s)", name, expected.Type, got.Type)
-			}
+		if got.Array != expected.Array {
+			t.Fatalf("property %s not found: Array mismatch (expected=%t got=%t)", name, expected.Array, got.Array)
 		}
+		if got.Existence != expected.Existence {
+			t.Fatalf("property %s not found: Existence mismatch (expected=%t got=%t)", name, expected.Existence, got.Existence)
+		}
+		if got.Indexed != expected.Indexed {
+			t.Fatalf("property %s not found: Indexed mismatch (expected=%t got=%t)", name, expected.Indexed, got.Indexed)
+		}
+		if got.Type != expected.Type {
+			t.Fatalf("property %s not found: Type mismatch (expected=%s got=%s)", name, expected.Type, got.Type)
+		}
+
 	}
 }
