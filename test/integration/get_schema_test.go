@@ -48,8 +48,8 @@ func TestGetSchema(t *testing.T) {
 		}
 
 		// Check for the unique labels created
-		tc.AssertSchemaHasNodeType(schemaMap, personLabel, []string{"name", "age"})
-		tc.AssertSchemaHasNodeType(schemaMap, companyLabel, []string{"name", "founded"})
+		assertSchemaHasNodeType(t, schemaMap, personLabel.String(), []string{"name", "age"})
+		assertSchemaHasNodeType(t, schemaMap, companyLabel.String(), []string{"name", "founded"})
 	})
 
 	t.Run("get-schema should give hint when the database is empty", func(t *testing.T) {
@@ -65,4 +65,31 @@ func TestGetSchema(t *testing.T) {
 			t.Fatal("no empty schema hint returned")
 		}
 	})
+}
+
+// assertSchemaHasNodeType checks if the schema contains a node type with expected properties
+func assertSchemaHasNodeType(t *testing.T, schemaMap map[string]map[string]any, label string, expectedProps []string) {
+	t.Helper()
+
+	schema, ok := schemaMap[string(label)]
+	if !ok {
+		t.Errorf("expected schema to contain '%s' label", label)
+		return
+	}
+
+	if schema["type"] != "node" {
+		t.Errorf("expected %s type to be 'node', got %v", label, schema["type"])
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Errorf("expected %s to have properties", label)
+		return
+	}
+
+	for _, prop := range expectedProps {
+		if _, exists := props[prop]; !exists {
+			t.Errorf("expected %s to have '%s' property", label, prop)
+		}
+	}
 }

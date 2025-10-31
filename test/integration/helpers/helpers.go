@@ -281,33 +281,6 @@ func (tc *TestContext) AssertNodeHasLabel(node map[string]any, expectedLabel Uni
 	tc.t.Errorf("expected node to have label %q, got labels=%v", expectedLabel, labels)
 }
 
-// AssertSchemaHasNodeType checks if the schema contains a node type with expected properties
-func (tc *TestContext) AssertSchemaHasNodeType(schemaMap map[string]map[string]any, label UniqueLabel, expectedProps []string) {
-	tc.t.Helper()
-
-	schema, ok := schemaMap[string(label)]
-	if !ok {
-		tc.t.Errorf("expected schema to contain '%s' label", label)
-		return
-	}
-
-	if schema["type"] != "node" {
-		tc.t.Errorf("expected %s type to be 'node', got %v", label, schema["type"])
-	}
-
-	props, ok := schema["properties"].(map[string]any)
-	if !ok {
-		tc.t.Errorf("expected %s to have properties", label)
-		return
-	}
-
-	for _, prop := range expectedProps {
-		if _, exists := props[prop]; !exists {
-			tc.t.Errorf("expected %s to have '%s' property", label, prop)
-		}
-	}
-}
-
 // makeTestID returns a unique test id suitable for tagging resources created by tests.
 func makeTestID() string {
 	id := fmt.Sprintf("test-%s", uuid.NewString())

@@ -47,7 +47,6 @@ func TestMyFeature(t *testing.T) {
 
 - `tc.AssertNodeProperties(node, props)`
 - `tc.AssertNodeHasLabel(node, label)`
-- `tc.AssertSchemaHasNodeType(schema, label, props)`
 
 ## Running Tests
 
