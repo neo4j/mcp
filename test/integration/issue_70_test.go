@@ -64,7 +64,7 @@ func TestIssue70(t *testing.T) {
 				t.Fatalf("expected 2 company, got %d", len(records))
 			}
 		})
-		t.Run(strings.Join([]string{tt.name, "should accept float parameter"}, " "), func(t *testing.T) {
+		t.Run(strings.Join([]string{tt.name, "should accept integer parameter"}, " "), func(t *testing.T) {
 			t.Skip("Skip issue 70 test until the underline issue is fixed")
 			tc := helpers.NewTestContext(t, dbs.GetDriver())
 

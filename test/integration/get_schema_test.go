@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"slices"
 	"testing"
 
@@ -42,7 +43,8 @@ func TestGetSchema(t *testing.T) {
 	// do not run this test in Parallel, test-id will not avoid collision when testing the emptiness of the db.
 	t.Run("get-schema should give hint when the database is empty", func(t *testing.T) {
 		tc := helpers.NewTestContext(t, dbs.GetDriver())
-
+		// clean the database, keep an eyes if this create any flakiness
+		tc.Service.ExecuteWriteQuery(context.Background(), "MATCH(n) DETACH DELETE n", map[string]any{})
 		getSchema := cypher.GetSchemaHandler(tc.Deps)
 		res := tc.CallTool(getSchema, nil)
 
@@ -50,7 +52,7 @@ func TestGetSchema(t *testing.T) {
 
 		expectedMessage := "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."
 		if textContent != expectedMessage {
-			t.Fatal("no empty schema hint returned")
+			t.Fatalf("no empty schema hint returned: %s", textContent)
 		}
 	})
 	t.Run("get-schema should collect information about the neo4j database", func(t *testing.T) {
