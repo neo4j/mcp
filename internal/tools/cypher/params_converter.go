@@ -13,9 +13,9 @@ type ParamsConverter interface {
 	SetParams(map[string]any)
 }
 
-// bindArguments is our custom implementation that preserves integer types
+// BindArguments is our custom implementation that preserves integer types
 // by using json.Number during unmarshaling, then converting to proper types
-func bindArguments(request mcp.CallToolRequest, target any) error {
+func BindArguments(request mcp.CallToolRequest, target any) error {
 	// Marshal the arguments to JSON
 	jsonBytes, err := json.Marshal(request.Params.Arguments)
 	if err != nil {
@@ -33,7 +33,7 @@ func bindArguments(request mcp.CallToolRequest, target any) error {
 	if converter, ok := target.(ParamsConverter); ok {
 		params := converter.GetParams()
 		if params != nil {
-			convertedParams := convertNumbers(params).(map[string]any)
+			convertedParams := ConvertNumbers(params).(map[string]any)
 			converter.SetParams(convertedParams)
 		}
 	}
@@ -41,17 +41,17 @@ func bindArguments(request mcp.CallToolRequest, target any) error {
 	return nil
 }
 
-// convertNumbers recursively traverses a map or slice and converts json.Number values to proper int64 or float64
-func convertNumbers(data any) any {
+// ConvertNumbers recursively traverses a map or slice and converts json.Number values to proper int64 or float64
+func ConvertNumbers(data any) any {
 	switch v := data.(type) {
 	case map[string]any:
 		for key, value := range v {
-			v[key] = convertNumbers(value)
+			v[key] = ConvertNumbers(value)
 		}
 		return v
 	case []any:
 		for i, value := range v {
-			v[i] = convertNumbers(value)
+			v[i] = ConvertNumbers(value)
 		}
 		return v
 	case json.Number:

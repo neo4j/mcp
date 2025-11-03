@@ -18,8 +18,8 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 
 func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
 	var args ReadCypherInput
-	// Use our custom bindArguments that preserves integer types
-	if err := bindArguments(request, &args); err != nil {
+	// Use our custom BindArguments that preserves integer types
+	if err := BindArguments(request, &args); err != nil {
 		log.Printf("Error binding arguments: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
