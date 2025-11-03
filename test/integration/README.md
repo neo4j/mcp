@@ -27,8 +27,8 @@ func TestMyFeature(t *testing.T) {
     tc.ParseJSONResponse(res, &records)
 
     person := records[0]["p"].(map[string]any)
-    helpers.AssertNodeProperties(t, person, map[string]any{"name": "Alice"})
-    helpers.AssertNodeHasLabel(t, person, personLabel)
+    tc.AssertNodeProperties( person, map[string]any{"name": "Alice"})
+    tc.AssertNodeHasLabel( person, personLabel)
 }
 ```
 
@@ -45,9 +45,8 @@ func TestMyFeature(t *testing.T) {
 
 **Assertions:**
 
-- `helpers.AssertNodeProperties(t, node, props)`
-- `helpers.AssertNodeHasLabel(t, node, label)`
-- `helpers.AssertSchemaHasNodeType(t, schema, label, props)`
+- `tc.AssertNodeProperties(node, props)`
+- `tc.AssertNodeHasLabel(node, label)`
 
 ## Running Tests
 
