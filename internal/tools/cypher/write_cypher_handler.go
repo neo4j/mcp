@@ -18,7 +18,7 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
 	var args WriteCypherInput
 	// Bind arguments to the struct
-	if err := request.BindArguments(&args); err != nil {
+	if err := BindArgs(request.Params.Arguments, &args); err != nil {
 		log.Printf("Error binding arguments: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
