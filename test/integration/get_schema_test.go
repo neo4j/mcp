@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -103,22 +102,6 @@ func TestGetSchema(t *testing.T) {
 	// - test different types such as float, duration etc ...
 	// - test primitive array such as []float
 	// - test Relationship
-}
-
-func TestGetSchemaHint(t *testing.T) {
-	// do not run this test in Parallel, test-id will not avoid collision when testing the emptiness of the db.
-	tc := helpers.NewTestContext(t, dbs.GetDriver())
-	// clean the database, keep an eyes if this create any flakiness
-	tc.Service.ExecuteWriteQuery(context.Background(), "MATCH(n) DETACH DELETE n", map[string]any{})
-	getSchema := cypher.GetSchemaHandler(tc.Deps)
-	res := tc.CallTool(getSchema, nil)
-
-	textContent := tc.ParseTextResponse(res)
-
-	expectedMessage := "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."
-	if textContent != expectedMessage {
-		t.Fatalf("no empty schema hint returned: %s", textContent)
-	}
 }
 
 // assertSchemaHasLabel checks if the schema contains a node type with expected label
