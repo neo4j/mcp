@@ -3,6 +3,7 @@ package cypher
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -33,8 +34,12 @@ func BindArguments(request mcp.CallToolRequest, target any) error {
 	if converter, ok := target.(ParamsConverter); ok {
 		params := converter.GetParams()
 		if params != nil {
-			convertedParams := ConvertNumbers(params).(map[string]any)
-			converter.SetParams(convertedParams)
+			if convertedParams, ok := ConvertNumbers(params).(map[string]any); ok {
+				converter.SetParams(convertedParams)
+			} else {
+				// Optionally handle the error case, e.g., log or return an error
+				return fmt.Errorf("failed to convert params to map[string]any")
+			}
 		}
 	}
 
