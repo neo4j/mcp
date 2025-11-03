@@ -17,11 +17,12 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
 	var args WriteCypherInput
-	// Bind arguments to the struct
-	if err := BindArgs(request.Params.Arguments, &args); err != nil {
+	// Use our custom bindArguments that preserves integer types
+	if err := bindArguments(request, &args); err != nil {
 		log.Printf("Error binding arguments: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+
 	Query := args.Query
 	Params := args.Params
 	// debug log -- to be removed at a later stage

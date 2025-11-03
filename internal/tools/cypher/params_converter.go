@@ -3,57 +3,55 @@ package cypher
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"reflect"
+
+	"github.com/mark3labs/mcp-go/mcp"
 )
 
-// BindArgs unmarshals the tool call arguments and converts numbers.
-func BindArgs(request any, target any) error {
-	// Marshal the request to JSON.
-	jsonBytes, err := json.Marshal(request)
+// ParamsConverter interface for types that have a Params field
+type ParamsConverter interface {
+	GetParams() map[string]any
+	SetParams(map[string]any)
+}
+
+// bindArguments is our custom implementation that preserves integer types
+// by using json.Number during unmarshaling, then converting to proper types
+func bindArguments(request mcp.CallToolRequest, target any) error {
+	// Marshal the arguments to JSON
+	jsonBytes, err := json.Marshal(request.Params.Arguments)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request to JSON: %w", err)
+		return err
 	}
 
-	// Unmarshal into the final target struct, using json.Number to preserve number types.
-	// This ensures that numbers are initially parsed as json.Number.
+	// Unmarshal with UseNumber() to preserve integers as json.Number
 	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
 	decoder.UseNumber()
 	if err := decoder.Decode(target); err != nil {
-		return fmt.Errorf("failed to unmarshal request to target: %w", err)
+		return err
 	}
 
-	// Now, iterate through the target's Params field and convert numbers.
-	// This assumes 'target' is a struct with a 'Params' field of type map[string]any.
-	// We need to use reflection to access and modify the Params field.
-	val := reflect.ValueOf(target)
-	if val.Kind() == reflect.Ptr && !val.IsNil() {
-		val = val.Elem()
-	}
-
-	if val.Kind() == reflect.Struct {
-		paramsField := val.FieldByName("Params")
-		if paramsField.IsValid() && paramsField.CanSet() && paramsField.Kind() == reflect.Map {
-			// Convert the map to a modifiable map[string]any
-			convertedParams := ConvertNumbers(paramsField.Interface()).(map[string]any)
-			paramsField.Set(reflect.ValueOf(convertedParams))
+	// Convert the Params field using our ConvertNumbers function
+	if converter, ok := target.(ParamsConverter); ok {
+		params := converter.GetParams()
+		if params != nil {
+			convertedParams := convertNumbers(params).(map[string]any)
+			converter.SetParams(convertedParams)
 		}
 	}
 
 	return nil
 }
 
-// ConvertNumbers recursively traverses a map or slice and converts float64 to int where possible.
-func ConvertNumbers(data any) any {
+// convertNumbers recursively traverses a map or slice and converts json.Number values to proper int64 or float64
+func convertNumbers(data any) any {
 	switch v := data.(type) {
 	case map[string]any:
 		for key, value := range v {
-			v[key] = ConvertNumbers(value)
+			v[key] = convertNumbers(value)
 		}
 		return v
 	case []any:
 		for i, value := range v {
-			v[i] = ConvertNumbers(value)
+			v[i] = convertNumbers(value)
 		}
 		return v
 	case json.Number:
