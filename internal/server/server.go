@@ -42,9 +42,9 @@ func (s *Neo4jMCPServer) Start() error {
 	log.Println("Starting Neo4j MCP Server...")
 
 	// track startup event
-	analytics.EmitStartupEvent()
+	analytics.EmitEvent(analytics.NewStartupEvent())
 	// track OS specifics
-	analytics.EmitOSEvent(s.config.URI)
+	analytics.EmitEvent(analytics.NewOSInfoEvent(s.config.URI))
 
 	// Register tools
 	if err := s.RegisterTools(); err != nil {

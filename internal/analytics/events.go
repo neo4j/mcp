@@ -1,9 +1,13 @@
 package analytics
 
 import (
+	"fmt"
+	"log"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const eventNamePrefix = "MCP4NEO4J"
@@ -31,37 +35,37 @@ type toolsProperties struct {
 	ToolUsed string `json:"tools_used"`
 }
 
-type trackEvent struct {
+type TrackEvent struct {
 	Event      string      `json:"event"`
 	Properties interface{} `json:"properties"`
 }
 
-func newGDSProjCreatedEvent(insertID string) trackEvent {
-	return trackEvent{
+func NewGDSProjCreatedEvent() TrackEvent {
+	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_CREATED"}, "_"),
-		Properties: getBaseProperties(insertID),
+		Properties: getBaseProperties(),
 	}
 }
 
-func newGDSProjDropEvent(insertID string) trackEvent {
-	return trackEvent{
+func NewGDSProjDropEvent() TrackEvent {
+	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_DROP"}, "_"),
-		Properties: getBaseProperties(insertID),
+		Properties: getBaseProperties(),
 	}
 }
 
-func newStartupEvent(insertID string) trackEvent {
-	return trackEvent{
+func NewStartupEvent() TrackEvent {
+	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: getBaseProperties(insertID),
+		Properties: getBaseProperties(),
 	}
 }
 
-func newOSInfoEvent(insertID string, dbURI string) trackEvent {
-	return trackEvent{
+func NewOSInfoEvent(dbURI string) TrackEvent {
+	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "OS_INFO"}, "_"),
 		Properties: osInfoProperties{
-			baseProperties: getBaseProperties(insertID),
+			baseProperties: getBaseProperties(),
 			OS:             runtime.GOOS,
 			OSArch:         runtime.GOARCH,
 			Aura:           strings.Contains(dbURI, "database.neoj4.io"),
@@ -69,18 +73,19 @@ func newOSInfoEvent(insertID string, dbURI string) trackEvent {
 	}
 }
 
-func newToolsEvent(insertID string, toolsUsed string) trackEvent {
-	return trackEvent{
+func NewToolsEvent(toolsUsed string) TrackEvent {
+	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{
-			baseProperties: getBaseProperties(insertID),
+			baseProperties: getBaseProperties(),
 			ToolUsed:       toolsUsed,
 		},
 	}
 }
 
-func getBaseProperties(insertID string) baseProperties {
+func getBaseProperties() baseProperties {
 	uptime := time.Now().Unix() - acfg.startupTime
+	insertID := newInsertID()
 	return baseProperties{
 		Token:      acfg.token,
 		DistinctID: acfg.distinctID,
@@ -88,4 +93,14 @@ func getBaseProperties(insertID string) baseProperties {
 		InsertID:   insertID,
 		Uptime:     uptime,
 	}
+}
+
+func newInsertID() string {
+	insertID, err := uuid.NewV6()
+	if err != nil {
+		insertIDerr := fmt.Errorf("error while generating uuid analytics events for analytics purpose: %s", err.Error())
+		log.Printf("MixPanel error: %s", insertIDerr.Error())
+		return ""
+	}
+	return insertID.String()
 }

@@ -7,11 +7,14 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	URI      string
-	Username string
-	Password string
-	Database string
-	ReadOnly string // If true, disables write tools
+	URI              string
+	Username         string
+	Password         string
+	Database         string
+	ReadOnly         string // If true, disables write tools
+	MixPanelEndpoint string
+	MixPanelToken    string
+	Telemetry        string // if false, disables telemetry
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -41,11 +44,14 @@ func (c *Config) Validate() error {
 // LoadConfig loads configuration from environment variables with defaults
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
-		URI:      GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username: GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: GetEnvWithDefault("NEO4J_PASSWORD", "password"),
-		Database: GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		ReadOnly: GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
+		URI:              GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username:         GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:         GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		Database:         GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		ReadOnly:         GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
+		MixPanelEndpoint: GetEnvWithDefault("MIXPANEL_ENDPOINT", "https://api-eu.mixpanel.com"),
+		MixPanelToken:    GetEnvWithDefault("MIXPANEL_TOKEN", ""),
+		Telemetry:        GetEnvWithDefault("TELEMETRY", "true"),
 	}
 
 	if err := cfg.Validate(); err != nil {

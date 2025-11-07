@@ -16,11 +16,6 @@ import (
 var Version = "development"
 
 func main() {
-	mixpanelToken := ""
-	mixpanelEndpoint := "https://api-eu.mixpanel.com"
-	// initialize the analytics package
-	analytics.InitAnalytics(mixpanelToken, mixpanelEndpoint)
-
 	// Handle version flag
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
 		// NOTE: "standard" log package logger write on on STDERR, in this case we want explicitly to write to STDOUT
@@ -31,6 +26,11 @@ func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// initialize the analytics
+	if cfg.Telemetry == "true" {
+		analytics.InitAnalytics(cfg.MixPanelToken, cfg.MixPanelEndpoint)
 	}
 
 	// Initialize Neo4j driver

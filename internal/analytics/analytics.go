@@ -25,8 +25,12 @@ type AnalyticsConfig struct {
 
 var acfg *AnalyticsConfig
 
+var disabled bool = true
+
 // Configure the Analytics package with external information
+// When InitAnalytics is invoked, telemetry is enabled
 func InitAnalytics(mixPanelToken string, mixpanelEndpoint string) error {
+	disabled = false
 	distinctID, err := uuid.NewV6()
 	if err != nil {
 		return fmt.Errorf("error while generating distinct id for analytics purpose: %s", err.Error())
@@ -40,92 +44,25 @@ func InitAnalytics(mixPanelToken string, mixpanelEndpoint string) error {
 
 	return nil
 }
+func EmitEvent(event TrackEvent) {
+	if disabled {
+		return
+	}
 
-func EmitStartupEvent() {
-	if acfg == nil {
-		return
+	trackEvents := []TrackEvent{
+		event,
 	}
-	insertID := newInsertID()
-	trackEvents := []trackEvent{
-		newStartupEvent(insertID),
-	}
-	err := sendTrackEvent(trackEvents)
-	if err != nil {
-		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("MixPanel error: %s", sendErr.Error())
-	}
-}
 
-func EmitOSEvent(dbURI string) {
-	if acfg == nil {
-		return
-	}
-	insertID := newInsertID()
-	trackEvents := []trackEvent{
-		newOSInfoEvent(insertID, dbURI),
-	}
+	log.Printf("Sending %s event to Neo4j", event.Event)
 	err := sendTrackEvent(trackEvents)
 	if err != nil {
 		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("MixPanel error: %s", sendErr.Error())
+		log.Printf("Analytics error: %s", sendErr.Error())
 	}
-}
-
-func EmitToolUsedEvent(toolName string) {
-	if acfg == nil {
-		return
-	}
-	insertID := newInsertID()
-	trackEvents := []trackEvent{
-		newToolsEvent(insertID, toolName),
-	}
-	err := sendTrackEvent(trackEvents)
-	if err != nil {
-		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("MixPanel error: %s", sendErr.Error())
-	}
-}
-func EmitGDSProjCreatedEvent() {
-	if acfg == nil {
-		return
-	}
-	insertID := newInsertID()
-	trackEvents := []trackEvent{
-		newGDSProjCreatedEvent(insertID),
-	}
-	err := sendTrackEvent(trackEvents)
-	if err != nil {
-		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("MixPanel error: %s", sendErr.Error())
-	}
-}
-
-func EmitGDSProjDropEvent() {
-	if acfg == nil {
-		return
-	}
-	insertID := newInsertID()
-	trackEvents := []trackEvent{
-		newGDSProjDropEvent(insertID),
-	}
-	err := sendTrackEvent(trackEvents)
-	if err != nil {
-		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("MixPanel error: %s", sendErr.Error())
-	}
-}
-func newInsertID() string {
-	insertID, err := uuid.NewV6()
-	if err != nil {
-		insertIDerr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("MixPanel error: %s", insertIDerr.Error())
-		return ""
-	}
-	return insertID.String()
 }
 
 // Eventually we can use mixpanel SDK
-func sendTrackEvent(events []trackEvent) error {
+func sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
 		return fmt.Errorf("error appear while marshalling track event: %w", err)
@@ -134,7 +71,7 @@ func sendTrackEvent(events []trackEvent) error {
 
 	resp, err := http.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
 	if err != nil {
-		return fmt.Errorf("error while emitting analytics to MixPanel: %w", err)
+		return fmt.Errorf("error while emitting analytics to Neo4j: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -147,6 +84,6 @@ func sendTrackEvent(events []trackEvent) error {
 	var data int32
 	_ = json.Unmarshal(bodyBytes, &data)
 
-	log.Printf("Response from MixPanel, Status: %s, Body: %s, Data: %d", resp.Status, string(bodyBytes), data)
+	log.Printf("Response from Neo4j, Status: %s, Body: %s, Data: %d", resp.Status, string(bodyBytes), data)
 	return nil
 }

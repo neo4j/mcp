@@ -25,7 +25,7 @@ func ListGdsProceduresHandler(deps *tools.ToolDependencies) func(context.Context
 }
 
 func handleListGdsProcedures(ctx context.Context, dbService database.Service) (*mcp.CallToolResult, error) {
-	analytics.EmitToolUsedEvent("list-gds-procedure")
+	analytics.EmitEvent(analytics.NewToolsEvent("list-gds-procedures"))
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)

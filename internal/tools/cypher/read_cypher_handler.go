@@ -19,7 +19,7 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 }
 
 func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
-	analytics.EmitToolUsedEvent("read-cypher")
+	analytics.EmitEvent(analytics.NewToolsEvent("read-cypher"))
 	var args ReadCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -32,11 +32,11 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 	log.Printf("cypher-query: %s", Query)
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		analytics.EmitGDSProjCreatedEvent()
+		analytics.EmitEvent(analytics.NewGDSProjCreatedEvent())
 	}
 
 	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		analytics.EmitGDSProjDropEvent()
+		analytics.EmitEvent(analytics.NewGDSProjDropEvent())
 	}
 
 	// Validate that query is not empty

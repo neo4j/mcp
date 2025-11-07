@@ -18,7 +18,7 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 }
 
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
-	analytics.EmitToolUsedEvent("write-cypher")
+	analytics.EmitEvent(analytics.NewToolsEvent("write-cypher"))
 	var args WriteCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -32,12 +32,13 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		analytics.EmitGDSProjCreatedEvent()
+		analytics.EmitEvent(analytics.NewGDSProjCreatedEvent())
 	}
 
 	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		analytics.EmitGDSProjDropEvent()
+		analytics.EmitEvent(analytics.NewGDSProjDropEvent())
 	}
+
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
