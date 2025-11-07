@@ -55,7 +55,8 @@ Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/custo
         "NEO4J_USERNAME": "neo4j",
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
-        "NEO4J_READ_ONLY": "true" // Optional: disables write tools
+        "NEO4J_READ_ONLY": "true", // Optional: disables write tools
+        "TELEMETRY": "false" // Optional: disables telemetry
       }
     }
   }
@@ -89,7 +90,8 @@ You’ll then add the `neo4j-mcp` MCP in the mcpServers key:
         "NEO4J_USERNAME": "neo4j",
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
-        "NEO4J_READ_ONLY": "true" // Optional: disables write tools
+        "NEO4J_READ_ONLY": "true", // Optional: disables write tools
+        "TELEMETRY": "false" // Optional: disables telemetry
       }
     }
   }
@@ -100,6 +102,7 @@ Notes:
 
 - Adjust env vars for your setup (defaults shown above).
 - Set `NEO4J_READ_ONLY=true` to disable all write tools (e.g., `write-cypher`).
+- Set `TELEMETRY=false` to disable telemetry.
 - When enabled, only read operations are available; write tools are not exposed to clients.
 - Neo4j Desktop default URI: `bolt://localhost:7687`.
 - Aura: use the connection string from the Aura console.
@@ -143,6 +146,14 @@ Below are some example prompts you can try in Copilot or any other MCP client:
 
 - Use a restricted Neo4j user for exploration.
 - Review generated Cypher before executing in production databases.
+
+## Telemetry
+
+By default, `neo4j-mcp` collects anonymous usage data to help us improve the product.
+This includes information like the tools being used, the operating system, and CPU architecture.
+We do not collect any personal or sensitive information.
+
+To disable telemetry, set the `TELEMETRY` environment variable to `"false"`.
 
 ## Documentation
 

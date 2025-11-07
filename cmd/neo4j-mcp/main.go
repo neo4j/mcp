@@ -30,6 +30,8 @@ func main() {
 
 	// initialize the analytics
 	if cfg.Telemetry == "true" {
+		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data like tools in use, OS and CPU architecture.")
+		log.Println("To disable telemetry, set the TELEMETRY environment variable to \"false\".")
 		analytics.InitAnalytics(cfg.MixPanelToken, cfg.MixPanelEndpoint)
 	}
 
