@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
@@ -29,6 +30,7 @@ func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.Ca
 
 // handleGetSchema retrieves Neo4j schema information using APOC
 func handleGetSchema(ctx context.Context, dbService database.Service) (*mcp.CallToolResult, error) {
+	analytics.EmitToolUsedEvent("get-schema")
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)
@@ -42,6 +44,7 @@ func handleGetSchema(ctx context.Context, dbService database.Service) (*mcp.Call
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	if len(records) == 0 {
+
 		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
 	}
 	// Convert records to JSON using the existing utility function
@@ -51,6 +54,5 @@ func handleGetSchema(ctx context.Context, dbService database.Service) (*mcp.Call
 		log.Printf("Failed to format schema results to JSON: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
 	return mcp.NewToolResultText(response), nil
 }

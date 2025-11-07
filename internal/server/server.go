@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 )
@@ -39,6 +40,11 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
 	log.Println("Starting Neo4j MCP Server...")
+
+	// track startup event
+	analytics.EmitStartupEvent()
+	// track OS specifics
+	analytics.EmitOSEvent(s.config.URI)
 
 	// Register tools
 	if err := s.RegisterTools(); err != nil {

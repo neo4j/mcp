@@ -40,7 +40,6 @@ func (c *Config) Validate() error {
 
 // LoadConfig loads configuration from environment variables with defaults
 func LoadConfig() (*Config, error) {
-
 	cfg := &Config{
 		URI:      GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
 		Username: GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),

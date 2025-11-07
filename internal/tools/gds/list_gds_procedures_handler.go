@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
@@ -24,6 +25,7 @@ func ListGdsProceduresHandler(deps *tools.ToolDependencies) func(context.Context
 }
 
 func handleListGdsProcedures(ctx context.Context, dbService database.Service) (*mcp.CallToolResult, error) {
+	analytics.EmitToolUsedEvent("list-gds-procedure")
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)

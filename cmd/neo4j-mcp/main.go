@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
@@ -15,6 +16,12 @@ import (
 var Version = "development"
 
 func main() {
+
+	mixpanelToken := ""
+	mixpanelEndpoint := "https://api-eu.mixpanel.com"
+	// initialize the analytics package
+	analytics.InitAnalytics(mixpanelToken, mixpanelEndpoint)
+
 	// Handle version flag
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
 		// NOTE: "standard" log package logger write on on STDERR, in this case we want explicitly to write to STDOUT
@@ -69,4 +76,5 @@ func main() {
 		log.Printf("Server error: %v", err)
 		return // so that defer can run
 	}
+
 }

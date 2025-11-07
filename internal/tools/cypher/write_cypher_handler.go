@@ -3,8 +3,10 @@ package cypher
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
@@ -16,6 +18,7 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 }
 
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
+	analytics.EmitToolUsedEvent("write-cypher")
 	var args WriteCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -27,6 +30,14 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 	// debug log -- to be removed at a later stage
 	log.Printf("Cypher-query: %s", Query)
 
+	lowerCaseQuery := strings.ToLower(Query)
+	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
+		analytics.EmitGDSProjCreatedEvent()
+	}
+
+	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
+		analytics.EmitGDSProjDropEvent()
+	}
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"

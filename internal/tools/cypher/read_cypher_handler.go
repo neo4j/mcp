@@ -3,8 +3,10 @@ package cypher
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -17,6 +19,7 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 }
 
 func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
+	analytics.EmitToolUsedEvent("read-cypher")
 	var args ReadCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -27,6 +30,14 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 	Params := args.Params
 
 	log.Printf("cypher-query: %s", Query)
+	lowerCaseQuery := strings.ToLower(Query)
+	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
+		analytics.EmitGDSProjCreatedEvent()
+	}
+
+	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
+		analytics.EmitGDSProjDropEvent()
+	}
 
 	// Validate that query is not empty
 	if Query == "" {
