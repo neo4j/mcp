@@ -27,7 +27,7 @@ func TestIssue70(t *testing.T) {
 		},
 		{
 			name:    "write-cypher",
-			handler: cypher.ReadCypherHandler,
+			handler: cypher.WriteCypherHandler,
 		},
 	}
 
@@ -65,7 +65,6 @@ func TestIssue70(t *testing.T) {
 			}
 		})
 		t.Run(strings.Join([]string{tt.name, "should accept integer parameter"}, " "), func(t *testing.T) {
-			t.Skip("Skip issue 70 test until the underline issue is fixed")
 			tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 			companyLabel := tc.GetUniqueLabel("Company")
