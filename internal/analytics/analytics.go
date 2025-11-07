@@ -16,34 +16,53 @@ import (
 	"github.com/google/uuid"
 )
 
+type HTTPClient interface {
+	Post(url, contentType string, body io.Reader) (*http.Response, error)
+}
+
 type AnalyticsConfig struct {
 	token            string
 	mixpanelEndpoint string
 	distinctID       string
 	startupTime      int64
+	client           HTTPClient
 }
 
-var acfg *AnalyticsConfig
+var acfg *AnalyticsConfig = &AnalyticsConfig{}
 
 var disabled bool = true
 
-// Configure the Analytics package with external information
-// When InitAnalytics is invoked, telemetry is enabled
+// for testing purposes - enables dependency injection of http client
+func InitAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient) error {
+	disabled = false
+	distinctID, err := uuid.NewV6()
+	if err != nil {
+		return fmt.Errorf("error while generating distinct id for analytics purpose: %s", err.Error())
+	}
+	acfg.token = mixPanelToken
+	acfg.mixpanelEndpoint = mixpanelEndpoint
+	acfg.distinctID = distinctID.String()
+	acfg.startupTime = time.Now().Unix()
+	acfg.client = client
+
+	return nil
+}
+
 func InitAnalytics(mixPanelToken string, mixpanelEndpoint string) error {
 	disabled = false
 	distinctID, err := uuid.NewV6()
 	if err != nil {
 		return fmt.Errorf("error while generating distinct id for analytics purpose: %s", err.Error())
 	}
-	acfg = &AnalyticsConfig{
-		token:            mixPanelToken,
-		mixpanelEndpoint: mixpanelEndpoint,
-		distinctID:       distinctID.String(),
-		startupTime:      time.Now().Unix(),
-	}
+	acfg.token = mixPanelToken
+	acfg.mixpanelEndpoint = mixpanelEndpoint
+	acfg.distinctID = distinctID.String()
+	acfg.startupTime = time.Now().Unix()
+	acfg.client = http.DefaultClient
 
 	return nil
 }
+
 func EmitEvent(event TrackEvent) {
 	if disabled {
 		return
@@ -69,7 +88,7 @@ func sendTrackEvent(events []TrackEvent) error {
 	}
 	url := strings.TrimRight(acfg.mixpanelEndpoint, "/") + "/track"
 
-	resp, err := http.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
+	resp, err := acfg.client.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("error while emitting analytics to Neo4j: %w", err)
 	}
