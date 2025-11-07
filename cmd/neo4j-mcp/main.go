@@ -16,7 +16,6 @@ import (
 var Version = "development"
 
 func main() {
-
 	mixpanelToken := ""
 	mixpanelEndpoint := "https://api-eu.mixpanel.com"
 	// initialize the analytics package

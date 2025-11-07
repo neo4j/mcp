@@ -124,6 +124,7 @@ func newInsertID() string {
 	return insertID.String()
 }
 
+// Eventually we can use mixpanel SDK
 func sendTrackEvent(events []trackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
