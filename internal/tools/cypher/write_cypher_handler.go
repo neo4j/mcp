@@ -13,12 +13,12 @@ import (
 
 func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleWriteCypher(ctx, request, deps.DBService)
+		return handleWriteCypher(ctx, request, deps.DBService, deps.AnalyticsService)
 	}
 }
 
-func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
-	analytics.EmitEvent(analytics.NewToolsEvent("write-cypher"))
+func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, as analytics.Service) (*mcp.CallToolResult, error) {
+	as.EmitEvent(as.NewToolsEvent("write-cypher"))
 	var args WriteCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -32,11 +32,11 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		analytics.EmitEvent(analytics.NewGDSProjCreatedEvent())
+		as.EmitEvent(as.NewGDSProjCreatedEvent())
 	}
 
 	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		analytics.EmitEvent(analytics.NewGDSProjDropEvent())
+		as.EmitEvent(as.NewGDSProjDropEvent())
 	}
 
 	// Validate that query is not empty

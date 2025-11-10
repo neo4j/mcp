@@ -28,13 +28,6 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// initialize the analytics
-	if cfg.Telemetry == "true" {
-		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data like tools in use, OS and CPU architecture.")
-		log.Println("To disable telemetry, set the TELEMETRY environment variable to \"false\".")
-		analytics.InitAnalytics(cfg.MixPanelToken, cfg.MixPanelEndpoint)
-	}
-
 	// Initialize Neo4j driver
 	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
@@ -61,9 +54,19 @@ func main() {
 		log.Printf("Failed to create database service: %v", err)
 		return
 	}
+	anService := analytics.NewAnalytics(cfg.MixPanelToken, cfg.MixPanelEndpoint)
+
+	// initialize the analytics
+	if cfg.Telemetry == "true" {
+		anService.Enable()
+		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data like tools in use, OS and CPU architecture.")
+		log.Println("To disable telemetry, set the TELEMETRY environment variable to \"false\".")
+	} else {
+		anService.Disable()
+	}
 
 	// Create and configure the MCP server
-	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService)
+	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService)
 
 	// Gracefully handle shutdown
 	defer func() {

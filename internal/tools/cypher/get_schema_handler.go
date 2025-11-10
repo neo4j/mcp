@@ -24,13 +24,13 @@ const (
 // GetSchemaHandler returns a handler function for the get_schema tool
 func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleGetSchema(ctx, deps.DBService)
+		return handleGetSchema(ctx, deps.DBService, deps.AnalyticsService)
 	}
 }
 
 // handleGetSchema retrieves Neo4j schema information using APOC
-func handleGetSchema(ctx context.Context, dbService database.Service) (*mcp.CallToolResult, error) {
-	analytics.EmitEvent(analytics.NewToolsEvent("get-schema"))
+func handleGetSchema(ctx context.Context, dbService database.Service, as analytics.Service) (*mcp.CallToolResult, error) {
+	as.EmitEvent(as.NewToolsEvent("get-schema"))
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)

@@ -40,50 +40,50 @@ type TrackEvent struct {
 	Properties interface{} `json:"properties"`
 }
 
-func NewGDSProjCreatedEvent() TrackEvent {
+func (a *Analytics) NewGDSProjCreatedEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_CREATED"}, "_"),
-		Properties: getBaseProperties(),
+		Properties: getBaseProperties(a.acfg),
 	}
 }
 
-func NewGDSProjDropEvent() TrackEvent {
+func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_DROP"}, "_"),
-		Properties: getBaseProperties(),
+		Properties: getBaseProperties(a.acfg),
 	}
 }
 
-func NewStartupEvent() TrackEvent {
+func (a *Analytics) NewStartupEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: getBaseProperties(),
+		Properties: getBaseProperties(a.acfg),
 	}
 }
 
-func NewOSInfoEvent(dbURI string) TrackEvent {
+func (a *Analytics) NewOSInfoEvent(dbURI string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "OS_INFO"}, "_"),
 		Properties: osInfoProperties{
-			baseProperties: getBaseProperties(),
+			baseProperties: getBaseProperties(a.acfg),
 			OS:             runtime.GOOS,
 			OSArch:         runtime.GOARCH,
-			Aura:           strings.Contains(dbURI, "database.neoj4.io"),
+			Aura:           strings.Contains(dbURI, "database.neo4j.io"),
 		},
 	}
 }
 
-func NewToolsEvent(toolsUsed string) TrackEvent {
+func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{
-			baseProperties: getBaseProperties(),
+			baseProperties: getBaseProperties(a.acfg),
 			ToolUsed:       toolsUsed,
 		},
 	}
 }
 
-func getBaseProperties() baseProperties {
+func getBaseProperties(acfg AnalyticsConfig) baseProperties {
 	uptime := time.Now().Unix() - acfg.startupTime
 	insertID := newInsertID()
 	return baseProperties{

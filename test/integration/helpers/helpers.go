@@ -13,9 +13,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
+	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"go.uber.org/mock/gomock"
 )
 
 type UniqueLabel string
@@ -58,13 +60,45 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
-	deps := &tools.ToolDependencies{DBService: databaseService}
+	analyticsService := getAnalyticsMock(t)
+	deps := &tools.ToolDependencies{DBService: databaseService, AnalyticsService: analyticsService}
 
 	tc.Service = databaseService
 	tc.Deps = deps
 
 	return tc
 }
+
+// getAnalyticsMock is used to mock the analytics service, for integration test purpose.
+func getAnalyticsMock(t *testing.T) *analytics_mocks.MockService {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().Disable().AnyTimes()
+	analyticsService.EXPECT().Enable().AnyTimes()
+	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
+	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
+	analyticsService.EXPECT().NewOSInfoEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
+	analyticsService.EXPECT().NewToolsEvent(gomock.Any()).AnyTimes()
+
+	return analyticsService
+}
+
+/*
+
+type Service interface {
+	Disable()
+	EmitEvent(event TrackEvent)
+	Enable()
+	NewGDSProjCreatedEvent() TrackEvent
+	NewGDSProjDropEvent() TrackEvent
+	NewOSInfoEvent(dbURI string) TrackEvent
+	NewStartupEvent() TrackEvent
+	NewToolsEvent(toolsUsed string) TrackEvent
+}
+*/
 
 // Cleanup removes all test data by deleting nodes with labels created during the test
 func (tc *TestContext) Cleanup() {

@@ -16,11 +16,12 @@ type Neo4jMCPServer struct {
 	config    *config.Config
 	dbService database.Service
 	version   string
+	anService analytics.Service
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
-func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service) *Neo4jMCPServer {
+func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
 		version,
@@ -34,6 +35,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		config:    cfg,
 		dbService: dbService,
 		version:   version,
+		anService: anService,
 	}
 }
 
@@ -42,9 +44,9 @@ func (s *Neo4jMCPServer) Start() error {
 	log.Println("Starting Neo4j MCP Server...")
 
 	// track startup event
-	analytics.EmitEvent(analytics.NewStartupEvent())
+	s.anService.EmitEvent(s.anService.NewStartupEvent())
 	// track OS specifics
-	analytics.EmitEvent(analytics.NewOSInfoEvent(s.config.URI))
+	s.anService.EmitEvent(s.anService.NewOSInfoEvent(s.config.URI))
 
 	// Register tools
 	if err := s.RegisterTools(); err != nil {

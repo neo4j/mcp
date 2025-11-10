@@ -3,8 +3,10 @@ package server_test
 import (
 	"testing"
 
+	"github.com/neo4j/mcp/internal/analytics"
+	analytics_mock "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database/mocks"
+	db_mock "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
 	"go.uber.org/mock/gomock"
 )
@@ -13,7 +15,9 @@ func TestToolRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockDB := mocks.NewMockService(ctrl)
+	mockDB := db_mock.NewMockService(ctrl)
+	mockClient := analytics_mock.NewMockHTTPClient(ctrl)
+	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient)
 
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		cfg := &config.Config{
@@ -22,7 +26,7 @@ func TestToolRegister(t *testing.T) {
 			Password: "password",
 			Database: "neo4j",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
@@ -48,7 +52,7 @@ func TestToolRegister(t *testing.T) {
 			Database: "neo4j",
 			ReadOnly: "true",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
@@ -73,7 +77,7 @@ func TestToolRegister(t *testing.T) {
 			Database: "neo4j",
 			ReadOnly: "false",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.

@@ -20,12 +20,12 @@ RETURN name, description, signature, type`
 
 func ListGdsProceduresHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleListGdsProcedures(ctx, deps.DBService)
+		return handleListGdsProcedures(ctx, deps.DBService, deps.AnalyticsService)
 	}
 }
 
-func handleListGdsProcedures(ctx context.Context, dbService database.Service) (*mcp.CallToolResult, error) {
-	analytics.EmitEvent(analytics.NewToolsEvent("list-gds-procedures"))
+func handleListGdsProcedures(ctx context.Context, dbService database.Service, as analytics.Service) (*mcp.CallToolResult, error) {
+	as.EmitEvent(as.NewToolsEvent("list-gds-procedures"))
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)

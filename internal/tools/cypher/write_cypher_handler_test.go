@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/database/mocks"
+	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	database_mocks "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -15,10 +16,13 @@ import (
 
 func TestWriteCypherHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService.EXPECT().NewToolsEvent("write-cypher").AnyTimes()
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
 
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}).
 			Return([]*neo4j.Record{}, nil)
@@ -27,7 +31,8 @@ func TestWriteCypherHandler(t *testing.T) {
 			Return(`[{"n": {"name": "Alice"}}]`, nil)
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -51,7 +56,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("successful cypher execution without parameters", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
@@ -60,7 +65,8 @@ func TestWriteCypherHandler(t *testing.T) {
 			Return(`[{"count(n)": 42}]`, nil)
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -83,10 +89,11 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("invalid arguments binding", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -108,12 +115,13 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("missing required arguments", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 		// The handler should NOT call ExecuteWriteQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -137,12 +145,13 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("empty query parameter", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 		// The handler should NOT call ExecuteWriteQuery when query is empty
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -168,6 +177,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService: nil,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -190,13 +200,14 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil()).
 			Return(nil, errors.New("syntax error"))
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -219,7 +230,7 @@ func TestWriteCypherHandler(t *testing.T) {
 	})
 
 	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := mocks.NewMockService(ctrl)
+		mockDB := database_mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteWriteQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
@@ -228,7 +239,8 @@ func TestWriteCypherHandler(t *testing.T) {
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-			DBService: mockDB,
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)

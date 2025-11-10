@@ -16,10 +16,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type HTTPClient interface {
-	Post(url, contentType string, body io.Reader) (*http.Response, error)
-}
-
 type AnalyticsConfig struct {
 	token            string
 	mixpanelEndpoint string
@@ -28,67 +24,70 @@ type AnalyticsConfig struct {
 	client           HTTPClient
 }
 
-var acfg *AnalyticsConfig = &AnalyticsConfig{}
-
-var disabled bool = true
+type Analytics struct {
+	disabled bool
+	acfg     AnalyticsConfig
+}
 
 // for testing purposes - enables dependency injection of http client
-func InitAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient) error {
-	disabled = false
-	distinctID, err := uuid.NewV6()
-	if err != nil {
-		return fmt.Errorf("error while generating distinct id for analytics purpose: %s", err.Error())
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient) Service {
+	distinctID := getDistinctID()
+	acfg := AnalyticsConfig{
+		token:            mixPanelToken,
+		mixpanelEndpoint: mixpanelEndpoint,
+		distinctID:       distinctID,
+		startupTime:      time.Now().Unix(),
+		client:           client,
 	}
-	acfg.token = mixPanelToken
-	acfg.mixpanelEndpoint = mixpanelEndpoint
-	acfg.distinctID = distinctID.String()
-	acfg.startupTime = time.Now().Unix()
-	acfg.client = client
 
-	return nil
+	return &Analytics{acfg: acfg, disabled: false}
 }
 
-func InitAnalytics(mixPanelToken string, mixpanelEndpoint string) error {
-	disabled = false
-	distinctID, err := uuid.NewV6()
-	if err != nil {
-		return fmt.Errorf("error while generating distinct id for analytics purpose: %s", err.Error())
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string) Service {
+	distinctID := getDistinctID()
+	acfg := AnalyticsConfig{
+		token:            mixPanelToken,
+		mixpanelEndpoint: mixpanelEndpoint,
+		distinctID:       distinctID,
+		startupTime:      time.Now().Unix(),
+		client:           http.DefaultClient,
 	}
-	acfg.token = mixPanelToken
-	acfg.mixpanelEndpoint = mixpanelEndpoint
-	acfg.distinctID = distinctID.String()
-	acfg.startupTime = time.Now().Unix()
-	acfg.client = http.DefaultClient
 
-	return nil
+	return &Analytics{acfg: acfg, disabled: false}
 }
 
-func EmitEvent(event TrackEvent) {
-	if disabled {
+func (a *Analytics) EmitEvent(event TrackEvent) {
+	if a.disabled {
 		return
 	}
-
 	trackEvents := []TrackEvent{
 		event,
 	}
 
 	log.Printf("Sending %s event to Neo4j", event.Event)
-	err := sendTrackEvent(trackEvents)
+	err := a.sendTrackEvent(trackEvents)
 	if err != nil {
 		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
 		log.Printf("Analytics error: %s", sendErr.Error())
 	}
 }
+func (a *Analytics) Enable() {
+	a.disabled = false
+}
+
+func (a *Analytics) Disable() {
+	a.disabled = true
+}
 
 // Eventually we can use mixpanel SDK
-func sendTrackEvent(events []TrackEvent) error {
+func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
 		return fmt.Errorf("error appear while marshalling track event: %w", err)
 	}
-	url := strings.TrimRight(acfg.mixpanelEndpoint, "/") + "/track"
+	url := strings.TrimRight(a.acfg.mixpanelEndpoint, "/") + "/track"
 
-	resp, err := acfg.client.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
+	resp, err := a.acfg.client.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("error while emitting analytics to Neo4j: %w", err)
 	}
@@ -105,4 +104,13 @@ func sendTrackEvent(events []TrackEvent) error {
 
 	log.Printf("Response from Neo4j, Status: %s, Body: %s, Data: %d", resp.Status, string(bodyBytes), data)
 	return nil
+}
+
+func getDistinctID() string {
+	distinctID, err := uuid.NewV6()
+	if err != nil {
+		log.Printf("error while generating distinct id for analytics purpose: %s", err.Error())
+		return ""
+	}
+	return distinctID.String()
 }
