@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 
+	"github.com/neo4j/mcp/internal/cli"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
@@ -15,12 +14,11 @@ import (
 var Version = "development"
 
 func main() {
-	// Handle version flag
-	if len(os.Args) > 1 && os.Args[1] == "-v" {
-		// NOTE: "standard" log package logger write on on STDERR, in this case we want explicitly to write to STDOUT
-		fmt.Printf("neo4j-mcp version: %s\n", Version)
+	// Handle CLI arguments (version, help, etc.)
+	if cli.HandleArgs(Version) {
 		return
 	}
+
 	// get config from environment variables
 	cfg, err := config.LoadConfig()
 	if err != nil {
