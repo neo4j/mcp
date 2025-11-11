@@ -40,32 +40,32 @@ type TrackEvent struct {
 	Properties interface{} `json:"properties"`
 }
 
-func (a *Analytics) NewGDSProjCreatedEvent() TrackEvent {
+func (a *analytics) NewGDSProjCreatedEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_CREATED"}, "_"),
-		Properties: getBaseProperties(a.acfg),
+		Properties: getBaseProperties(a.cfg),
 	}
 }
 
-func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
+func (a *analytics) NewGDSProjDropEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_DROP"}, "_"),
-		Properties: getBaseProperties(a.acfg),
+		Properties: getBaseProperties(a.cfg),
 	}
 }
 
-func (a *Analytics) NewStartupEvent() TrackEvent {
+func (a *analytics) NewStartupEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: getBaseProperties(a.acfg),
+		Properties: getBaseProperties(a.cfg),
 	}
 }
 
-func (a *Analytics) NewOSInfoEvent(dbURI string) TrackEvent {
+func (a *analytics) NewOSInfoEvent(dbURI string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "OS_INFO"}, "_"),
 		Properties: osInfoProperties{
-			baseProperties: getBaseProperties(a.acfg),
+			baseProperties: getBaseProperties(a.cfg),
 			OS:             runtime.GOOS,
 			OSArch:         runtime.GOARCH,
 			Aura:           strings.Contains(dbURI, "database.neo4j.io"),
@@ -73,22 +73,22 @@ func (a *Analytics) NewOSInfoEvent(dbURI string) TrackEvent {
 	}
 }
 
-func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
+func (a *analytics) NewToolsEvent(toolsUsed string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{
-			baseProperties: getBaseProperties(a.acfg),
+			baseProperties: getBaseProperties(a.cfg),
 			ToolUsed:       toolsUsed,
 		},
 	}
 }
 
-func getBaseProperties(acfg AnalyticsConfig) baseProperties {
-	uptime := time.Now().Unix() - acfg.startupTime
+func getBaseProperties(cfg analyticsConfig) baseProperties {
+	uptime := time.Now().Unix() - cfg.startupTime
 	insertID := newInsertID()
 	return baseProperties{
-		Token:      acfg.token,
-		DistinctID: acfg.distinctID,
+		Token:      cfg.token,
+		DistinctID: cfg.distinctID,
 		Time:       time.Now().UnixMilli(),
 		InsertID:   insertID,
 		Uptime:     uptime,

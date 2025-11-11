@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type AnalyticsConfig struct {
+type analyticsConfig struct {
 	token            string
 	mixpanelEndpoint string
 	distinctID       string
@@ -24,15 +24,15 @@ type AnalyticsConfig struct {
 	client           HTTPClient
 }
 
-type Analytics struct {
+type analytics struct {
 	disabled bool
-	acfg     AnalyticsConfig
+	cfg      analyticsConfig
 }
 
 // for testing purposes - enables dependency injection of http client
 func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient) Service {
 	distinctID := getDistinctID()
-	acfg := AnalyticsConfig{
+	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
 		distinctID:       distinctID,
@@ -40,12 +40,12 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		client:           client,
 	}
 
-	return &Analytics{acfg: acfg, disabled: false}
+	return &analytics{cfg: cfg, disabled: false}
 }
 
 func NewAnalytics(mixPanelToken string, mixpanelEndpoint string) Service {
 	distinctID := getDistinctID()
-	acfg := AnalyticsConfig{
+	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
 		distinctID:       distinctID,
@@ -53,10 +53,10 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string) Service {
 		client:           http.DefaultClient,
 	}
 
-	return &Analytics{acfg: acfg, disabled: false}
+	return &analytics{cfg: cfg, disabled: false}
 }
 
-func (a *Analytics) EmitEvent(event TrackEvent) {
+func (a *analytics) EmitEvent(event TrackEvent) {
 	if a.disabled {
 		return
 	}
@@ -68,26 +68,26 @@ func (a *Analytics) EmitEvent(event TrackEvent) {
 	err := a.sendTrackEvent(trackEvents)
 	if err != nil {
 		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
-		log.Printf("Analytics error: %s", sendErr.Error())
+		log.Printf("analytics error: %s", sendErr.Error())
 	}
 }
-func (a *Analytics) Enable() {
+func (a *analytics) Enable() {
 	a.disabled = false
 }
 
-func (a *Analytics) Disable() {
+func (a *analytics) Disable() {
 	a.disabled = true
 }
 
 // Eventually we can use mixpanel SDK
-func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
+func (a *analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
 		return fmt.Errorf("error appear while marshalling track event: %w", err)
 	}
-	url := strings.TrimRight(a.acfg.mixpanelEndpoint, "/") + "/track"
+	url := strings.TrimRight(a.cfg.mixpanelEndpoint, "/") + "/track"
 
-	resp, err := a.acfg.client.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
+	resp, err := a.cfg.client.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(b))
 	if err != nil {
 		return fmt.Errorf("error while emitting analytics to Neo4j: %w", err)
 	}

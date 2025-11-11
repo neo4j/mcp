@@ -18,8 +18,19 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 	}
 }
 
-func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, as analytics.Service) (*mcp.CallToolResult, error) {
-	as.EmitEvent(as.NewToolsEvent("read-cypher"))
+func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, asService analytics.Service) (*mcp.CallToolResult, error) {
+	if asService == nil {
+		errMessage := "Analytics service is not initialized"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+	if dbService == nil {
+		errMessage := "Database service is not initialized"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
+	asService.EmitEvent(asService.NewToolsEvent("read-cypher"))
 	var args ReadCypherInput
 	// Bind arguments to the struct
 	if err := request.BindArguments(&args); err != nil {
@@ -32,22 +43,16 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 	log.Printf("cypher-query: %s", Query)
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		as.EmitEvent(as.NewGDSProjCreatedEvent())
+		asService.EmitEvent(asService.NewGDSProjCreatedEvent())
 	}
 
 	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		as.EmitEvent(as.NewGDSProjDropEvent())
+		asService.EmitEvent(asService.NewGDSProjDropEvent())
 	}
 
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
-		log.Printf("%s", errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
-
-	if dbService == nil {
-		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}

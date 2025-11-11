@@ -49,9 +49,9 @@ func LoadConfig() (*Config, error) {
 		Password:         GetEnvWithDefault("NEO4J_PASSWORD", "password"),
 		Database:         GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		ReadOnly:         GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
-		MixPanelEndpoint: GetEnvWithDefault("MIXPANEL_ENDPOINT", "https://api-eu.mixpanel.com"),
-		MixPanelToken:    GetEnvWithDefault("MIXPANEL_TOKEN", ""),
-		Telemetry:        GetEnvWithDefault("TELEMETRY", "true"),
+		MixPanelEndpoint: GetEnvWithDefault("NEO4j_MCP_MIXPANEL_ENDPOINT", "https://api-eu.mixpanel.com"),
+		MixPanelToken:    GetEnvWithDefault("NEO4j_MCP_MIXPANEL_TOKEN", "4bfb2414ab973c741b6f067bf06d5575"),
+		Telemetry:        GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
 	}
 
 	if err := cfg.Validate(); err != nil {

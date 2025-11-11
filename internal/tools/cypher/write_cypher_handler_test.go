@@ -176,7 +176,7 @@ func TestWriteCypherHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-			DBService: nil,
+			DBService:        nil,
 			AnalyticsService: analyticsService,
 		}
 
@@ -196,6 +196,23 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 		if result == nil || !result.IsError {
 			t.Error("Expected error result for nil database service")
+		}
+	})
+	t.Run("nil analytics service", func(t *testing.T) {
+		mockDB := database_mocks.NewMockService(ctrl)
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: nil,
+		}
+
+		handler := cypher.WriteCypherHandler(deps)
+		result, err := handler(context.Background(), mcp.CallToolRequest{})
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for nil analytics service")
 		}
 	})
 
@@ -259,6 +276,81 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 		if result == nil || !result.IsError {
 			t.Error("Expected error result for JSON formatting failure")
+		}
+	})
+}
+
+func TestWriteCypherHandlerEvents(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	defer ctrl.Finish()
+	t.Run("emits event for gds graph project", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockDB := database_mocks.NewMockService(ctrl)
+
+		query := "CALL gds.graph.project('myGraph', 'Node', 'REL')"
+		mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), query, gomock.Nil()).Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Return("[]", nil)
+
+		analyticServiceExplicitMock := analytics_mocks.NewMockService(ctrl)
+		analyticServiceExplicitMock.EXPECT().NewGDSProjCreatedEvent().Times(1)
+		analyticServiceExplicitMock.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+		analyticServiceExplicitMock.EXPECT().NewToolsEvent(gomock.Any()).AnyTimes()
+
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: analyticServiceExplicitMock,
+		}
+
+		handler := cypher.WriteCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": query,
+				},
+			},
+		}
+
+		_, err := handler(context.Background(), request)
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("emits event for gds graph drop", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockDB := database_mocks.NewMockService(ctrl)
+		analyticServiceExplicitMock := analytics_mocks.NewMockService(ctrl)
+
+		query := "CALL gds.graph.drop('myGraph')"
+		mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), query, gomock.Nil()).Return([]*neo4j.Record{}, nil)
+		mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Return("[]", nil)
+
+		analyticServiceExplicitMock.EXPECT().NewGDSProjDropEvent().Times(1)
+		analyticServiceExplicitMock.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+		analyticServiceExplicitMock.EXPECT().NewToolsEvent(gomock.Any()).AnyTimes()
+
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: analyticServiceExplicitMock,
+		}
+
+		handler := cypher.WriteCypherHandler(deps)
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"query": query,
+				},
+			},
+		}
+
+		_, err := handler(context.Background(), request)
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
 		}
 	})
 }

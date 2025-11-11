@@ -56,7 +56,7 @@ Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/custo
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
         "NEO4J_READ_ONLY": "true", // Optional: disables write tools
-        "TELEMETRY": "false" // Optional: disables telemetry
+        "NEO4J_TELEMETRY": "false" // Optional: disables telemetry
       }
     }
   }

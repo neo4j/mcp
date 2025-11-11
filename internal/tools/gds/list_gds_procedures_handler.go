@@ -24,13 +24,20 @@ func ListGdsProceduresHandler(deps *tools.ToolDependencies) func(context.Context
 	}
 }
 
-func handleListGdsProcedures(ctx context.Context, dbService database.Service, as analytics.Service) (*mcp.CallToolResult, error) {
-	as.EmitEvent(as.NewToolsEvent("list-gds-procedures"))
+func handleListGdsProcedures(ctx context.Context, dbService database.Service, asService analytics.Service) (*mcp.CallToolResult, error) {
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
+
+	if asService == nil {
+		errMessage := "Analytics service is not initialized"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+	asService.EmitEvent(asService.NewToolsEvent("list-gds-procedures"))
+
 	records, err := dbService.ExecuteReadQuery(ctx, listGdsProceduresQuery, nil)
 	if err != nil {
 		formattedErrorMessage := fmt.Errorf("failed to execute list-gds-procedure query: %v. Ensure that the Graph Data Science (GDS) library is installed and properly configured in your Neo4j database", err)

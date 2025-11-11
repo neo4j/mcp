@@ -23,7 +23,6 @@ func TestGetSchemaHandler(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("successful schema retrieval", func(t *testing.T) {
-
 		mockDB := database_mocks.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
@@ -119,6 +118,23 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 		if result == nil || !result.IsError {
 			t.Error("Expected error result for nil database service")
+		}
+	})
+	t.Run("nil analytics service", func(t *testing.T) {
+		mockDB := database_mocks.NewMockService(ctrl)
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: nil,
+		}
+
+		handler := cypher.GetSchemaHandler(deps)
+		result, err := handler(context.Background(), mcp.CallToolRequest{})
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for nil analytics service")
 		}
 	})
 	t.Run("No records returned from apoc query (empty database)", func(t *testing.T) {

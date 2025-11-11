@@ -66,6 +66,23 @@ func TestListGdsProceduresHandler(t *testing.T) {
 			t.Error("Expected error result for nil database service")
 		}
 	})
+	t.Run("nil analytics service", func(t *testing.T) {
+		mockDB := database_mocks.NewMockService(ctrl)
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: nil,
+		}
+
+		handler := gds.ListGdsProceduresHandler(deps)
+		result, err := handler(context.Background(), mcp.CallToolRequest{})
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || !result.IsError {
+			t.Error("Expected error result for nil analytics service")
+		}
+	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := database_mocks.NewMockService(ctrl)

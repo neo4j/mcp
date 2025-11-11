@@ -86,20 +86,6 @@ func getAnalyticsMock(t *testing.T) *analytics_mocks.MockService {
 	return analyticsService
 }
 
-/*
-
-type Service interface {
-	Disable()
-	EmitEvent(event TrackEvent)
-	Enable()
-	NewGDSProjCreatedEvent() TrackEvent
-	NewGDSProjDropEvent() TrackEvent
-	NewOSInfoEvent(dbURI string) TrackEvent
-	NewStartupEvent() TrackEvent
-	NewToolsEvent(toolsUsed string) TrackEvent
-}
-*/
-
 // Cleanup removes all test data by deleting nodes with labels created during the test
 func (tc *TestContext) Cleanup() {
 	if tc.Service == nil {

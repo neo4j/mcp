@@ -15,8 +15,8 @@ const (
 	schemaQuery = `
         CALL apoc.meta.schema()
         YIELD value
-        UNWIND keys(value) AS key
-        WITH key, value[key] AS value
+        UNWIND keys(value) as key
+        WITH key, value[key] as value
         RETURN key, value { .properties, .type, .relationships } as value
     `
 )
@@ -29,13 +29,19 @@ func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.Ca
 }
 
 // handleGetSchema retrieves Neo4j schema information using APOC
-func handleGetSchema(ctx context.Context, dbService database.Service, as analytics.Service) (*mcp.CallToolResult, error) {
-	as.EmitEvent(as.NewToolsEvent("get-schema"))
+func handleGetSchema(ctx context.Context, dbService database.Service, asService analytics.Service) (*mcp.CallToolResult, error) {
+	if asService == nil {
+		errMessage := "Analytics service is not initialized"
+		log.Printf("%s", errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
 	if dbService == nil {
 		errMessage := "Database service is not initialized"
 		log.Printf("%s", errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
+
+	asService.EmitEvent(asService.NewToolsEvent("get-schema"))
 
 	// Execute the APOC schema query
 	records, err := dbService.ExecuteReadQuery(ctx, schemaQuery, nil)
@@ -44,7 +50,6 @@ func handleGetSchema(ctx context.Context, dbService database.Service, as analyti
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	if len(records) == 0 {
-
 		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
 	}
 	// Convert records to JSON using the existing utility function
