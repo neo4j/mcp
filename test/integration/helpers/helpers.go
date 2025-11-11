@@ -187,7 +187,7 @@ func (tc *TestContext) GetToolError(handler func(context.Context, mcp.CallToolRe
 	if res == nil {
 		tc.t.Fatal("tool returned nil response")
 	}
-	if res.IsError == false {
+	if !res.IsError {
 		tc.t.Fatal("no error returned")
 	}
 

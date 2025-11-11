@@ -108,6 +108,14 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}
-		s.Start()
+		err := s.Start()
+		if err != nil {
+			t.Errorf("Start() unexpected error = %v", err)
+		}
+		// Stop should work without errors
+		err = s.Stop()
+		if err != nil {
+			t.Errorf("Stop() unexpected error = %v", err)
+		}
 	})
 }

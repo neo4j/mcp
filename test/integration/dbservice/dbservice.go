@@ -24,13 +24,13 @@ func NewDBService() *dbService {
 }
 
 func (dbs *dbService) Start(ctx context.Context) {
-	if dbs.useContainer == true {
+	if dbs.useContainer {
 		containerrunner.Start(ctx)
 	}
 }
 
 func (dbs *dbService) Stop(ctx context.Context) {
-	if dbs.useContainer == true {
+	if dbs.useContainer {
 		containerrunner.Close(ctx)
 	}
 }
@@ -40,7 +40,7 @@ func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
 		return dbs.driver
 	}
 
-	if dbs.useContainer == true {
+	if dbs.useContainer {
 		drv := containerrunner.GetDriver()
 		dbs.driver = drv
 	} else {

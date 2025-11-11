@@ -48,7 +48,7 @@ func TestAnalytics(t *testing.T) {
 		}
 
 		mockClient.EXPECT().Post("http://localhost/track", gomock.Any(), gomock.Any()).
-			DoAndReturn(func(url, contentType string, body io.Reader) (*http.Response, error) {
+			DoAndReturn(func(_, _ string, body io.Reader) (*http.Response, error) {
 				bodyBytes, err := io.ReadAll(body)
 				if err != nil {
 					t.Fatalf("error reading body: %v", err)
