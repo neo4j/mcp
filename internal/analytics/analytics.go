@@ -22,6 +22,7 @@ type analyticsConfig struct {
 	distinctID       string
 	startupTime      int64
 	client           HTTPClient
+	isAura           bool
 }
 
 type analytics struct {
@@ -30,7 +31,7 @@ type analytics struct {
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient) Service {
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, isAura bool) Service {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -38,12 +39,13 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		distinctID:       distinctID,
 		startupTime:      time.Now().Unix(),
 		client:           client,
+		isAura:           isAura,
 	}
 
 	return &analytics{cfg: cfg, disabled: false}
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string) Service {
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, isAura bool) Service {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -51,6 +53,7 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string) Service {
 		distinctID:       distinctID,
 		startupTime:      time.Now().Unix(),
 		client:           http.DefaultClient,
+		isAura:           isAura,
 	}
 
 	return &analytics{cfg: cfg, disabled: false}

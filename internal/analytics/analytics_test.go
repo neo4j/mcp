@@ -18,7 +18,7 @@ func TestAnalytics(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient)
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.Disable()
 		analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 	})
@@ -32,7 +32,7 @@ func TestAnalytics(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("1")),
 		}, nil)
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient)
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 	})
 
@@ -81,13 +81,13 @@ func TestAnalytics(t *testing.T) {
 				}, nil
 			})
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient)
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.EmitEvent(event)
 	})
 }
 
 func TestEventCreation(t *testing.T) {
-	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil)
+	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, false)
 
 	t.Run("NewGDSProjCreatedEvent", func(t *testing.T) {
 		event := analyticsService.NewGDSProjCreatedEvent()
@@ -105,31 +105,6 @@ func TestEventCreation(t *testing.T) {
 		assertBaseProperties(t, event.Properties)
 	})
 
-	t.Run("NewStartupEvent", func(t *testing.T) {
-		event := analyticsService.NewStartupEvent()
-		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
-			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
-		}
-		assertBaseProperties(t, event.Properties)
-	})
-
-	t.Run("NewOSInfoEvent", func(t *testing.T) {
-		event := analyticsService.NewOSInfoEvent("neo4j+s://test.database.neo4j.io")
-		if event.Event != "MCP4NEO4J_OS_INFO" {
-			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_OS_INFO")
-		}
-		props := assertBaseProperties(t, event.Properties)
-		if props["os"] != runtime.GOOS {
-			t.Errorf("unexpected os: got %v, want %v", props["os"], runtime.GOOS)
-		}
-		if props["os_arch"] != runtime.GOARCH {
-			t.Errorf("unexpected os_arch: got %v, want %v", props["os_arch"], runtime.GOARCH)
-		}
-		if props["aura"] != true {
-			t.Errorf("unexpected aura: got %v, want %v", props["aura"], true)
-		}
-	})
-
 	t.Run("NewToolsEvent", func(t *testing.T) {
 		event := analyticsService.NewToolsEvent("gds")
 		if event.Event != "MCP4NEO4J_TOOL_USED" {
@@ -140,6 +115,45 @@ func TestEventCreation(t *testing.T) {
 			t.Errorf("unexpected tools_used: got %v, want %v", props["tools_used"], "gds")
 		}
 	})
+
+	t.Run("NewStartupEvent", func(t *testing.T) {
+		event := analyticsService.NewStartupEvent()
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+		props := assertBaseProperties(t, event.Properties)
+		if props["$os"] != runtime.GOOS {
+			t.Errorf("unexpected os: got %v, want %v", props["os"], runtime.GOOS)
+		}
+		if props["os_arch"] != runtime.GOARCH {
+			t.Errorf("unexpected os_arch: got %v, want %v", props["os_arch"], runtime.GOARCH)
+		}
+		if props["isAura"] == true {
+			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], false)
+		}
+		assertBaseProperties(t, event.Properties)
+	})
+
+	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
+		auraAnalytics := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, true)
+		event := auraAnalytics.NewStartupEvent()
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+		props := assertBaseProperties(t, event.Properties)
+		if props["$os"] != runtime.GOOS {
+			t.Errorf("unexpected os: got %v, want %v", props["os"], runtime.GOOS)
+		}
+		if props["os_arch"] != runtime.GOARCH {
+			t.Errorf("unexpected os_arch: got %v, want %v", props["os_arch"], runtime.GOARCH)
+		}
+		if props["isAura"] == false {
+			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], true)
+		}
+		assertBaseProperties(t, event.Properties)
+	})
+
 }
 
 func assertBaseProperties(t *testing.T, props interface{}) map[string]interface{} {
@@ -167,6 +181,15 @@ func assertBaseProperties(t *testing.T, props interface{}) map[string]interface{
 	}
 	if _, ok := m["uptime"].(float64); !ok {
 		t.Errorf("uptime is not a number")
+	}
+	if _, ok := m["$os"].(string); !ok {
+		t.Errorf("$os is not a string")
+	}
+	if _, ok := m["os_arch"].(string); !ok {
+		t.Errorf("os_arch is not a string")
+	}
+	if _, ok := m["isAura"].(bool); !ok {
+		t.Errorf("isAura is not a bool")
 	}
 	return m
 }

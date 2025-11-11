@@ -21,13 +21,9 @@ type baseProperties struct {
 	DistinctID string `json:"distinct_id"`
 	InsertID   string `json:"$insert_id"`
 	Uptime     int64  `json:"uptime"`
-}
-
-type osInfoProperties struct {
-	baseProperties
-	OS     string `json:"os"`
-	OSArch string `json:"os_arch"`
-	Aura   bool   `json:"aura"`
+	OS         string `json:"$os"`
+	OSArch     string `json:"os_arch"`
+	IsAura     bool   `json:"isAura"`
 }
 
 type toolsProperties struct {
@@ -61,18 +57,6 @@ func (a *analytics) NewStartupEvent() TrackEvent {
 	}
 }
 
-func (a *analytics) NewOSInfoEvent(dbURI string) TrackEvent {
-	return TrackEvent{
-		Event: strings.Join([]string{eventNamePrefix, "OS_INFO"}, "_"),
-		Properties: osInfoProperties{
-			baseProperties: getBaseProperties(a.cfg),
-			OS:             runtime.GOOS,
-			OSArch:         runtime.GOARCH,
-			Aura:           strings.Contains(dbURI, "database.neo4j.io"),
-		},
-	}
-}
-
 func (a *analytics) NewToolsEvent(toolsUsed string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
@@ -92,6 +76,9 @@ func getBaseProperties(cfg analyticsConfig) baseProperties {
 		Time:       time.Now().UnixMilli(),
 		InsertID:   insertID,
 		Uptime:     uptime,
+		OS:         runtime.GOOS,
+		OSArch:     runtime.GOARCH,
+		IsAura:     cfg.isAura,
 	}
 }
 

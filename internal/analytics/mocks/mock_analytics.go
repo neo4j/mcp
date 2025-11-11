@@ -226,44 +226,6 @@ func (c *MockServiceNewGDSProjDropEventCall) DoAndReturn(f func() analytics.Trac
 	return c
 }
 
-// NewOSInfoEvent mocks base method.
-func (m *MockService) NewOSInfoEvent(dbURI string) analytics.TrackEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewOSInfoEvent", dbURI)
-	ret0, _ := ret[0].(analytics.TrackEvent)
-	return ret0
-}
-
-// NewOSInfoEvent indicates an expected call of NewOSInfoEvent.
-func (mr *MockServiceMockRecorder) NewOSInfoEvent(dbURI any) *MockServiceNewOSInfoEventCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewOSInfoEvent", reflect.TypeOf((*MockService)(nil).NewOSInfoEvent), dbURI)
-	return &MockServiceNewOSInfoEventCall{Call: call}
-}
-
-// MockServiceNewOSInfoEventCall wrap *gomock.Call
-type MockServiceNewOSInfoEventCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockServiceNewOSInfoEventCall) Return(arg0 analytics.TrackEvent) *MockServiceNewOSInfoEventCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockServiceNewOSInfoEventCall) Do(f func(string) analytics.TrackEvent) *MockServiceNewOSInfoEventCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewOSInfoEventCall) DoAndReturn(f func(string) analytics.TrackEvent) *MockServiceNewOSInfoEventCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // NewStartupEvent mocks base method.
 func (m *MockService) NewStartupEvent() analytics.TrackEvent {
 	m.ctrl.T.Helper()

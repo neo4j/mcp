@@ -45,8 +45,6 @@ func (s *Neo4jMCPServer) Start() error {
 
 	// track startup event
 	s.anService.EmitEvent(s.anService.NewStartupEvent())
-	// track OS specifics
-	s.anService.EmitEvent(s.anService.NewOSInfoEvent(s.config.URI))
 
 	// Register tools
 	if err := s.RegisterTools(); err != nil {
