@@ -15,9 +15,7 @@ var Version = "development"
 
 func main() {
 	// Handle CLI arguments (version, help, etc.)
-	if cli.HandleArgs(Version) {
-		return
-	}
+	cli.HandleArgs(Version)
 
 	// get config from environment variables
 	cfg, err := config.LoadConfig()

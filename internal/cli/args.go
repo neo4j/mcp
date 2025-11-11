@@ -5,6 +5,9 @@ import (
 	"os"
 )
 
+// osExit is a variable that can be mocked in tests
+var osExit = os.Exit
+
 const helpText = `neo4j-mcp - Neo4j Model Context Protocol Server
 
 Usage:
@@ -27,24 +30,37 @@ Examples:
 For more information, visit: https://github.com/neo4j/mcp
 `
 
-// HandleArgs processes command-line arguments and returns true if the program should exit early
-// (e.g., after showing help or version), or false if it should continue to normal execution.
-func HandleArgs(version string) bool {
+func HandleArgs(version string) {
 	if len(os.Args) <= 1 {
-		return false
+		return
 	}
 
-	arg := os.Args[1]
+	flags := make(map[string]bool)
+	var err error
 
-	switch arg {
-	case "-v", "--version":
-		// NOTE: "standard" log package logger write on on STDERR, in this case we want explicitly to write to STDOUT
-		fmt.Printf("neo4j-mcp version: %s\n", version)
-		return true
-	case "-h", "--help":
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "-h", "--help":
+			flags["help"] = true
+		case "-v", "--version":
+			flags["version"] = true
+		default:
+			err = fmt.Errorf("unknown flag or argument: %s", arg)
+		}
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		osExit(1)
+	}
+
+	if flags["help"] {
 		fmt.Print(helpText)
-		return true
+		osExit(0)
 	}
 
-	return false
+	if flags["version"] {
+		fmt.Printf("neo4j-mcp version: %s\n", version)
+		osExit(0)
+	}
 }
