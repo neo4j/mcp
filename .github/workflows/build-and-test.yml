@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
         with:
-          go-version: "1.25.3"
+          go-version: "1.25.4"
       - run: go install go.uber.org/mock/mockgen@latest
 
       - name: Download dependencies
@@ -33,7 +33,7 @@ jobs:
           git diff --exit-code || (echo "Generated mocks are not up-to-date. Please run 'go generate ./...' locally and push the updated files." && exit 1)
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
+        uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47 # v9
         with:
           version: latest
           args: --timeout=1m
@@ -55,7 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
         with:
-          go-version: "1.25.3"
+          go-version: "1.25.4"
 
       - name: Download dependencies
         run: go mod download

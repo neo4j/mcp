@@ -4,9 +4,10 @@ go 1.25.3
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.42.0
+	github.com/mark3labs/mcp-go v0.43.0
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
-	github.com/testcontainers/testcontainers-go v0.39.0
+	github.com/stretchr/testify v1.11.1
+	github.com/testcontainers/testcontainers-go v0.40.0
 	go.uber.org/mock v0.6.0
 )
 
@@ -53,7 +54,6 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.9 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect

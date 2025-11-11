@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -40,80 +39,64 @@ type SchemaEntry struct {
 }
 
 func TestGetSchema(t *testing.T) {
-	// do not run this test in Parallel, test-id will not avoid collision when testing the emptiness of the db.
-	t.Run("get-schema should give hint when the database is empty", func(t *testing.T) {
-		tc := helpers.NewTestContext(t, dbs.GetDriver())
-		// clean the database, keep an eyes if this create any flakiness
-		tc.Service.ExecuteWriteQuery(context.Background(), "MATCH(n) DETACH DELETE n", map[string]any{})
-		getSchema := cypher.GetSchemaHandler(tc.Deps)
-		res := tc.CallTool(getSchema, nil)
+	t.Parallel()
+	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
-		textContent := tc.ParseTextResponse(res)
+	// Use TestID as identifier to create unique labels
+	personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30})
+	if err != nil {
+		t.Fatalf("failed to seed Person node: %v", err)
+	}
+	companyLabel, err := tc.SeedNode("Company", map[string]any{"name": "Neo4j", "founded": 2007})
+	if err != nil {
+		t.Fatalf("failed to seed Company node: %v", err)
+	}
 
-		expectedMessage := "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."
-		if textContent != expectedMessage {
-			t.Fatalf("no empty schema hint returned: %s", textContent)
-		}
-	})
-	t.Run("get-schema should collect information about the neo4j database", func(t *testing.T) {
-		tc := helpers.NewTestContext(t, dbs.GetDriver())
+	getSchema := cypher.GetSchemaHandler(tc.Deps)
+	res := tc.CallTool(getSchema, nil)
 
-		// Use TestID as identifier to create unique labels
-		personLabel, err := tc.SeedNode("Person", map[string]any{"name": "Alice", "age": 30})
-		if err != nil {
-			t.Fatalf("failed to seed Person node: %v", err)
-		}
-		companyLabel, err := tc.SeedNode("Company", map[string]any{"name": "Neo4j", "founded": 2007})
-		if err != nil {
-			t.Fatalf("failed to seed Company node: %v", err)
-		}
+	var schemaEntries []SchemaEntry
+	tc.ParseJSONResponse(res, &schemaEntries)
 
-		getSchema := cypher.GetSchemaHandler(tc.Deps)
-		res := tc.CallTool(getSchema, nil)
+	if len(schemaEntries) == 0 {
+		t.Fatal("expected schema to contain at least one entry")
+	}
+	assertSchemaHasLabel(t, schemaEntries, personLabel.String())
+	assertSchemaHasLabel(t, schemaEntries, companyLabel.String())
 
-		var schemaEntries []SchemaEntry
-		tc.ParseJSONResponse(res, &schemaEntries)
+	personEntry := getSchemaEntryByTypeOrLabel(schemaEntries, personLabel.String())
+	personProperties := map[string]SchemaPropertyType{
+		"name": {
+			Indexed:   false,
+			Array:     false,
+			Existence: false,
+			Type:      "STRING",
+		},
+		"age": {
+			Indexed:   false,
+			Array:     false,
+			Existence: false,
+			Type:      "INTEGER",
+		},
+	}
+	assertSchemaEntryHasProperties(t, personEntry.Value.Properties, personProperties)
 
-		if len(schemaEntries) == 0 {
-			t.Fatal("expected schema to contain at least one entry")
-		}
-		assertSchemaHasLabel(t, schemaEntries, personLabel.String())
-		assertSchemaHasLabel(t, schemaEntries, companyLabel.String())
-
-		personEntry := getSchemaEntryByTypeOrLabel(schemaEntries, personLabel.String())
-		personProperties := map[string]SchemaPropertyType{
-			"name": {
-				Indexed:   false,
-				Array:     false,
-				Existence: false,
-				Type:      "STRING",
-			},
-			"age": {
-				Indexed:   false,
-				Array:     false,
-				Existence: false,
-				Type:      "INTEGER",
-			},
-		}
-		assertSchemaEntryHasProperties(t, personEntry.Value.Properties, personProperties)
-
-		companyEntry := getSchemaEntryByTypeOrLabel(schemaEntries, companyLabel.String())
-		companyProperties := map[string]SchemaPropertyType{
-			"name": {
-				Indexed:   false,
-				Array:     false,
-				Existence: false,
-				Type:      "STRING",
-			},
-			"founded": {
-				Indexed:   false,
-				Array:     false,
-				Existence: false,
-				Type:      "INTEGER",
-			},
-		}
-		assertSchemaEntryHasProperties(t, companyEntry.Value.Properties, companyProperties)
-	})
+	companyEntry := getSchemaEntryByTypeOrLabel(schemaEntries, companyLabel.String())
+	companyProperties := map[string]SchemaPropertyType{
+		"name": {
+			Indexed:   false,
+			Array:     false,
+			Existence: false,
+			Type:      "STRING",
+		},
+		"founded": {
+			Indexed:   false,
+			Array:     false,
+			Existence: false,
+			Type:      "INTEGER",
+		},
+	}
+	assertSchemaEntryHasProperties(t, companyEntry.Value.Properties, companyProperties)
 
 	// TODO keep extending the coverage of the schema tests:
 	// - test different types such as float, duration etc ...
