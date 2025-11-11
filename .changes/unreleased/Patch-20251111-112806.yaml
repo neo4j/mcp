@@ -1,0 +1,3 @@
+kind: Patch
+body: Adds a help command available using -h or --help.
+time: 2025-11-11T11:28:06.19896141+01:00
