@@ -48,7 +48,6 @@ func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
 			URI:      config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
 			Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
 			Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
-			Database: config.GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		}
 
 		drv, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
