@@ -20,6 +20,10 @@ func (c *Config) Validate() error {
 	if c == nil {
 		return fmt.Errorf("configuration is required but was nil")
 	}
+	// TODO: support different Config types with validation https://linear.app/neo4j/issue/DEVSURF-873/support-different-types-in-the-mcp-config
+	if !(c.Telemetry == "false" || c.Telemetry == "true") {
+		return fmt.Errorf("%s cannot be converted to type %s", "NEO4J_TELEMETRY", "bool")
+	}
 
 	validations := []struct {
 		value string
