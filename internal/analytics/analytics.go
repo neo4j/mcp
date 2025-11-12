@@ -1,6 +1,6 @@
 package analytics
 
-// Package analytics abstracts analytics handling for the repository.
+// Package analytics abstracts analytics handling for the program.
 // Currently implemented for MixPanel.
 
 import (
@@ -70,7 +70,7 @@ func (a *analytics) EmitEvent(event TrackEvent) {
 	log.Printf("Sending %s event to Neo4j", event.Event)
 	err := a.sendTrackEvent(trackEvents)
 	if err != nil {
-		sendErr := fmt.Errorf("error while sending analytics events for analytics purpose: %s", err.Error())
+		sendErr := fmt.Errorf("error while sending analytics events for analytics: %s", err.Error())
 		log.Printf("analytics error: %s", sendErr.Error())
 	}
 }
@@ -86,7 +86,7 @@ func (a *analytics) Disable() {
 func (a *analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
-		return fmt.Errorf("error appear while marshalling track event: %w", err)
+		return fmt.Errorf("error while marshalling track event: %w", err)
 	}
 	url := strings.TrimRight(a.cfg.mixpanelEndpoint, "/") + "/track"
 
@@ -112,7 +112,7 @@ func (a *analytics) sendTrackEvent(events []TrackEvent) error {
 func getDistinctID() string {
 	distinctID, err := uuid.NewV6()
 	if err != nil {
-		log.Printf("error while generating distinct id for analytics purpose: %s", err.Error())
+		log.Printf("error while generating distinct id for analytics: %s", err.Error())
 		return ""
 	}
 	return distinctID.String()
