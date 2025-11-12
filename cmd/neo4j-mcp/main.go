@@ -62,7 +62,7 @@ func main() {
 		anService.Disable()
 	} else if cfg.Telemetry == "true" {
 		anService.Enable()
-		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools in use, OS and CPU architecture.")
+		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
 		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
 	}
 

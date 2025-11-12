@@ -13,8 +13,8 @@ import (
 const eventNamePrefix = "MCP4NEO4J"
 
 // baseProperties are the base properties attached to a MixPanel "track" event.
-// DistinctID it's a distinct ID used to identify unique users, we do not use this information, therefore for us it will distinct different executions
-// InsertID it's used to deduplicate duplicate messages.
+// DistinctID is a distinct ID used to identify unique users, we do not use this information, therefore for us it will be distinct different executions.
+// InsertID is used to deduplicate duplicate messages.
 type baseProperties struct {
 	Token      string `json:"token"`
 	Time       int64  `json:"time"`
@@ -85,7 +85,7 @@ func getBaseProperties(cfg analyticsConfig) baseProperties {
 func newInsertID() string {
 	insertID, err := uuid.NewV6()
 	if err != nil {
-		insertIDerr := fmt.Errorf("error while generating uuid analytics events for analytics purpose: %s", err.Error())
+		insertIDerr := fmt.Errorf("error while generating uuid analytics events for analytics: %s", err.Error())
 		log.Printf("MixPanel error: %s", insertIDerr.Error())
 		return ""
 	}

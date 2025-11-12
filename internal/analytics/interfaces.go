@@ -17,7 +17,7 @@ type Service interface {
 	NewToolsEvent(toolsUsed string) TrackEvent
 }
 
-// dummy http client interface for our testing purpose
+// dummy http client interface for our testing purposes
 type HTTPClient interface {
 	Post(url, contentType string, body io.Reader) (*http.Response, error)
 }
