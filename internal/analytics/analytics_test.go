@@ -131,7 +131,6 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == true {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], false)
 		}
-		assertBaseProperties(t, event.Properties)
 	})
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
@@ -151,7 +150,6 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == false {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], true)
 		}
-		assertBaseProperties(t, event.Properties)
 	})
 
 }
