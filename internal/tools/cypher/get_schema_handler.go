@@ -53,7 +53,5 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies) (*mcp.Ca
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	deps.Log.Info("successfully retrieved schema")
-
 	return mcp.NewToolResultText(response), nil
 }

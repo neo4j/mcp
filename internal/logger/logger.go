@@ -45,10 +45,10 @@ func New(level, format string, writer io.Writer) *Service {
 }
 
 const (
-	LevelNotice    = slog.Level(2)   // Between Info and Warn
-	LevelCritical  = slog.Level(10)  // Between Error and Alert
+	LevelNotice    = slog.Level(2)  // Between Info and Warn
+	LevelCritical  = slog.Level(10) // Between Error and Alert
 	LevelAlert     = slog.Level(12)
-	LevelEmergency = slog.Level(16)  // Highest severity
+	LevelEmergency = slog.Level(16) // Highest severity
 )
 
 // parseLevel converts a string to a slog.Level.
@@ -76,7 +76,7 @@ func parseLevel(level string) slog.Level {
 	}
 }
 
-func replaceAttr(groups []string, a slog.Attr) slog.Attr {
+func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
 		levelName := ""
@@ -104,4 +104,3 @@ func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	}
 	return a
 }
-
