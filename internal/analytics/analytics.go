@@ -82,7 +82,6 @@ func (a *Analytics) Disable() {
 	a.disabled = true
 }
 
-// Eventually we can use mixpanel SDK
 func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
@@ -103,7 +102,10 @@ func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 
 	// try to decode numeric response, fallback to raw body logging
 	var data int32
-	_ = json.Unmarshal(bodyBytes, &data)
+	err = json.Unmarshal(bodyBytes, &data)
+	if err != nil {
+		log.Printf("Error while unmarshaling response from MixPanel: %s", err.Error())
+	}
 
 	log.Printf("Response from Neo4j, Status: %s, Body: %s, Data: %d", resp.Status, string(bodyBytes), data)
 	return nil

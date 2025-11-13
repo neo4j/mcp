@@ -84,6 +84,94 @@ func TestAnalytics(t *testing.T) {
 		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.EmitEvent(event)
 	})
+
+	t.Run("EmitEvent should send the correct event in the body", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+
+		event := analytics.TrackEvent{
+			Event: "specific_event",
+			Properties: map[string]interface{}{
+				"key": "value",
+			},
+		}
+
+		mockClient.EXPECT().Post("http://localhost/track", gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_, _ string, body io.Reader) (*http.Response, error) {
+				bodyBytes, err := io.ReadAll(body)
+				if err != nil {
+					t.Fatalf("error reading body: %v", err)
+				}
+
+				var decodedEvents []analytics.TrackEvent
+				err = json.Unmarshal(bodyBytes, &decodedEvents)
+				if err != nil {
+					t.Fatalf("error unmarshalling body: %v", err)
+				}
+				if len(decodedEvents) != 1 {
+					t.Fatalf("expected 1 event, got %d", len(decodedEvents))
+				}
+				decodedEvent := decodedEvents[0]
+
+				if decodedEvent.Event != "specific_event" {
+					t.Errorf("expected event 'specific_event', got '%s'", decodedEvent.Event)
+				}
+				properties, ok := decodedEvent.Properties.(map[string]interface{})
+				if !ok {
+					t.Fatalf("properties is not a map[string]interface{}")
+				}
+				if properties["key"] != "value" {
+					t.Errorf("expected properties['key'] to be 'value', got '%v'", properties["key"])
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("1")),
+				}, nil
+			})
+
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
+		analyticsService.EmitEvent(event)
+	})
+
+	t.Run("EmitEvent should construct the correct URL (only one '/' between host and path)", func(t *testing.T) {
+		testCases := []struct {
+			name             string
+			mixpanelEndpoint string
+			expectedURL      string
+		}{
+			{
+				name:             "endpoint with trailing slash",
+				mixpanelEndpoint: "http://localhost/",
+				expectedURL:      "http://localhost/track",
+			},
+			{
+				name:             "endpoint without trailing slash",
+				mixpanelEndpoint: "http://localhost",
+				expectedURL:      "http://localhost/track",
+			},
+			{
+				name:             "endpoint with multiple trailing slashes",
+				mixpanelEndpoint: "http://localhost//",
+				expectedURL:      "http://localhost/track",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+
+				mockClient.EXPECT().Post(tc.expectedURL, gomock.Any(), gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("1")),
+				}, nil)
+
+				analyticsService := analytics.NewAnalyticsWithClient("test-token", tc.mixpanelEndpoint, mockClient, false)
+				analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
+			})
+		}
+	})
 }
 
 func TestEventCreation(t *testing.T) {

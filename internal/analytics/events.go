@@ -1,7 +1,6 @@
 package analytics
 
 import (
-	"fmt"
 	"log"
 	"runtime"
 	"strings"
@@ -85,8 +84,7 @@ func getBaseProperties(cfg analyticsConfig) baseProperties {
 func newInsertID() string {
 	insertID, err := uuid.NewV6()
 	if err != nil {
-		insertIDerr := fmt.Errorf("error while generating uuid analytics events for analytics: %s", err.Error())
-		log.Printf("MixPanel error: %s", insertIDerr.Error())
+		log.Printf("Mixpanel error while generating uuid analytics events for analytics: %s", err.Error())
 		return ""
 	}
 	return insertID.String()
