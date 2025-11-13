@@ -159,12 +159,15 @@ func (tc *TestContext) CallTool(handler func(context.Context, mcp.CallToolReques
 	res, err := handler(tc.ctx, req)
 	if err != nil {
 		tc.t.Fatalf("tool call failed: %v", err)
+		return nil
 	}
 	if res == nil {
 		tc.t.Fatal("tool returned nil response")
+		return nil
 	}
 	if res.IsError {
 		tc.t.Fatalf("tool returned error: %+v", res)
+		return nil
 	}
 
 	return res
@@ -183,20 +186,23 @@ func (tc *TestContext) GetToolError(handler func(context.Context, mcp.CallToolRe
 	res, err := handler(tc.ctx, req)
 	if err != nil {
 		tc.t.Fatalf("tool call failed: %v", err)
+		return ""
 	}
 	if res == nil {
 		tc.t.Fatal("tool returned nil response")
+		return ""
 	}
 	if !res.IsError {
 		tc.t.Fatal("no error returned")
+		return ""
 	}
 
 	textContent, ok := mcp.AsTextContent(res.Content[0])
 	if !ok {
 		tc.t.Fatalf("expected error as TextContent, got %T", res.Content[0])
+		return ""
 	}
 	return textContent.Text
-
 }
 
 // ParseJSONResponse parses JSON response into the provided interface

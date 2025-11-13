@@ -19,10 +19,6 @@ linters:
       - legacy
       - std-error-handling
   settings:
-    revive:
-      rules:
-        - name: unexported-return
-          disabled: true
     staticcheck:
       checks:
         - "all"
