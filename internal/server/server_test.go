@@ -1,10 +1,12 @@
 package server_test
 
 import (
+	"io"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/server"
 	"go.uber.org/mock/gomock"
 )
@@ -21,9 +23,10 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	}
 
 	mockDB := mocks.NewMockService(ctrl)
+	dummyLogger := logger.New("info", "text", io.Discard) // Create a dummy logger
 
 	t.Run("creates server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, dummyLogger) // Pass dummyLogger
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -31,7 +34,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("starts server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, dummyLogger) // Pass dummyLogger
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -44,7 +47,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("stops server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, dummyLogger) // Pass dummyLogger
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -57,7 +60,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, dummyLogger) // Pass dummyLogger
 
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
