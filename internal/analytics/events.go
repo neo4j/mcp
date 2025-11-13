@@ -36,28 +36,28 @@ type TrackEvent struct {
 	Properties interface{} `json:"properties"`
 }
 
-func (a *analytics) NewGDSProjCreatedEvent() TrackEvent {
+func (a *Analytics) NewGDSProjCreatedEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_CREATED"}, "_"),
 		Properties: getBaseProperties(a.cfg),
 	}
 }
 
-func (a *analytics) NewGDSProjDropEvent() TrackEvent {
+func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_DROP"}, "_"),
 		Properties: getBaseProperties(a.cfg),
 	}
 }
 
-func (a *analytics) NewStartupEvent() TrackEvent {
+func (a *Analytics) NewStartupEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
 		Properties: getBaseProperties(a.cfg),
 	}
 }
 
-func (a *analytics) NewToolsEvent(toolsUsed string) TrackEvent {
+func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{

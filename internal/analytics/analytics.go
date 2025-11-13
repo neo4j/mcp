@@ -25,13 +25,13 @@ type analyticsConfig struct {
 	isAura           bool
 }
 
-type analytics struct {
+type Analytics struct {
 	disabled bool
 	cfg      analyticsConfig
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, isAura bool) Service {
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, isAura bool) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -42,10 +42,10 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		isAura:           isAura,
 	}
 
-	return &analytics{cfg: cfg, disabled: false}
+	return &Analytics{cfg: cfg, disabled: false}
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, isAura bool) Service {
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, isAura bool) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -56,10 +56,10 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, isAura bool) Se
 		isAura:           isAura,
 	}
 
-	return &analytics{cfg: cfg, disabled: false}
+	return &Analytics{cfg: cfg, disabled: false}
 }
 
-func (a *analytics) EmitEvent(event TrackEvent) {
+func (a *Analytics) EmitEvent(event TrackEvent) {
 	if a.disabled {
 		return
 	}
@@ -74,16 +74,16 @@ func (a *analytics) EmitEvent(event TrackEvent) {
 		log.Printf("analytics error: %s", sendErr.Error())
 	}
 }
-func (a *analytics) Enable() {
+func (a *Analytics) Enable() {
 	a.disabled = false
 }
 
-func (a *analytics) Disable() {
+func (a *Analytics) Disable() {
 	a.disabled = true
 }
 
 // Eventually we can use mixpanel SDK
-func (a *analytics) sendTrackEvent(events []TrackEvent) error {
+func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
 		return fmt.Errorf("error while marshalling track event: %w", err)
