@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -58,7 +60,14 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
-	deps := &tools.ToolDependencies{DBService: databaseService}
+
+	// Initialize logger for tests (suppress output to io.Discard)
+	logService := logger.New("debug", "text", io.Discard)
+
+	deps := &tools.ToolDependencies{
+		DBService: databaseService,
+		Log:       logService,
+	}
 
 	tc.Service = databaseService
 	tc.Deps = deps
