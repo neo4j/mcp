@@ -9,14 +9,14 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/analytics"
-	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	amocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"go.uber.org/mock/gomock"
 )
 
 func TestAnalytics(t *testing.T) {
 	t.Run("EmitEvent should not send event if disabled", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+		mockClient := amocks.NewMockHTTPClient(ctrl)
 
 		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.Disable()
@@ -25,7 +25,7 @@ func TestAnalytics(t *testing.T) {
 
 	t.Run("EmitEvent should send event if enabled", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+		mockClient := amocks.NewMockHTTPClient(ctrl)
 
 		mockClient.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any()).Return(&http.Response{
 			StatusCode: http.StatusOK,
@@ -38,7 +38,7 @@ func TestAnalytics(t *testing.T) {
 
 	t.Run("EmitEvent should send the correct event in the body", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+		mockClient := amocks.NewMockHTTPClient(ctrl)
 
 		event := analytics.TrackEvent{
 			Event: "specific_event",
@@ -87,7 +87,7 @@ func TestAnalytics(t *testing.T) {
 
 	t.Run("EmitEvent should send the correct event in the body", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+		mockClient := amocks.NewMockHTTPClient(ctrl)
 
 		event := analytics.TrackEvent{
 			Event: "specific_event",
@@ -160,7 +160,7 @@ func TestAnalytics(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				ctrl := gomock.NewController(t)
-				mockClient := analytics_mocks.NewMockHTTPClient(ctrl)
+				mockClient := amocks.NewMockHTTPClient(ctrl)
 
 				mockClient.EXPECT().Post(tc.expectedURL, gomock.Any(), gomock.Any()).Return(&http.Response{
 					StatusCode: http.StatusOK,

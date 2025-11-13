@@ -3,7 +3,7 @@ package server_test
 import (
 	"testing"
 
-	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db_mock "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
@@ -22,7 +22,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	}
 
 	mockDB := db_mock.NewMockService(ctrl)
-	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
 	t.Run("creates server successfully", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 	}
 
 	mockDB := db_mock.NewMockService(ctrl)
-	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
 
 	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
 		analyticsService.EXPECT().NewStartupEvent().Times(1)

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
-	database_mocks "github.com/neo4j/mcp/internal/database/mocks"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/gds"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -16,13 +16,13 @@ import (
 
 func TestListGdsProceduresHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().NewToolsEvent("list-gds-procedures").AnyTimes()
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
 
 	t.Run("successful list-gds-procedures", func(t *testing.T) {
-		mockDB := database_mocks.NewMockService(ctrl)
+		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
@@ -67,7 +67,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		}
 	})
 	t.Run("nil analytics service", func(t *testing.T) {
-		mockDB := database_mocks.NewMockService(ctrl)
+		mockDB := db.NewMockService(ctrl)
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
@@ -85,7 +85,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
-		mockDB := database_mocks.NewMockService(ctrl)
+		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
 			Return(nil, errors.New("Invalid Cypher"))
@@ -109,7 +109,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	})
 
 	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := database_mocks.NewMockService(ctrl)
+		mockDB := db.NewMockService(ctrl)
 
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
