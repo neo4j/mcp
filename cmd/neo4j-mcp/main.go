@@ -70,7 +70,9 @@ func main() {
 		anService.Disable()
 	} else if cfg.Telemetry == "true" {
 		anService.Enable()
-		log.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.\nTo disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
+		log.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data " +
+			"such as: tools being used, the operating system, and CPU architecture.\n" +
+			"To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
 	}
 
 	// Create and configure the MCP server
