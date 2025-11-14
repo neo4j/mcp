@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -39,7 +40,10 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
 	log.Println("Starting Neo4j MCP Server...")
-
+	err := s.VerifyRequirements()
+	if err != nil {
+		return err
+	}
 	// Register tools
 	if err := s.RegisterTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
@@ -47,6 +51,46 @@ func (s *Neo4jMCPServer) Start() error {
 	log.Println("Started Neo4j MCP Server. Now listening for input...")
 	// Note: ServeStdio handles its own signal management for graceful shutdown
 	return server.ServeStdio(s.MCPServer)
+}
+
+// VerifyRequirements check the Neo4j requirements:
+// - A valid connection with a Neo4j instance.
+// - The ability to perform a read query (database name is correctly defined).
+// - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for )
+func (s *Neo4jMCPServer) VerifyRequirements() error {
+	err := s.dbService.VerifyConnectivity(context.Background())
+	if err != nil {
+		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
+	}
+	// Perform a round-trip to verify connection, VerifyConnectivity will not verify the home database.
+	records, err := s.dbService.ExecuteReadQuery(context.Background(), "RETURN 1 as first", map[string]any{})
+	if err != nil {
+		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
+	}
+	if len(records) != 1 || len(records[0].Values) != 1 {
+		return fmt.Errorf("failed to verify connectivity with the Neo4j instance: unexpected response from test query")
+	}
+	one, ok := records[0].Values[0].(int64)
+	if !ok || one != 1 {
+		return fmt.Errorf("failed to verify connectivity with the Neo4j instance: unexpected response from test query")
+	}
+	// Check for apoc.meta.schema procedure
+	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+
+	// Check for apoc.meta.schema availability
+	records, err = s.dbService.ExecuteReadQuery(context.Background(), checkApocMetaSchemaQuery, nil)
+	if err != nil {
+		return fmt.Errorf("failed to check for APOC availability: %w", err)
+	}
+	if len(records) != 1 || len(records[0].Values) != 1 {
+		return fmt.Errorf("failed to verify APOC availability: unexpected response from test query")
+	}
+	apocMetaSchemaAvailable, ok := records[0].Values[0].(bool)
+	if !ok || !apocMetaSchemaAvailable {
+		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
+	}
+
+	return nil
 }
 
 // Stop gracefully stops the server

@@ -1,11 +1,13 @@
 package server_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -20,17 +22,26 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	mockDB := mocks.NewMockService(ctrl)
-
-	t.Run("creates server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
-
-		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
-		}
-	})
-
 	t.Run("starts server successfully", func(t *testing.T) {
+		mockDB := mocks.NewMockService(ctrl)
+		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys: []string{"first"},
+				Values: []any{
+					int64(1),
+				},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys: []string{"apocMetaSchemaAvailable"},
+				Values: []any{
+					bool(true),
+				},
+			},
+		}, nil)
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
 		if s == nil {
@@ -43,7 +54,61 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		}
 	})
 
+	t.Run("starts server should fails when no connection can be established", func(t *testing.T) {
+		mockDB := mocks.NewMockService(ctrl)
+		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1).Return(fmt.Errorf("connection error"))
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+
+		if s == nil {
+			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+		}
+
+		err := s.Start()
+		if err == nil {
+			t.Errorf("Start() expected an error, got nil")
+		}
+	})
+	t.Run("starts server should fail when test query returns unexpected result", func(t *testing.T) {
+		mockDB := mocks.NewMockService(ctrl)
+		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Return(nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"first"},
+				Values: []any{int64(2)}, // Return a value other than 1
+			},
+		}, nil)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+
+		if s == nil {
+			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+		}
+
+		err := s.Start()
+		if err == nil {
+			t.Errorf("Start() expected an error for unexpected query result, got nil")
+		}
+	})
+
 	t.Run("stops server successfully", func(t *testing.T) {
+		mockDB := mocks.NewMockService(ctrl)
+		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys: []string{"first"},
+				Values: []any{
+					int64(1),
+				},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys: []string{"apocMetaSchemaAvailable"},
+				Values: []any{
+					bool(true),
+				},
+			},
+		}, nil)
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
 		if s == nil {
@@ -57,6 +122,26 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
+		mockDB := mocks.NewMockService(ctrl)
+		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys: []string{"first"},
+				Values: []any{
+					int64(1),
+				},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys: []string{"apocMetaSchemaAvailable"},
+				Values: []any{
+					bool(true),
+				},
+			},
+		}, nil)
+
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
 
 		if s == nil {

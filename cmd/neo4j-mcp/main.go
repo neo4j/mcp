@@ -37,12 +37,6 @@ func main() {
 		}
 	}()
 
-	// Verify database connectivity
-	if err := driver.VerifyConnectivity(ctx); err != nil {
-		log.Printf("Failed to verify database connectivity: %v", err)
-		return
-	}
-
 	// Create database service
 	dbService, err := database.NewNeo4jService(driver, cfg.Database)
 	if err != nil {

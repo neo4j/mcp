@@ -28,9 +28,18 @@ func NewNeo4jService(driver neo4j.DriverWithContext, database string) (Service, 
 	}, nil
 }
 
+// VerifyConnectivity checks the driver can establish a valid connection with a Neo4j instance;
+func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
+	// Verify database connectivity
+	if err := s.driver.VerifyConnectivity(ctx); err != nil {
+		log.Printf("Failed to verify database connectivity: %s", err.Error())
+		return err
+	}
+	return nil
+}
+
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithReadersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)

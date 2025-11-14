@@ -100,3 +100,17 @@ func (mr *MockServiceMockRecorder) Neo4jRecordsToJSON(records any) *gomock.Call 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Neo4jRecordsToJSON", reflect.TypeOf((*MockService)(nil).Neo4jRecordsToJSON), records)
 }
+
+// VerifyConnectivity mocks base method.
+func (m *MockService) VerifyConnectivity(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyConnectivity", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VerifyConnectivity indicates an expected call of VerifyConnectivity.
+func (mr *MockServiceMockRecorder) VerifyConnectivity(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyConnectivity", reflect.TypeOf((*MockService)(nil).VerifyConnectivity), ctx)
+}
