@@ -76,9 +76,9 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(`[{"count(n)": 42}]`, nil)
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -104,9 +104,9 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -133,9 +133,9 @@ func TestReadCypherHandler(t *testing.T) {
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -164,9 +164,9 @@ func TestReadCypherHandler(t *testing.T) {
 		// No expectations set for mockDB since it shouldn't be called
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -191,9 +191,9 @@ func TestReadCypherHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        nil,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -242,9 +242,9 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(nil, errors.New("syntax error"))
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -279,9 +279,9 @@ func TestReadCypherHandler(t *testing.T) {
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -310,9 +310,9 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(neo4j.StatementTypeWriteOnly, nil)
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -340,9 +340,9 @@ func TestReadCypherHandler(t *testing.T) {
 			Return(neo4j.StatementTypeUnknown, errors.New("driver error"))
 
 		deps := &tools.ToolDependencies{
-		DBService:        mockDB,
-		Log:              log,
-		AnalyticsService: analyticsService,
+			DBService:        mockDB,
+			Log:              log,
+			AnalyticsService: analyticsService,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
