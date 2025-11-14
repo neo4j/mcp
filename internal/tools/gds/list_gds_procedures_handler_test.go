@@ -56,8 +56,8 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        nil,
-			Log:              log,
 			AnalyticsService: analyticsService,
+			Log:              log,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -77,6 +77,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
+			Log:              log,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)

@@ -28,10 +28,13 @@ func handleListGdsProcedures(ctx context.Context, deps *tools.ToolDependencies) 
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	// Emit analytics event
-	if deps.AnalyticsService != nil {
-		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("list-gds-procedures"))
+	if deps.AnalyticsService == nil {
+		errMessage := "Analytics service is not initialized"
+		deps.Log.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
 	}
+
+	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("list-gds-procedures"))
 
 	records, err := deps.DBService.ExecuteReadQuery(ctx, listGdsProceduresQuery, nil)
 	if err != nil {

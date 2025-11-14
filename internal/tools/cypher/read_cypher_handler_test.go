@@ -219,6 +219,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
+			Log:              log,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -366,8 +367,10 @@ func TestReadCypherHandler(t *testing.T) {
 
 func TestReadCypherHandlerEvents(t *testing.T) {
 	ctrl := gomock.NewController(t)
-
 	defer ctrl.Finish()
+
+	log := logger.New("debug", "text", os.Stderr)
+
 	t.Run("emits event for gds graph project", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -387,6 +390,7 @@ func TestReadCypherHandlerEvents(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticServiceExplicitMock,
+			Log:              log,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -423,6 +427,7 @@ func TestReadCypherHandlerEvents(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticServiceExplicitMock,
+			Log:              log,
 		}
 
 		handler := cypher.ReadCypherHandler(deps)

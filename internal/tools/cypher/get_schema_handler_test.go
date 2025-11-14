@@ -132,6 +132,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
+			Log:              log,
 		}
 
 		handler := cypher.GetSchemaHandler(deps)
