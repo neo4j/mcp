@@ -11,36 +11,36 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-type dbService struct {
+type DBService struct {
 	driver       *neo4j.DriverWithContext
 	useContainer bool
 }
 
-func NewDBService() *dbService {
-	return &dbService{
+func NewDBService() *DBService {
+	return &DBService{
 		driver:       nil,
 		useContainer: config.GetEnvWithDefault("USE_CONTAINER", "true") == "true",
 	}
 }
 
-func (dbs *dbService) Start(ctx context.Context) {
-	if dbs.useContainer == true {
+func (dbs *DBService) Start(ctx context.Context) {
+	if dbs.useContainer {
 		containerrunner.Start(ctx)
 	}
 }
 
-func (dbs *dbService) Stop(ctx context.Context) {
-	if dbs.useContainer == true {
+func (dbs *DBService) Stop(ctx context.Context) {
+	if dbs.useContainer {
 		containerrunner.Close(ctx)
 	}
 }
 
-func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
+func (dbs *DBService) GetDriver() *neo4j.DriverWithContext {
 	if dbs.driver != nil {
 		return dbs.driver
 	}
 
-	if dbs.useContainer == true {
+	if dbs.useContainer {
 		drv := containerrunner.GetDriver()
 		dbs.driver = drv
 	} else {

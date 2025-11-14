@@ -193,7 +193,7 @@ When adding new database operations:
 
 1. **Extend the interface** in `internal/database/interfaces.go`
 2. **Implement in service** in `internal/database/service.go`
-3. **Regenerate mocks**: `cd internal/database && go generate`
+3. **Regenerate mocks**: `go generate ./...`
 4. **Update tests** to use new mock methods
 
 ### Quick Fixes

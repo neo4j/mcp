@@ -3,8 +3,9 @@ package server_test
 import (
 	"testing"
 
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database/mocks"
+	db_mock "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
 	"go.uber.org/mock/gomock"
 )
@@ -20,10 +21,12 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Database: "neo4j",
 	}
 
-	mockDB := mocks.NewMockService(ctrl)
-
+	mockDB := db_mock.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
 	t.Run("creates server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -31,12 +34,11 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("starts server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
-
 		err := s.Start()
 		if err != nil {
 			t.Errorf("Start() unexpected error = %v", err)
@@ -44,7 +46,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("stops server successfully", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -57,7 +59,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
@@ -68,6 +70,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		if err != nil {
 			t.Errorf("RegisterTools() unexpected error = %v", err)
 		}
+
 		// Start should work without errors
 		err = s.Start()
 		if err != nil {
@@ -81,4 +84,38 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		}
 	})
 
+}
+
+func TestNewNeo4jMCPServerEvents(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{
+		URI:      "bolt://test-host:7687",
+		Username: "neo4j",
+		Password: "password",
+		Database: "neo4j",
+	}
+
+	mockDB := db_mock.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
+
+	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
+		analyticsService.EXPECT().NewStartupEvent().Times(1)
+		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(1)
+
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
+		if s == nil {
+			t.Fatal("NewNeo4jMCPServer() returned nil")
+		}
+		err := s.Start()
+		if err != nil {
+			t.Errorf("Start() unexpected error = %v", err)
+		}
+		// Stop should work without errors
+		err = s.Stop()
+		if err != nil {
+			t.Errorf("Stop() unexpected error = %v", err)
+		}
+	})
 }
