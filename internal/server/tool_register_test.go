@@ -7,7 +7,7 @@ import (
 	"github.com/neo4j/mcp/internal/analytics"
 	analytics_mock "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
-	db_mock "github.com/neo4j/mcp/internal/database/mocks"
+	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/server"
 	"go.uber.org/mock/gomock"
@@ -18,7 +18,7 @@ func TestToolRegister(t *testing.T) {
 	defer ctrl.Finish()
 
 	dummyLogger := logger.New("info", "text", io.Discard) // Create a dummy logger
-	mockDB := db_mock.NewMockService(ctrl)
+	mockDB := db.NewMockService(ctrl)
 	mockClient := analytics_mock.NewMockHTTPClient(ctrl)
 	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 

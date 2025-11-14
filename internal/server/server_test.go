@@ -6,7 +6,7 @@ import (
 
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
-	db_mock "github.com/neo4j/mcp/internal/database/mocks"
+	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/server"
 	"go.uber.org/mock/gomock"
@@ -25,7 +25,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	dummyLogger := logger.New("info", "text", io.Discard) // Create a dummy logger
 
-	mockDB := db_mock.NewMockService(ctrl)
+	mockDB := db.NewMockService(ctrl)
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
@@ -103,7 +103,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 
 	dummyLogger := logger.New("info", "text", io.Discard) // Create a dummy logger
 
-	mockDB := db_mock.NewMockService(ctrl)
+	mockDB := db.NewMockService(ctrl)
 	analyticsService := analytics.NewMockService(ctrl)
 
 	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {

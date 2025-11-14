@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
@@ -18,7 +18,7 @@ import (
 
 func TestListGdsProceduresHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().NewToolsEvent("list-gds-procedures").AnyTimes()
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
