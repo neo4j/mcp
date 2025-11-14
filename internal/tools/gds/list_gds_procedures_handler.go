@@ -27,6 +27,12 @@ func handleListGdsProcedures(ctx context.Context, deps *tools.ToolDependencies) 
 		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
+
+	// Emit analytics event
+	if deps.AnalyticsService != nil {
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("list-gds-procedures"))
+	}
+
 	records, err := deps.DBService.ExecuteReadQuery(ctx, listGdsProceduresQuery, nil)
 	if err != nil {
 		formattedErrorMessage := fmt.Errorf("failed to execute list-gds-procedure query: %v. Ensure that the Graph Data Science (GDS) library is installed and properly configured in your Neo4j database", err)

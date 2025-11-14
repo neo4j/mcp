@@ -15,8 +15,9 @@ import (
 // is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).
 func (s *Neo4jMCPServer) RegisterTools() error {
 	deps := &tools.ToolDependencies{
-		DBService: s.dbService,
-		Log:       s.log,
+		DBService:        s.dbService,
+		Log:              s.log,
+		AnalyticsService: s.anService,
 	}
 
 	all := getAllTools(deps)

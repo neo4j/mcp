@@ -2,6 +2,7 @@ package cypher
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
@@ -27,6 +28,24 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 
 	deps.Log.Info("executing read cypher query", "query", Query)
 
+	lowerCaseQuery := strings.ToLower(Query)
+	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
+		if deps.AnalyticsService != nil {
+			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
+		}
+	}
+
+	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
+		if deps.AnalyticsService != nil {
+			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
+		}
+	}
+
+	// Emit analytics event
+	if deps.AnalyticsService != nil {
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("read-cypher"))
+	}
+
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
@@ -39,7 +58,6 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-
 	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
 	queryType, err := deps.DBService.GetQueryType(ctx, Query, Params)
 	if err != nil {

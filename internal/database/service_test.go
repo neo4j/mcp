@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/database/mocks"
+	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
@@ -20,7 +20,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful read query execution", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 		expectedRecords := []*neo4j.Record{}
 
 		mockService.EXPECT().
@@ -38,7 +38,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 	})
 
 	t.Run("query execution error", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 
 		mockService.EXPECT().
 			ExecuteReadQuery(ctx, "MATCH (n) RETURN n", nil).
@@ -52,7 +52,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 	})
 
 	t.Run("query with parameters - find person by name", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 
 		mockRecords := []*neo4j.Record{
 			{
@@ -91,7 +91,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 	})
 
 	t.Run("cypher syntax error", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 
 		mockService.EXPECT().
 			ExecuteReadQuery(
@@ -138,7 +138,7 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful write query execution", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 		expectedRecords := []*neo4j.Record{}
 
 		mockService.EXPECT().
@@ -156,7 +156,7 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 	})
 
 	t.Run("query execution error", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 
 		mockService.EXPECT().
 			ExecuteWriteQuery(ctx, "CREATE (n:Test)", nil).
@@ -170,7 +170,7 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 	})
 
 	t.Run("create node with properties and return it", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 
 		mockRecords := []*neo4j.Record{
 			{
@@ -209,7 +209,7 @@ func TestDatabaseService_ExecuteWriteQuery(t *testing.T) {
 	})
 
 	t.Run("cypher syntax error", func(t *testing.T) {
-		mockService := mocks.NewMockService(ctrl)
+		mockService := db.NewMockService(ctrl)
 
 		mockService.EXPECT().
 			ExecuteWriteQuery(

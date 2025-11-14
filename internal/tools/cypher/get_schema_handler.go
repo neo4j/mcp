@@ -12,8 +12,8 @@ const (
 	schemaQuery = `
         CALL apoc.meta.schema()
         YIELD value
-        UNWIND keys(value) AS key
-        WITH key, value[key] AS value
+        UNWIND keys(value) as key
+        WITH key, value[key] as value
         RETURN key, value { .properties, .type, .relationships } as value
     `
 )
@@ -35,6 +35,11 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies) (*mcp.Ca
 
 	deps.Log.Info("retrieving schema from the database")
 
+	// Emit analytics event
+	if deps.AnalyticsService != nil {
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("get-schema"))
+	}
+
 	// Execute the APOC schema query
 	records, err := deps.DBService.ExecuteReadQuery(ctx, schemaQuery, nil)
 	if err != nil {
@@ -52,6 +57,5 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies) (*mcp.Ca
 		deps.Log.Error("failed to format schema results to JSON", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
 	return mcp.NewToolResultText(response), nil
 }

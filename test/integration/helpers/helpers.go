@@ -14,10 +14,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"go.uber.org/mock/gomock"
 )
 
 type UniqueLabel string
@@ -64,15 +66,33 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
 
+	analyticsService := getAnalyticsMock(t)
 	deps := &tools.ToolDependencies{
-		DBService: databaseService,
-		Log:       logService,
+		DBService:        databaseService,
+		AnalyticsService: analyticsService,
+		Log:              logService,
 	}
 
 	tc.Service = databaseService
 	tc.Deps = deps
 
 	return tc
+}
+
+// getAnalyticsMock is used to mock the analytics service, for integration test purpose.
+func getAnalyticsMock(t *testing.T) *analytics.MockService {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().Disable().AnyTimes()
+	analyticsService.EXPECT().Enable().AnyTimes()
+	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
+	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
+	analyticsService.EXPECT().NewToolsEvent(gomock.Any()).AnyTimes()
+
+	return analyticsService
 }
 
 // Cleanup removes all test data by deleting nodes with labels created during the test
@@ -149,12 +169,15 @@ func (tc *TestContext) CallTool(handler func(context.Context, mcp.CallToolReques
 	res, err := handler(tc.ctx, req)
 	if err != nil {
 		tc.t.Fatalf("tool call failed: %v", err)
+		return nil
 	}
 	if res == nil {
 		tc.t.Fatal("tool returned nil response")
+		return nil
 	}
 	if res.IsError {
 		tc.t.Fatalf("tool returned error: %+v", res)
+		return nil
 	}
 
 	return res
@@ -173,20 +196,23 @@ func (tc *TestContext) GetToolError(handler func(context.Context, mcp.CallToolRe
 	res, err := handler(tc.ctx, req)
 	if err != nil {
 		tc.t.Fatalf("tool call failed: %v", err)
+		return ""
 	}
 	if res == nil {
 		tc.t.Fatal("tool returned nil response")
+		return ""
 	}
-	if res.IsError == false {
+	if !res.IsError {
 		tc.t.Fatal("no error returned")
+		return ""
 	}
 
 	textContent, ok := mcp.AsTextContent(res.Content[0])
 	if !ok {
 		tc.t.Fatalf("expected error as TextContent, got %T", res.Content[0])
+		return ""
 	}
 	return textContent.Text
-
 }
 
 // ParseJSONResponse parses JSON response into the provided interface

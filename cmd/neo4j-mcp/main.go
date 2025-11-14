@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
@@ -13,7 +15,10 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// go build -C cmd/neo4j-mcp -o ../../bin/ -ldflags "-X 'main.Version=9999' -X 'main.MixPanelEndpoint=https://api-eu.mixpanel.com' -X 'main.MixPanelToken=your-mixpanel-token'"
 var Version = "development"
+var MixPanelEndpoint = ""
+var MixPanelToken = ""
 
 func main() {
 	// Handle CLI arguments (version, help, etc.)
@@ -57,9 +62,19 @@ func main() {
 		log.Error("Failed to create database service", "error", err)
 		return
 	}
+	isAura := strings.Contains(cfg.URI, "database.neo4j.io")
+	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, isAura)
+
+	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
+		log.Info("Telemetry disabled.")
+		anService.Disable()
+	} else if cfg.Telemetry == "true" {
+		anService.Enable()
+		log.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.\nTo disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
+	}
 
 	// Create and configure the MCP server
-	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, log)
+	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService, log)
 
 	// Gracefully handle shutdown
 	defer func() {
@@ -73,4 +88,5 @@ func main() {
 		log.Error("Server error", "error", err)
 		return // so that defer can run
 	}
+
 }

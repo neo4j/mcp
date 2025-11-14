@@ -2,6 +2,7 @@ package cypher
 
 import (
 	"context"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
@@ -14,6 +15,10 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 }
 
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+	// Emit analytics event
+	if deps.AnalyticsService != nil {
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("write-cypher"))
+	}
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
@@ -25,6 +30,19 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 	Params := args.Params
 
 	deps.Log.Info("executing write cypher query", "query", Query)
+
+	lowerCaseQuery := strings.ToLower(Query)
+	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
+		if deps.AnalyticsService != nil {
+			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
+		}
+	}
+
+	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
+		if deps.AnalyticsService != nil {
+			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
+		}
+	}
 
 	// Validate that query is not empty
 	if Query == "" {
@@ -38,7 +56,6 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-
 	// Execute the Cypher query using the database service
 	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {

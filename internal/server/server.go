@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/logger"
@@ -15,18 +16,20 @@ type Neo4jMCPServer struct {
 	config    *config.Config
 	dbService database.Service
 	version   string
-	log       *logger.Service // Add the logger service
+	anService analytics.Service
+	log       *logger.Service
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
-func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, log *logger.Service) *Neo4jMCPServer {
+func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service, log *logger.Service) *Neo4jMCPServer {
 	// Create the server struct first, so we can reference it in the hooks.
 	srv := &Neo4jMCPServer{
 		config:    cfg,
 		dbService: dbService,
 		version:   version,
 		log:       log,
+		anService: anService,
 	}
 
 	mcpServer := server.NewMCPServer(
@@ -50,6 +53,9 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
 	s.log.Info("Starting Neo4j MCP Server...")
+
+	// track startup event
+	s.anService.EmitEvent(s.anService.NewStartupEvent())
 
 	// Register tools
 	if err := s.RegisterTools(); err != nil {
