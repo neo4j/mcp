@@ -3,12 +3,13 @@ package cypher_test
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -21,6 +22,8 @@ func TestGetSchemaHandler(t *testing.T) {
 	analyticsService.EXPECT().NewToolsEvent("get-schema").AnyTimes()
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
+
+	log := logger.New("debug", "text", os.Stderr)
 
 	t.Run("successful schema retrieval", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
@@ -38,6 +41,7 @@ func TestGetSchemaHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
+			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -60,6 +64,7 @@ func TestGetSchemaHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
+			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -90,6 +95,7 @@ func TestGetSchemaHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
+			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -107,6 +113,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        nil,
+			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -125,6 +132,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
+			Log:              log,
 		}
 
 		handler := cypher.GetSchemaHandler(deps)
@@ -148,6 +156,7 @@ func TestGetSchemaHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
+			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 

@@ -13,6 +13,8 @@ type Config struct {
 	Database  string
 	ReadOnly  string // If true, disables write tools
 	Telemetry string // if false, disables telemetry
+	LogLevel  string
+	LogFormat string
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -52,6 +54,8 @@ func LoadConfig() (*Config, error) {
 		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		ReadOnly:  GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
 		Telemetry: GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
+		LogLevel:  GetEnvWithDefault("LOG_LEVEL", "info"),
+		LogFormat: GetEnvWithDefault("LOG_FORMAT", "text"),
 	}
 
 	if err := cfg.Validate(); err != nil {

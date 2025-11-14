@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"testing"
@@ -13,8 +14,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
-	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
@@ -56,12 +58,20 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		tc.Cleanup() // Clean up test data
 		cancel()     // Release context resources immediately
 	})
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
+	// Initialize logger for tests (suppress output to io.Discard)
+	logService := logger.New("debug", "text", io.Discard)
+
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j", logService)
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
+
 	analyticsService := getAnalyticsMock(t)
-	deps := &tools.ToolDependencies{DBService: databaseService, AnalyticsService: analyticsService}
+	deps := &tools.ToolDependencies{
+		DBService:        databaseService,
+		AnalyticsService: analyticsService,
+		Log:              logService,
+	}
 
 	tc.Service = databaseService
 	tc.Deps = deps
@@ -70,10 +80,10 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 }
 
 // getAnalyticsMock is used to mock the analytics service, for integration test purpose.
-func getAnalyticsMock(t *testing.T) *analytics_mocks.MockService {
+func getAnalyticsMock(t *testing.T) *analytics.MockService {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().Disable().AnyTimes()
 	analyticsService.EXPECT().Enable().AnyTimes()
