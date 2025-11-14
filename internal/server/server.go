@@ -12,10 +12,11 @@ import (
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer *server.MCPServer
-	config    *config.Config
-	dbService database.Service
-	version   string
+	MCPServer    *server.MCPServer
+	config       *config.Config
+	dbService    database.Service
+	version      string
+	gdsInstalled bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -30,10 +31,11 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return &Neo4jMCPServer{
-		MCPServer: mcpServer,
-		config:    cfg,
-		dbService: dbService,
-		version:   version,
+		MCPServer:    mcpServer,
+		config:       cfg,
+		dbService:    dbService,
+		version:      version,
+		gdsInstalled: false,
 	}
 }
 
@@ -62,8 +64,9 @@ func (s *Neo4jMCPServer) VerifyRequirements() error {
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
 	}
-	// Perform a round-trip to verify connection, VerifyConnectivity will not verify the home database.
+	// Perform a dummy query to verify correctness of the connection, VerifyConnectivity is not exhaustive.
 	records, err := s.dbService.ExecuteReadQuery(context.Background(), "RETURN 1 as first", map[string]any{})
+
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
 	}
@@ -88,6 +91,19 @@ func (s *Neo4jMCPServer) VerifyRequirements() error {
 	apocMetaSchemaAvailable, ok := records[0].Values[0].(bool)
 	if !ok || !apocMetaSchemaAvailable {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
+	}
+	// Call gds.version procedure to determine if GDS is installed
+	records, err = s.dbService.ExecuteReadQuery(context.Background(), "RETURN gds.version() as gdsVersion", nil)
+	if err != nil {
+		// GDS is optional, so we log a warning and continue, assuming it's not installed.
+		log.Printf("Impossible to verify GDS installation.")
+		s.gdsInstalled = false
+	}
+	if len(records) == 1 && len(records[0].Values) == 1 {
+		_, ok := records[0].Values[0].(string)
+		if ok {
+			s.gdsInstalled = true
+		}
 	}
 
 	return nil
