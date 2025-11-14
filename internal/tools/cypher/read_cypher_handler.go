@@ -16,6 +16,20 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 }
 
 func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+	if deps.AnalyticsService == nil {
+		errMessage := "Analytics service is not initialized"
+		deps.Log.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
+	if deps.DBService == nil {
+		errMessage := "Database service is not initialized"
+		deps.Log.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
+	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("read-cypher"))
+
 	var args ReadCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
@@ -30,20 +44,11 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		if deps.AnalyticsService != nil {
-			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
-		}
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
 	}
 
 	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		if deps.AnalyticsService != nil {
-			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
-		}
-	}
-
-	// Emit analytics event
-	if deps.AnalyticsService != nil {
-		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("read-cypher"))
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
 	}
 
 	// Validate that query is not empty
@@ -53,11 +58,6 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	if deps.DBService == nil {
-		errMessage := "Database service is not initialized"
-		deps.Log.Error(errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
 	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
 	queryType, err := deps.DBService.GetQueryType(ctx, Query, Params)
 	if err != nil {
