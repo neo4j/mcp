@@ -2,69 +2,67 @@ package cypher
 
 import (
 	"context"
-	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleReadCypher(ctx, request, deps.DBService)
+		return handleReadCypher(ctx, request, deps)
 	}
 }
 
-func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
+func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
 	var args ReadCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
-		log.Printf("Error binding arguments: %v", err)
+		deps.Log.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	Query := args.Query
 	Params := args.Params
 
-	log.Printf("cypher-query: %s", Query)
+	deps.Log.Info("executing read cypher query", "query", Query)
 
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
-		log.Printf("%s", errMessage)
+		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	if dbService == nil {
+	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
-		log.Printf("%s", errMessage)
+		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
-	queryType, err := dbService.GetQueryType(ctx, Query, Params)
+	queryType, err := deps.DBService.GetQueryType(ctx, Query, Params)
 	if err != nil {
-		log.Printf("Error while classifying Cypher query: %v", err)
+		deps.Log.Error("error classifying cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	if queryType != neo4j.StatementTypeReadOnly { // only queryType == "r" are allowed in read-cypher
 		errMessage := "read-cypher can only run read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead."
-		log.Printf("Rejected non-read query (type=%v): %v", queryType, Query)
+		deps.Log.Error("rejected non-read query", "type", queryType, "query", Query)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Execute the Cypher query using the database service (now confirmed read-only)
-	records, err := dbService.ExecuteReadQuery(ctx, Query, Params)
+	records, err := deps.DBService.ExecuteReadQuery(ctx, Query, Params)
 	if err != nil {
-		log.Printf("Error executing Cypher query: %v", err)
+		deps.Log.Error("error executing cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	response, err := dbService.Neo4jRecordsToJSON(records)
+	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		log.Printf("Error formatting query results: %v", err)
+		deps.Log.Error("error formatting query results", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 

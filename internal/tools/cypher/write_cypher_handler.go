@@ -2,55 +2,53 @@ package cypher
 
 import (
 	"context"
-	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
 
 func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleWriteCypher(ctx, request, deps.DBService)
+		return handleWriteCypher(ctx, request, deps)
 	}
 }
 
-func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service) (*mcp.CallToolResult, error) {
+func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
-		log.Printf("Error binding arguments: %v", err)
+		deps.Log.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	Query := args.Query
 	Params := args.Params
-	// debug log -- to be removed at a later stage
-	log.Printf("Cypher-query: %s", Query)
+
+	deps.Log.Info("executing write cypher query", "query", Query)
 
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
-		log.Printf("%s", errMessage)
+		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	if dbService == nil {
+	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
-		log.Printf("%s", errMessage)
+		deps.Log.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Execute the Cypher query using the database service
-	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params)
+	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {
-		log.Printf("Error executing Cypher query: %v", err)
+		deps.Log.Error("error executing cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	response, err := dbService.Neo4jRecordsToJSON(records)
+	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		log.Printf("Error formatting query results: %v", err)
+		deps.Log.Error("error formatting query results", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
