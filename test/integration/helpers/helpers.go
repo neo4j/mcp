@@ -56,13 +56,13 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		tc.Cleanup() // Clean up test data
 		cancel()     // Release context resources immediately
 	})
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
+	// Initialize logger for tests (suppress output to io.Discard)
+	logService := logger.New("debug", "text", io.Discard)
+
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j", logService)
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
-
-	// Initialize logger for tests (suppress output to io.Discard)
-	logService := logger.New("debug", "text", io.Discard)
 
 	deps := &tools.ToolDependencies{
 		DBService: databaseService,
