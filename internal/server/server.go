@@ -47,7 +47,7 @@ func (s *Neo4jMCPServer) Start() error {
 		return err
 	}
 	// Register tools
-	if err := s.RegisterTools(); err != nil {
+	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
 	log.Println("Started Neo4j MCP Server. Now listening for input...")

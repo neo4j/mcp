@@ -16,51 +16,41 @@ import (
 
 func TestServerLifecycle(t *testing.T) {
 	t.Parallel()
-
+	testCFG := dbs.GetDriverConf()
 	testCases := []struct {
-		name         string
-		config       *config.Config
-		expectError  bool
-		startTimeout time.Duration
+		name        string
+		config      *config.Config
+		expectError bool
 	}{
 		{
-			name: "Neo4jMCPServer should correctly start",
-			config: &config.Config{
-				URI:      "bolt://localhost:7687",
-				Username: "neo4j",
-				Password: "password",
-				Database: "neo4j",
-			},
-			startTimeout: 1 * time.Second,
-			expectError:  false,
+			name:        "Neo4jMCPServer should correctly start",
+			config:      testCFG,
+			expectError: false,
 		},
 		{
 			name: "Neo4jMCPServer should fail to start: invalid host",
 			config: &config.Config{
 				URI:      "bolt://not-a-valid-host:7687",
-				Username: "neo4j",
-				Password: "password",
-				Database: "neo4j",
+				Username: testCFG.Username,
+				Password: testCFG.Password,
+				Database: testCFG.Database,
 			},
-			startTimeout: 4 * time.Second,
-			expectError:  true,
+			expectError: true,
 		},
 		{
 			name: "Neo4jMCPServer should fail to start: invalid database name",
 			config: &config.Config{
-				URI:      "bolt://localhost:7687",
-				Username: "neo4j",
-				Password: "password",
+				URI:      testCFG.URI,
+				Username: testCFG.Username,
+				Password: testCFG.Password,
 				Database: "not-a-valid-db-name",
 			},
-			startTimeout: 4 * time.Second,
-			expectError:  true,
+			expectError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Initialize Neo4j driver
 			driver, err := neo4j.NewDriverWithContext(tc.config.URI, neo4j.BasicAuth(tc.config.Username, tc.config.Password, ""))
 			if err != nil {
 				t.Fatalf("failed to create Neo4j driver: %s", err.Error())
@@ -118,14 +108,8 @@ func TestServerLifecycle(t *testing.T) {
 	}
 
 	t.Run("server stop should return no errors", func(t *testing.T) {
-		cfg := &config.Config{
-			URI:      "bolt://localhost:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-		}
 
-		driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
+		driver, err := neo4j.NewDriverWithContext(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
 		if err != nil {
 			t.Fatalf("failed to create Neo4j driver: %s", err.Error())
 		}
@@ -137,12 +121,12 @@ func TestServerLifecycle(t *testing.T) {
 			}
 		}()
 
-		dbService, err := database.NewNeo4jService(driver, cfg.Database)
+		dbService, err := database.NewNeo4jService(driver, testCFG.Database)
 		if err != nil {
 			t.Fatalf("failed to create database service: %v", err)
 		}
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, dbService)
+		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService)
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}
@@ -157,7 +141,7 @@ func TestServerLifecycle(t *testing.T) {
 		}()
 
 		// Give the server a moment to start
-		time.Sleep(1 * time.Second)
+		time.Sleep(4 * time.Second)
 
 		if startErr != nil {
 			t.Fatalf("Start() returned an unexpected error after stop: %v", startErr)

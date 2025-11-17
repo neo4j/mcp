@@ -19,6 +19,7 @@ import (
 var (
 	container testcontainers.Container
 	driver    *neo4j.DriverWithContext
+	cfg       *config.Config
 	once      sync.Once
 )
 
@@ -37,6 +38,17 @@ func GetDriver() *neo4j.DriverWithContext {
 	return driver
 }
 
+func GetDriverConf() *config.Config {
+	if cfg == nil {
+		log.Fatal("getDriverConf invoked before configuration is initialized.")
+	}
+	return &config.Config{
+		URI:      cfg.URI,
+		Username: cfg.Username,
+		Password: cfg.Password,
+	}
+}
+
 // startOnce start the testcontainer imaged
 func startOnce(ctx context.Context) {
 	ctr, boltURI, err := createNeo4jContainer(ctx)
@@ -45,7 +57,7 @@ func startOnce(ctx context.Context) {
 	}
 	container = ctr
 
-	cfg := &config.Config{
+	cfg = &config.Config{
 		URI:      boltURI,
 		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
 		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),

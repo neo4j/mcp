@@ -17,9 +17,11 @@ type dbService struct {
 }
 
 func NewDBService() *dbService {
+	useContainer := config.GetEnvWithDefault("USE_CONTAINER", "true") == "true"
+	log.Printf("Testing using container: %t", useContainer)
 	return &dbService{
 		driver:       nil,
-		useContainer: config.GetEnvWithDefault("USE_CONTAINER", "true") == "true",
+		useContainer: useContainer,
 	}
 }
 
@@ -58,4 +60,18 @@ func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
 	}
 
 	return dbs.driver
+}
+
+func (dbs *dbService) GetDriverConf() *config.Config {
+	if dbs.useContainer == true {
+		return containerrunner.GetDriverConf()
+	}
+
+	cfg := &config.Config{
+		URI:      config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+	}
+
+	return cfg
 }

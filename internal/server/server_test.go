@@ -135,13 +135,8 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}
 
-		// Register tools should work without errors
-		err := s.RegisterTools()
-		if err != nil {
-			t.Errorf("RegisterTools() unexpected error = %v", err)
-		}
 		// Start should work without errors
-		err = s.Start()
+		err := s.Start()
 		if err != nil {
 			t.Errorf("Start() unexpected error = %v", err)
 		}
