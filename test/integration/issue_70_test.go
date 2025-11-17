@@ -39,9 +39,18 @@ func TestIssue70(t *testing.T) {
 
 			companyLabel := tc.GetUniqueLabel("Company")
 
-			tc.SeedNode("Company", map[string]any{"prop": 1.2})
-			tc.SeedNode("Company", map[string]any{"prop": 3.2})
-			tc.SeedNode("Company", map[string]any{"prop": 4.2})
+			_, err := tc.SeedNode("Company", map[string]any{"prop": 1.2})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
+			_, err = tc.SeedNode("Company", map[string]any{"prop": 3.2})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
+			_, err = tc.SeedNode("Company", map[string]any{"prop": 4.2})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
 
 			handler := tt.handler(tc.Deps)
 			handlerQuery := strings.Join(
@@ -69,10 +78,22 @@ func TestIssue70(t *testing.T) {
 
 			companyLabel := tc.GetUniqueLabel("Company")
 
-			tc.SeedNode("Company", map[string]any{})
-			tc.SeedNode("Company", map[string]any{})
-			tc.SeedNode("Company", map[string]any{})
-			tc.SeedNode("Company", map[string]any{})
+			_, err := tc.SeedNode("Company", map[string]any{})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
+			_, err = tc.SeedNode("Company", map[string]any{})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
+			_, err = tc.SeedNode("Company", map[string]any{})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
+			_, err = tc.SeedNode("Company", map[string]any{})
+			if err != nil {
+				t.Fatalf("failed to seed Company node: %v", err)
+			}
 
 			handler := tt.handler(tc.Deps)
 			handlerQuery := strings.Join(

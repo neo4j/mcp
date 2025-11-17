@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 )
@@ -16,12 +17,13 @@ type Neo4jMCPServer struct {
 	config       *config.Config
 	dbService    database.Service
 	version      string
+	anService analytics.Service
 	gdsInstalled bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
-func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service) *Neo4jMCPServer {
+func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
 		version,
@@ -35,6 +37,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		config:       cfg,
 		dbService:    dbService,
 		version:      version,
+		anService: anService,
 		gdsInstalled: false,
 	}
 }
@@ -46,6 +49,10 @@ func (s *Neo4jMCPServer) Start() error {
 	if err != nil {
 		return err
 	}
+
+	// track startup event
+	s.anService.EmitEvent(s.anService.NewStartupEvent())
+
 	// Register tools
 	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)

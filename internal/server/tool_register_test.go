@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	amock "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database/mocks"
+	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
@@ -15,6 +16,10 @@ func TestToolRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	aService := amock.NewMockService(ctrl)
+	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	aService.EXPECT().NewStartupEvent().AnyTimes()
+
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		cfg := &config.Config{
@@ -23,7 +28,7 @@ func TestToolRegister(t *testing.T) {
 			Password: "password",
 			Database: "neo4j",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
@@ -50,7 +55,7 @@ func TestToolRegister(t *testing.T) {
 			Database: "neo4j",
 			ReadOnly: "true",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
@@ -76,7 +81,7 @@ func TestToolRegister(t *testing.T) {
 			Database: "neo4j",
 			ReadOnly: "false",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
@@ -103,7 +108,7 @@ func TestToolRegister(t *testing.T) {
 			Database: "neo4j",
 			ReadOnly: "false",
 		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
@@ -123,8 +128,8 @@ func TestToolRegister(t *testing.T) {
 }
 
 // utility to mock the invocation required by VerifyRequirements
-func getMockedDBService(ctrl *gomock.Controller, withGDS bool) *mocks.MockService {
-	mockDB := mocks.NewMockService(ctrl)
+func getMockedDBService(ctrl *gomock.Controller, withGDS bool) *db.MockService {
+	mockDB := db.NewMockService(ctrl)
 	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 		{

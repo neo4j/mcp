@@ -1,3 +1,0 @@
-kind: Patch
-body: Reduced the `get-schema` output footprint by removing the empty and unused `labels` JSON entry.
-time: 2025-10-31T14:56:39.693648Z

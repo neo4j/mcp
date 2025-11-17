@@ -11,6 +11,7 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/mcp/test/integration/helpers"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
@@ -51,10 +52,12 @@ func TestServerLifecycle(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+
 			driver, err := neo4j.NewDriverWithContext(tc.config.URI, neo4j.BasicAuth(tc.config.Username, tc.config.Password, ""))
 			if err != nil {
 				t.Fatalf("failed to create Neo4j driver: %s", err.Error())
 			}
+			testContext := helpers.NewTestContext(t, &driver)
 
 			ctx := context.Background()
 			defer func() {
@@ -69,7 +72,7 @@ func TestServerLifecycle(t *testing.T) {
 				return
 			}
 
-			s := server.NewNeo4jMCPServer("test-version", tc.config, dbService)
+			s := server.NewNeo4jMCPServer("test-version", tc.config, dbService, testContext.AnalyticsService)
 
 			if s == nil {
 				t.Fatal("the NewNeo4jMCPServer() returned nil")
@@ -113,7 +116,7 @@ func TestServerLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create Neo4j driver: %s", err.Error())
 		}
-
+		testContext := helpers.NewTestContext(t, &driver)
 		ctx := context.Background()
 		defer func() {
 			if err := driver.Close(ctx); err != nil {
@@ -126,7 +129,7 @@ func TestServerLifecycle(t *testing.T) {
 			t.Fatalf("failed to create database service: %v", err)
 		}
 
-		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService)
+		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService, testContext.AnalyticsService)
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}

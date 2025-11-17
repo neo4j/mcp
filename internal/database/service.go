@@ -17,7 +17,7 @@ type Neo4jService struct {
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.DriverWithContext, database string) (Service, error) {
+func NewNeo4jService(driver neo4j.DriverWithContext, database string) (*Neo4jService, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
