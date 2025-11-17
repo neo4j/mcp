@@ -76,6 +76,41 @@ func parseLevel(level string) slog.Level {
 	}
 }
 
+var sensitiveKeys = map[string]bool{
+	// Authentication
+	"password":       true,
+	"auth_token":     true,
+	"token":          true,
+	"secret":         true,
+	"api_key":        true,
+
+	// Connection details
+	"uri":            true,
+	"address":        true,
+	"server_address": true,
+	"host":           true,
+	"port":           true,
+	"bolt_uri":       true,
+
+	// Encryption
+	"encryption_key": true,
+	"tls_key":        true,
+	"certificate":    true,
+	"ca_cert":        true,
+	"ssl_cert":       true,
+
+	// System paths (infrastructure info)
+	"path":           true,
+	"directory":      true,
+	"backup_location": true,
+}
+
+// IsSensitiveKey checks if a key contains sensitive information that should be redacted.
+func IsSensitiveKey(key string) bool {
+	_, exists := sensitiveKeys[strings.ToLower(key)]
+	return exists
+}
+
 func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
@@ -102,5 +137,11 @@ func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 			a.Value = slog.StringValue(levelName)
 		}
 	}
+
+	// Redact sensitive information
+	if IsSensitiveKey(a.Key) {
+		a.Value = slog.StringValue("[REDACTED]")
+	}
+
 	return a
 }
