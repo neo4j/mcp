@@ -65,7 +65,8 @@ func (s *Neo4jMCPServer) Start() error {
 // verifyRequirements check the Neo4j requirements:
 // - A valid connection with a Neo4j instance.
 // - The ability to perform a read query (database name is correctly defined).
-// - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for )
+// - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
+// - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
 func (s *Neo4jMCPServer) verifyRequirements() error {
 	err := s.dbService.VerifyConnectivity(context.Background())
 	if err != nil {
