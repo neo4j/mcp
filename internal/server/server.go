@@ -96,8 +96,9 @@ func (s *Neo4jMCPServer) VerifyRequirements() error {
 	records, err = s.dbService.ExecuteReadQuery(context.Background(), "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
 		// GDS is optional, so we log a warning and continue, assuming it's not installed.
-		log.Printf("Impossible to verify GDS installation.")
+		log.Print("Impossible to verify GDS installation.")
 		s.gdsInstalled = false
+		return nil
 	}
 	if len(records) == 1 && len(records[0].Values) == 1 {
 		_, ok := records[0].Values[0].(string)
