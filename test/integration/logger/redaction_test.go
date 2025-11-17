@@ -167,18 +167,16 @@ func TestRedactionWithNeo4jConnection(t *testing.T) {
 				"token":   "bearer-token-xyz",
 			},
 			{
-				"attempt":      "2",
-				"address":      "192.168.1.100:7687",
-				"api_key":      "sk-secret-key-123",
-				"secret":       "some-secret-value",
-				"auth_token":   "auth-xyz-789",
+				"attempt":    "2",
+				"address":    "192.168.1.100:7687",
+				"api_key":    "sk-secret-key-123",
+				"secret":     "some-secret-value",
+				"auth_token": "auth-xyz-789",
 			},
 			{
-				"attempt":         "3",
-				"bolt_uri":        uri,
-				"encryption_key":  "encryption-key-data",
-				"certificate":     "cert-data-here",
-				"tls_key":         "tls-key-data",
+				"attempt":  "3",
+				"bolt_uri": uri,
+				"password": "pwd-attempt-3",
 			},
 		}
 

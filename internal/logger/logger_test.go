@@ -165,24 +165,16 @@ func TestDynamicLogLevelChange(t *testing.T) {
 func TestRedactionLogic(t *testing.T) {
 	t.Run("sensitive keys are redacted", func(t *testing.T) {
 		sensitiveFields := map[string]string{
-			"password":       "my-secret-password",
-			"token":          "bearer-token-123",
-			"api_key":        "sk-1234567890",
-			"secret":         "super-secret-value",
-			"auth_token":     "auth-token-xyz",
-			"encryption_key": "key-encryption-123",
-			"tls_key":        "tls-key-data",
-			"certificate":    "cert-data",
-			"ca_cert":        "ca-cert-data",
-			"ssl_cert":       "ssl-cert-data",
-			"uri":            "bolt://user:pass@localhost:7687",
-			"address":        "192.168.1.1",
-			"server_address": "server.example.com",
-			"host":           "localhost",
-			"bolt_uri":       "bolt://localhost:7687",
-			"path":           "/sensitive/path",
-			"directory":      "/var/lib/sensitive",
-			"backup_location": "/backup/location",
+			"password":   "my-secret-password",
+			"token":      "bearer-token-123",
+			"api_key":    "sk-1234567890",
+			"secret":     "super-secret-value",
+			"auth_token": "auth-token-xyz",
+			"uri":        "bolt://user:pass@localhost:7687",
+			"address":    "192.168.1.1",
+			"host":       "localhost",
+			"port":       "7687",
+			"bolt_uri":   "bolt://localhost:7687",
 		}
 
 		for key, sensitiveValue := range sensitiveFields {
@@ -319,7 +311,7 @@ func TestRedactionLogic(t *testing.T) {
 			key        string
 			shouldMask bool
 		}{
-			// Sensitive keys
+			// Sensitive keys - Authentication & API
 			{"password", true},
 			{"Password", true},
 			{"PASSWORD", true},
@@ -327,19 +319,13 @@ func TestRedactionLogic(t *testing.T) {
 			{"api_key", true},
 			{"secret", true},
 			{"auth_token", true},
-			{"encryption_key", true},
-			{"tls_key", true},
-			{"certificate", true},
-			{"ca_cert", true},
-			{"ssl_cert", true},
+
+			// Sensitive keys - Connection details
 			{"uri", true},
 			{"address", true},
-			{"server_address", true},
 			{"host", true},
+			{"port", true},
 			{"bolt_uri", true},
-			{"path", true},
-			{"directory", true},
-			{"backup_location", true},
 
 			// Non-sensitive keys
 			{"user_id", false},
@@ -350,6 +336,9 @@ func TestRedactionLogic(t *testing.T) {
 			{"username", false},
 			{"msg", false},
 			{"level", false},
+			{"server_address", false},
+			{"path", false},
+			{"certificate", false},
 		}
 
 		for _, tc := range testCases {

@@ -77,32 +77,19 @@ func parseLevel(level string) slog.Level {
 }
 
 var sensitiveKeys = map[string]bool{
-	// Authentication
-	"password":       true,
-	"auth_token":     true,
-	"token":          true,
-	"secret":         true,
-	"api_key":        true,
+	// Authentication & API
+	"password":   true,
+	"token":      true,
+	"secret":     true,
+	"api_key":    true,
+	"auth_token": true,
 
 	// Connection details
-	"uri":            true,
-	"address":        true,
-	"server_address": true,
-	"host":           true,
-	"port":           true,
-	"bolt_uri":       true,
-
-	// Encryption
-	"encryption_key": true,
-	"tls_key":        true,
-	"certificate":    true,
-	"ca_cert":        true,
-	"ssl_cert":       true,
-
-	// System paths (infrastructure info)
-	"path":           true,
-	"directory":      true,
-	"backup_location": true,
+	"uri":      true,
+	"address":  true,
+	"host":     true,
+	"port":     true,
+	"bolt_uri": true,
 }
 
 // IsSensitiveKey checks if a key contains sensitive information that should be redacted.
