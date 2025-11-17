@@ -17,7 +17,7 @@ type Neo4jMCPServer struct {
 	config       *config.Config
 	dbService    database.Service
 	version      string
-	anService analytics.Service
+	anService    analytics.Service
 	gdsInstalled bool
 }
 
@@ -37,7 +37,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		config:       cfg,
 		dbService:    dbService,
 		version:      version,
-		anService: anService,
+		anService:    anService,
 		gdsInstalled: false,
 	}
 }
@@ -45,7 +45,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
 	log.Println("Starting Neo4j MCP Server...")
-	err := s.VerifyRequirements()
+	err := s.verifyRequirements()
 	if err != nil {
 		return err
 	}
@@ -62,11 +62,11 @@ func (s *Neo4jMCPServer) Start() error {
 	return server.ServeStdio(s.MCPServer)
 }
 
-// VerifyRequirements check the Neo4j requirements:
+// verifyRequirements check the Neo4j requirements:
 // - A valid connection with a Neo4j instance.
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for )
-func (s *Neo4jMCPServer) VerifyRequirements() error {
+func (s *Neo4jMCPServer) verifyRequirements() error {
 	err := s.dbService.VerifyConnectivity(context.Background())
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
