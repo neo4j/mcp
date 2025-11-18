@@ -66,7 +66,7 @@ This allows the arguments to "pass through" untouched so that flag.Parse() in ma
 // It exits the program after displaying the requested information.
 // If unknown flags are encountered, it prints an error message and exits.
 // Known configuration flags are skipped to allow the flag package to handle them.
-// Why are we skipping known configuration flags?
+// Known configuration flags are skipped here so that the flag package in main.go can handle them properly.
 func HandleArgs(version string) {
 	if len(os.Args) <= 1 {
 		return
