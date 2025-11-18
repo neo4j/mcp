@@ -26,5 +26,8 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /build/neo4j-mcp /app/neo4j-mcp
 
+# Run as non-root user (UID 65532 is a standard non-root user ID)
+USER 65532:65532
+
 # Set entrypoint
 ENTRYPOINT ["/app/neo4j-mcp"]
