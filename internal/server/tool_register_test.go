@@ -17,7 +17,7 @@ func TestToolRegister(t *testing.T) {
 
 	mockDB := db_mock.NewMockService(ctrl)
 	mockClient := analytics_mock.NewMockHTTPClient(ctrl)
-	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
+	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, "bolt://localhost:7687")
 
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		cfg := &config.Config{
