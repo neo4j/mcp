@@ -128,6 +128,52 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "unknown flag or argument: extra",
 		},
+		{
+			name:             "neo4j-uri configuration flag",
+			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "multiple configuration flags",
+			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--neo4j-username", "user"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flags are allowed
+		},
+		{
+			name:             "configuration flag missing value - at end",
+			args:             []string{testProgramName, "--neo4j-uri"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-uri requires a value",
+		},
+		{
+			name:             "configuration flag missing value - followed by another flag",
+			args:             []string{testProgramName, "--neo4j-uri", "--neo4j-username", "user"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-uri requires a value (got flag --neo4j-username instead)",
+		},
+		{
+			name:             "neo4j-password missing value",
+			args:             []string{testProgramName, "--neo4j-password"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-password requires a value",
+		},
+		{
+			name:             "neo4j-database missing value - followed by another flag",
+			args:             []string{testProgramName, "--neo4j-database", "--neo4j-uri", "bolt://localhost"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-database requires a value (got flag --neo4j-uri instead)",
+		},
+		{
+			name:             "configuration flags with valid values",
+			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--neo4j-username", "neo4j", "--neo4j-password", "password", "--neo4j-database", "neo4j"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit
+		},
 	}
 
 	for _, tt := range tests {
