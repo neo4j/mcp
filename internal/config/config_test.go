@@ -123,47 +123,63 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestLoadConfig(t *testing.T) {
-	// Test LoadConfig with current environment (whatever it is)
-	// We don't modify environment variables to avoid parallel test issues
-	cfg, err := LoadConfig()
+func TestLoadConfig_ValidConfig(t *testing.T) {
+	// Unit test: set required env variables and verify LoadConfig works
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 
-	if err != nil {
-		// If LoadConfig fails, it means the current environment has invalid config
-		// This is fine - we just verify that validation is working
-		if !strings.Contains(err.Error(), "invalid configuration") {
-			t.Errorf("LoadConfig() error = %v, want error containing 'invalid configuration'", err)
-		}
-		if cfg != nil {
-			t.Errorf("LoadConfig() expected nil config on error, got %v", cfg)
-		}
+	cfg := LoadConfig()
+
+	if cfg == nil {
+		t.Error("LoadConfig() returned nil config")
 		return
 	}
 
-	// If LoadConfig succeeds, verify the config is valid
-	if cfg == nil {
-		t.Error("LoadConfig() returned nil config without error")
-		return
+	if cfg.URI != "bolt://localhost:7687" {
+		t.Errorf("LoadConfig() URI = %v, want bolt://localhost:7687", cfg.URI)
+	}
+	if cfg.Username != "testuser" {
+		t.Errorf("LoadConfig() Username = %v, want testuser", cfg.Username)
+	}
+	if cfg.Password != "testpass" {
+		t.Errorf("LoadConfig() Password = %v, want testpass", cfg.Password)
+	}
+	if cfg.Database != "neo4j" {
+		t.Errorf("LoadConfig() Database = %v, want neo4j", cfg.Database)
 	}
 
 	// Verify that the returned config passes validation
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("LoadConfig() returned config that fails validation: %v", err)
 	}
+}
 
-	// Verify config has reasonable default values (if env vars are not set)
-	// We can't test specific values since we don't know the environment,
-	// but we can verify they're not empty
-	if cfg.URI == "" {
-		t.Error("LoadConfig() returned empty URI")
+func TestLoadConfig_MissingRequiredEnvVars(t *testing.T) {
+	// Unit test: verify LoadConfig returns config with empty required fields
+	// which will fail validation
+	t.Setenv("NEO4J_URI", "")
+	t.Setenv("NEO4J_USERNAME", "")
+	t.Setenv("NEO4J_PASSWORD", "")
+
+	cfg := LoadConfig()
+
+	if cfg == nil {
+		t.Error("LoadConfig() returned nil config")
+		return
 	}
-	if cfg.Username == "" {
-		t.Error("LoadConfig() returned empty username")
+
+	// Verify that validation fails
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("Config.Validate() expected error when required env vars are missing, got nil")
+		return
 	}
-	if cfg.Password == "" {
-		t.Error("LoadConfig() returned empty password")
-	}
-	if cfg.Database == "" {
-		t.Error("LoadConfig() returned empty database")
+
+	// Should contain an error about required fields
+	if !strings.Contains(err.Error(), "required") {
+		t.Errorf("Config.Validate() error = %v, want error containing 'required'", err)
 	}
 }
+
