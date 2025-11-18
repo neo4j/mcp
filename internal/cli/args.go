@@ -104,7 +104,6 @@ func HandleArgs(version string) {
 			if arg == "--" {
 				// Stop processing our flags, let flag package handle the rest
 				i = len(os.Args) // Exit the loop
-				break
 			}
 			err = fmt.Errorf("unknown flag or argument: %s", arg)
 			i++
