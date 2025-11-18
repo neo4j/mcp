@@ -43,24 +43,24 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// LoadConfig loads configuration from environment variables with defaults
-func LoadConfig() (*Config, error) {
-	cfg := &Config{
-		URI:       GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username:  GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password:  GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+// LoadConfig loads configuration from environment variables without validation
+func LoadConfig() *Config {
+	return &Config{
+		URI:       GetEnv("NEO4J_URI"),
+		Username:  GetEnv("NEO4J_USERNAME"),
+		Password:  GetEnv("NEO4J_PASSWORD"),
 		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		ReadOnly:  GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
 		Telemetry: GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
 	}
-
-	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
-	}
-
-	return cfg, nil
 }
 
+// GetEnv returns the value of an environment variable or empty string if not set
+func GetEnv(key string) string {
+	return os.Getenv(key)
+}
+
+// GetEnvWithDefault returns the value of an environment variable or a default value
 func GetEnvWithDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

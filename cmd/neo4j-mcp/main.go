@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"strings"
 
@@ -19,12 +20,37 @@ var MixPanelEndpoint = ""
 var MixPanelToken = ""
 
 func main() {
+	// Define CLI flags for configuration
+	neo4jURI := flag.String("neo4j-uri", "", "Neo4j connection URI (overrides NEO4J_URI env var)")
+	neo4jUsername := flag.String("neo4j-username", "", "Neo4j username (overrides NEO4J_USERNAME env var)")
+	neo4jPassword := flag.String("neo4j-password", "", "Neo4j password (overrides NEO4J_PASSWORD env var)")
+	neo4jDatabase := flag.String("neo4j-database", "", "Neo4j database name (overrides NEO4J_DATABASE env var)")
+
 	// Handle CLI arguments (version, help, etc.)
 	cli.HandleArgs(Version)
 
-	// get config from environment variables
-	cfg, err := config.LoadConfig()
-	if err != nil {
+	// Parse flags after HandleArgs
+	flag.Parse()
+
+	// Load config from environment variables
+	cfg := config.LoadConfig()
+
+	// Override config with CLI flags if provided (CLI flags take precedence)
+	if *neo4jURI != "" {
+		cfg.URI = *neo4jURI
+	}
+	if *neo4jUsername != "" {
+		cfg.Username = *neo4jUsername
+	}
+	if *neo4jPassword != "" {
+		cfg.Password = *neo4jPassword
+	}
+	if *neo4jDatabase != "" {
+		cfg.Database = *neo4jDatabase
+	}
+
+	// Validate configuration after applying CLI overrides
+	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
