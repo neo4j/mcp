@@ -43,7 +43,9 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// LoadConfig loads configuration from environment variables without validation
+// LoadConfig loads configuration from environment variables without validation.
+// Note: Database uses a default value ("neo4j") if NEO4J_DATABASE is not set, 
+// while URI, Username, and Password must be explicitly provided.
 func LoadConfig() *Config {
 	return &Config{
 		URI:       GetEnv("NEO4J_URI"),
