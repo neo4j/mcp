@@ -57,7 +57,7 @@ func TestLoadConfig_Neo4jConnectivity(t *testing.T) {
 
 	// Verify connectivity to the database
 	if err := driver.VerifyConnectivity(ctx); err != nil {
-		t.Fatalf("Failed to verify Neo4j database connectivity: %v\n\nMake sure:\n1. Neo4j is running at %s\n2. Username and password are correct\n3. The database is accessible", err, cfg.URI)
+		t.Fatalf("Failed to verify Neo4j database connectivity at %s: %v\n\nMake sure:\n1. Neo4j is running and accessible\n2. Username and password are correct\n3. The database is available", cfg.URI, err)
 	}
 
 	// Test that we can execute a simple query
