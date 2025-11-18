@@ -1,7 +1,7 @@
 # Builder stage
 FROM golang:1.25-alpine AS builder
 
-LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp-neo4j"
+LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp"
 
 WORKDIR /build
 
