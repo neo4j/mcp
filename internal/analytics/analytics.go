@@ -31,7 +31,7 @@ type Analytics struct {
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string) *Analytics {
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, isAura bool) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -39,13 +39,13 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		distinctID:       distinctID,
 		startupTime:      time.Now().Unix(),
 		client:           client,
-		isAura:           isAura(uri),
+		isAura:           isAura,
 	}
 
 	return &Analytics{cfg: cfg, disabled: false}
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) *Analytics {
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, isAura bool) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -53,14 +53,10 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) *An
 		distinctID:       distinctID,
 		startupTime:      time.Now().Unix(),
 		client:           http.DefaultClient,
-		isAura:           isAura(uri),
+		isAura:           isAura,
 	}
 
 	return &Analytics{cfg: cfg, disabled: false}
-}
-
-func isAura(uri string) bool {
-	return strings.Contains(uri, "databases.neo4j.io")
 }
 
 func (a *Analytics) EmitEvent(event TrackEvent) {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
@@ -53,8 +54,8 @@ func main() {
 		log.Printf("Failed to create database service: %v", err)
 		return
 	}
-
-	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
+	isAura := strings.Contains(cfg.URI, "database.neo4j.io")
+	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, isAura)
 
 	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
 		log.Println("Telemetry disabled.")

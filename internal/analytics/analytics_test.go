@@ -18,7 +18,7 @@ func TestAnalytics(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockClient := amocks.NewMockHTTPClient(ctrl)
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, "bolt://localhost:7687")
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.Disable()
 		analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 	})
@@ -32,7 +32,7 @@ func TestAnalytics(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("1")),
 		}, nil)
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, "bolt://localhost:7687")
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 	})
 
@@ -81,7 +81,7 @@ func TestAnalytics(t *testing.T) {
 				}, nil
 			})
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, "bolt://localhost:7687")
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.EmitEvent(event)
 	})
 
@@ -130,7 +130,7 @@ func TestAnalytics(t *testing.T) {
 				}, nil
 			})
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, "bolt://localhost:7687")
+		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
 		analyticsService.EmitEvent(event)
 	})
 
@@ -167,7 +167,7 @@ func TestAnalytics(t *testing.T) {
 					Body:       io.NopCloser(strings.NewReader("1")),
 				}, nil)
 
-				analyticsService := analytics.NewAnalyticsWithClient("test-token", tc.mixpanelEndpoint, mockClient, "bolt://localhost:7687")
+				analyticsService := analytics.NewAnalyticsWithClient("test-token", tc.mixpanelEndpoint, mockClient, false)
 				analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 			})
 		}
@@ -175,7 +175,7 @@ func TestAnalytics(t *testing.T) {
 }
 
 func TestEventCreation(t *testing.T) {
-	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, "bolt://localhost:7687")
+	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, false)
 
 	t.Run("NewGDSProjCreatedEvent", func(t *testing.T) {
 		event := analyticsService.NewGDSProjCreatedEvent()
@@ -222,7 +222,7 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
-		auraAnalytics := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, "bolt://mydb.databases.neo4j.io")
+		auraAnalytics := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, true)
 		event := auraAnalytics.NewStartupEvent()
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
