@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+test/
+*.md
+.DS_Store
+bin/
+.task
+renovate.json
+CONTRIBUTING.md
+LICENSE.txt
+NOTICE.txt

@@ -32,12 +32,13 @@ func (ul UniqueLabel) String() string {
 
 // TestContext holds common test dependencies
 type TestContext struct {
-	ctx           context.Context
-	t             *testing.T
-	TestID        string
-	Service       database.Service
-	Deps          *tools.ToolDependencies
-	createdLabels map[string]bool
+	ctx              context.Context
+	t                *testing.T
+	TestID           string
+	Service          database.Service
+	Deps             *tools.ToolDependencies
+	createdLabels    map[string]bool
+	AnalyticsService *analytics.MockService
 }
 
 // NewTestContext creates a new test context with automatic cleanup
@@ -46,6 +47,9 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	testID := makeTestID()
+
+	// Initialize logger for tests (suppress output to io.Discard)
+	logService := logger.New("debug", "text", io.Discard)
 
 	tc := &TestContext{
 		ctx:           ctx,
@@ -58,8 +62,6 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		tc.Cleanup() // Clean up test data
 		cancel()     // Release context resources immediately
 	})
-	// Initialize logger for tests (suppress output to io.Discard)
-	logService := logger.New("debug", "text", io.Discard)
 
 	databaseService, err := database.NewNeo4jService(*driver, "neo4j", logService)
 	if err != nil {
@@ -73,6 +75,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		Log:              logService,
 	}
 
+	tc.AnalyticsService = analyticsService
 	tc.Service = databaseService
 	tc.Deps = deps
 
