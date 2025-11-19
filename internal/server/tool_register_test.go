@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	amock "github.com/neo4j/mcp/internal/analytics/mocks"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
@@ -16,7 +16,7 @@ func TestToolRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	aService := amock.NewMockService(ctrl)
+	aService := analytics.NewMockService(ctrl)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent().AnyTimes()
 
