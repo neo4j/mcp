@@ -54,7 +54,7 @@ func LoadConfig() (*Config, error) {
 	logFormat := GetEnvWithDefault("NEO4J_LOG_FORMAT", "text")
 
 	// Validate log level and use default if invalid
-	if _, ok := logger.LogLevelMap[logLevel]; !ok {
+	if !slices.Contains(logger.ValidLogLevels, logLevel) {
 		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_LEVEL '%s', using default 'info'. Valid values: %v\n", logLevel, logger.ValidLogLevels)
 		logLevel = "info"
 	}

@@ -15,46 +15,29 @@ type Service struct {
 // Global logger instance for Phase 1 (stdio mode)
 var defaultService *Service
 
+// Define all log levels as constants following slog pattern
 const (
-	levelNotice    = slog.Level(2)  // Between Info and Warn
-	levelCritical  = slog.Level(10) // Between Error and Alert
-	levelAlert     = slog.Level(12)
-	levelEmergency = slog.Level(16) // Highest severity
+	LevelDebug     = slog.LevelDebug // -4
+	LevelInfo      = slog.LevelInfo  // 0
+	LevelNotice    = slog.Level(2)   // Between Info and Warn
+	LevelWarning   = slog.LevelWarn  // 4
+	LevelError     = slog.LevelError // 8
+	LevelCritical  = slog.Level(10)  // Between Error and Alert
+	LevelAlert     = slog.Level(12)
+	LevelEmergency = slog.Level(16) // Highest severity
 )
 
-// LogLevelMap maps string log level names to slog.Level values.
-// Exported for use in validation.
-var LogLevelMap = map[string]slog.Level{
-	"debug":     slog.LevelDebug,
-	"info":      slog.LevelInfo,
-	"notice":    levelNotice,
-	"warning":   slog.LevelWarn,
-	"error":     slog.LevelError,
-	"critical":  levelCritical,
-	"alert":     levelAlert,
-	"emergency": levelEmergency,
+// ValidLogLevels lists all valid log level names
+var ValidLogLevels = []string{
+	"debug",
+	"info",
+	"notice",
+	"warning",
+	"error",
+	"critical",
+	"alert",
+	"emergency",
 }
-
-// levelNameMap maps slog.Level values to their uppercase string representations
-var levelNameMap = map[slog.Level]string{
-	slog.LevelDebug: "DEBUG",
-	slog.LevelInfo:  "INFO",
-	levelNotice:     "NOTICE",
-	slog.LevelWarn:  "WARNING",
-	slog.LevelError: "ERROR",
-	levelCritical:   "CRITICAL",
-	levelAlert:      "ALERT",
-	levelEmergency:  "EMERGENCY",
-}
-
-// ValidLogLevels lists valid log level names (derived from LogLevelMap)
-var ValidLogLevels = func() []string {
-	levels := make([]string, 0, len(LogLevelMap))
-	for level := range LogLevelMap {
-		levels = append(levels, level)
-	}
-	return levels
-}()
 
 // ValidLogFormats lists valid log output formats
 var ValidLogFormats = []string{"text", "json"}
@@ -115,25 +98,56 @@ func New(level, format string, writer io.Writer) *Service {
 	return service
 }
 
-// parseLevel converts a string to a slog.Level using the LogLevelMap.
+// parseLevel converts a string to a slog.Level using a switch statement.
 // Supports MCP log levels: debug, info, notice, warning, error, critical, alert, emergency.
-// Returns slog.LevelInfo as default if level is not recognized.
+// Returns LevelInfo as default if level is not recognized.
 func parseLevel(level string) slog.Level {
-	if lvl, ok := LogLevelMap[strings.ToLower(level)]; ok {
-		return lvl
+	switch strings.ToLower(level) {
+	case "debug":
+		return LevelDebug
+	case "info":
+		return LevelInfo
+	case "notice":
+		return LevelNotice
+	case "warning":
+		return LevelWarning
+	case "error":
+		return LevelError
+	case "critical":
+		return LevelCritical
+	case "alert":
+		return LevelAlert
+	case "emergency":
+		return LevelEmergency
+	default:
+		return LevelInfo
 	}
-	return slog.LevelInfo // default
 }
 
 // replaceAttr is a slog.HandlerOptions.ReplaceAttr function that customizes
-// log level attribute formatting. It replaces the default log level values
-// with human-readable level names from levelNameMap when the attribute key
-// matches slog.LevelKey. All other attributes are passed through unchanged.
+// log level attribute formatting. It maps log levels to uppercase string
+// representations using range-based switch cases (following slog custom levels pattern).
+// All other attributes are passed through unchanged.
 func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
-		if levelName, ok := levelNameMap[level]; ok {
-			a.Value = slog.StringValue(levelName)
+		switch {
+		case level < LevelInfo:
+			a.Value = slog.StringValue("DEBUG")
+		case level < LevelNotice:
+			a.Value = slog.StringValue("INFO")
+		case level < LevelWarning:
+			a.Value = slog.StringValue("NOTICE")
+		case level < LevelError:
+			a.Value = slog.StringValue("WARNING")
+		case level < LevelCritical:
+			a.Value = slog.StringValue("ERROR")
+		case level < LevelAlert:
+			a.Value = slog.StringValue("CRITICAL")
+		case level < LevelEmergency:
+			a.Value = slog.StringValue("ALERT")
+		default:
+			a.Value = slog.StringValue("EMERGENCY")
 		}
 	}
 	return a

@@ -106,9 +106,7 @@ func TestDynamicLogLevelChange(t *testing.T) {
 	})
 
 	t.Run("all log levels can be set dynamically", func(t *testing.T) {
-		levels := []string{"debug", "info", "notice", "warn", "warning", "error", "critical", "alert", "emergency"}
-
-		for _, lvl := range levels {
+		for _, lvl := range logger.ValidLogLevels {
 			buf := &bytes.Buffer{}
 			log := logger.New("debug", "text", buf)
 
