@@ -66,13 +66,13 @@ func TestServerLifecycle(t *testing.T) {
 				}
 			}()
 
-			dbService, err := database.NewNeo4jService(driver, tc.config.Database, testContext.Deps.Log)
+			dbService, err := database.NewNeo4jService(driver, tc.config.Database)
 			if err != nil {
 				t.Fatalf("failed to create database service: %v", err)
 				return
 			}
 
-			s := server.NewNeo4jMCPServer("test-version", tc.config, dbService, testContext.AnalyticsService, testContext.Deps.Log)
+			s := server.NewNeo4jMCPServer("test-version", tc.config, dbService, testContext.AnalyticsService)
 
 			if s == nil {
 				t.Fatal("the NewNeo4jMCPServer() returned nil")
@@ -124,12 +124,12 @@ func TestServerLifecycle(t *testing.T) {
 			}
 		}()
 
-		dbService, err := database.NewNeo4jService(driver, testCFG.Database, testContext.Deps.Log)
+		dbService, err := database.NewNeo4jService(driver, testCFG.Database)
 		if err != nil {
 			t.Fatalf("failed to create database service: %v", err)
 		}
 
-		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService, testContext.AnalyticsService, testContext.Deps.Log)
+		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService, testContext.AnalyticsService)
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}

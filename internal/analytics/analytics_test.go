@@ -10,14 +10,8 @@ import (
 
 	"github.com/neo4j/mcp/internal/analytics"
 	amocks "github.com/neo4j/mcp/internal/analytics/mocks"
-	"github.com/neo4j/mcp/internal/logger"
 	"go.uber.org/mock/gomock"
 )
-
-// newTestLogger creates a logger for testing that writes to io.Discard
-func newTestLogger() *logger.Service {
-	return logger.New("info", "text", io.Discard)
-}
 
 // newTestAnalytics creates an analytics service for testing and fails the test if creation fails
 func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTTPClient, uri string) *analytics.Analytics {
@@ -30,29 +24,6 @@ func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTT
 }
 
 func TestAnalytics(t *testing.T) {
-	t.Run("NewAnalyticsWithClient should return error when logger is nil", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		mockClient := amocks.NewMockHTTPClient(ctrl)
-
-		_, err := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, "bolt://localhost:7687")
-		if err == nil {
-			t.Fatal("expected error when logger is nil, got nil")
-		}
-		if !strings.Contains(err.Error(), "logger cannot be nil") {
-			t.Errorf("expected error message to contain 'logger cannot be nil', got: %v", err)
-		}
-	})
-
-	t.Run("NewAnalytics should return error when logger is nil", func(t *testing.T) {
-		_, err := analytics.NewAnalytics("test-token", "http://localhost", "bolt://localhost:7687")
-		if err == nil {
-			t.Fatal("expected error when logger is nil, got nil")
-		}
-		if !strings.Contains(err.Error(), "logger cannot be nil") {
-			t.Errorf("expected error message to contain 'logger cannot be nil', got: %v", err)
-		}
-	})
-
 	t.Run("EmitEvent should not send event if disabled", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockClient := amocks.NewMockHTTPClient(ctrl)
