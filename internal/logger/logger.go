@@ -17,7 +17,15 @@ func (s *Service) SetLevel(level string) {
 	s.level.Set(parseLevel(level))
 }
 
-// New creates a new logging service.
+// New creates a new logger service with the specified configuration.
+//
+// Parameters:
+//   - level: The logging level as a string (e.g., "debug", "info", "warn", "error").
+//     See https://pkg.go.dev/log/slog#Level for more information about log levels.
+//   - format: The output format, either "json" for JSON format or any other value for text format.
+//   - writer: The io.Writer where log output will be written.
+//
+// Returns a configured *Service instance with the specified logging behavior.
 func New(level, format string, writer io.Writer) *Service {
 	levelVar := &slog.LevelVar{}
 	levelVar.Set(parseLevel(level))
