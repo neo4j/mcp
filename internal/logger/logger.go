@@ -53,10 +53,10 @@ func New(level, format string, writer io.Writer) *Service {
 }
 
 const (
-	LevelNotice    = slog.Level(2)  // Between Info and Warn
-	LevelCritical  = slog.Level(10) // Between Error and Alert
-	LevelAlert     = slog.Level(12)
-	LevelEmergency = slog.Level(16) // Highest severity
+	levelNotice    = slog.Level(2)  // Between Info and Warn
+	levelCritical  = slog.Level(10) // Between Error and Alert
+	levelAlert     = slog.Level(12)
+	levelEmergency = slog.Level(16) // Highest severity
 )
 
 // parseLevel converts a string to a slog.Level.
@@ -68,17 +68,17 @@ func parseLevel(level string) slog.Level {
 	case "info":
 		return slog.LevelInfo
 	case "notice":
-		return LevelNotice
+		return levelNotice
 	case "warn", "warning":
 		return slog.LevelWarn
 	case "error":
 		return slog.LevelError
 	case "critical":
-		return LevelCritical
+		return levelCritical
 	case "alert":
-		return LevelAlert
+		return levelAlert
 	case "emergency":
-		return LevelEmergency
+		return levelEmergency
 	default:
 		return slog.LevelInfo
 	}
@@ -93,17 +93,17 @@ func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 			levelName = "DEBUG"
 		case slog.LevelInfo:
 			levelName = "INFO"
-		case LevelNotice:
+		case levelNotice:
 			levelName = "NOTICE"
 		case slog.LevelWarn:
 			levelName = "WARN"
 		case slog.LevelError:
 			levelName = "ERROR"
-		case LevelCritical:
+		case levelCritical:
 			levelName = "CRITICAL"
-		case LevelAlert:
+		case levelAlert:
 			levelName = "ALERT"
-		case LevelEmergency:
+		case levelEmergency:
 			levelName = "EMERGENCY"
 		}
 		if levelName != "" {
