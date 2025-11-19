@@ -56,7 +56,11 @@ func main() {
 		return
 	}
 
-	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
+	anService, err := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI, log)
+	if err != nil {
+		log.Error("Failed to create analytics service", "error", err)
+		os.Exit(1)
+	}
 
 	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
 		log.Info("Telemetry disabled.")
