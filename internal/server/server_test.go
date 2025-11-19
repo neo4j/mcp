@@ -2,13 +2,11 @@ package server_test
 
 import (
 	"fmt"
-	"io"
 	"testing"
 
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
@@ -24,8 +22,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Password: "password",
 		Database: "neo4j",
 	}
-
-	dummyLogger := logger.New("info", "text", io.Discard) // Create a dummy logger
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
@@ -61,7 +57,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			},
 		}, nil)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -76,7 +72,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	t.Run("starts server should fails when no connection can be established", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1).Return(fmt.Errorf("connection error"))
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -96,7 +92,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 				Values: []any{int64(2)}, // Return a value other than 1
 			},
 		}, nil)
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -138,7 +134,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			},
 		}, nil)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
@@ -180,7 +176,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -221,7 +217,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			},
 		}, nil)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
@@ -244,8 +240,6 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		Password: "password",
 		Database: "neo4j",
 	}
-
-	dummyLogger := logger.New("info", "text", io.Discard) // Create a dummy logger
 
 	mockDB := db.NewMockService(ctrl)
 	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).AnyTimes()
@@ -281,7 +275,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		analyticsService.EXPECT().NewStartupEvent().Times(1)
 		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(1)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, dummyLogger)
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}

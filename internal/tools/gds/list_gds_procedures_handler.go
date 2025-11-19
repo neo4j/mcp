@@ -3,6 +3,7 @@ package gds
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
@@ -24,13 +25,13 @@ func ListGdsProceduresHandler(deps *tools.ToolDependencies) func(context.Context
 func handleListGdsProcedures(ctx context.Context, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
 	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	if deps.AnalyticsService == nil {
 		errMessage := "Analytics service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
@@ -39,13 +40,13 @@ func handleListGdsProcedures(ctx context.Context, deps *tools.ToolDependencies) 
 	records, err := deps.DBService.ExecuteReadQuery(ctx, listGdsProceduresQuery, nil)
 	if err != nil {
 		formattedErrorMessage := fmt.Errorf("failed to execute list-gds-procedure query: %v. Ensure that the Graph Data Science (GDS) library is installed and properly configured in your Neo4j database", err)
-		deps.Log.Error("failed to execute list gds procedures query", "error", err)
+		slog.Error("failed to execute list gds procedures query", "error", err)
 		return mcp.NewToolResultError(formattedErrorMessage.Error()), nil
 	}
 
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		deps.Log.Error("failed to format list-gds-procedures results to JSON", "error", err)
+		slog.Error("failed to format list-gds-procedures results to JSON", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 

@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/neo4j/mcp/internal/logger"
 )
 
 type analyticsConfig struct {
@@ -28,16 +28,11 @@ type analyticsConfig struct {
 type Analytics struct {
 	disabled bool
 	cfg      analyticsConfig
-	logger   *logger.Service
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string, logger *logger.Service) (*Analytics, error) {
-	if logger == nil {
-		return nil, fmt.Errorf("logger cannot be nil")
-	}
-
-	distinctID := getDistinctID(logger)
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string) (*Analytics, error) {
+	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
@@ -47,15 +42,11 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		isAura:           isAura(uri),
 	}
 
-	return &Analytics{cfg: cfg, disabled: false, logger: logger}, nil
+	return &Analytics{cfg: cfg, disabled: false}, nil
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string, logger *logger.Service) (*Analytics, error) {
-	if logger == nil {
-		return nil, fmt.Errorf("logger cannot be nil")
-	}
-
-	distinctID := getDistinctID(logger)
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) (*Analytics, error) {
+	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
@@ -65,7 +56,7 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string, log
 		isAura:           isAura(uri),
 	}
 
-	return &Analytics{cfg: cfg, disabled: false, logger: logger}, nil
+	return &Analytics{cfg: cfg, disabled: false}, nil
 }
 
 func isAura(uri string) bool {
@@ -80,10 +71,10 @@ func (a *Analytics) EmitEvent(event TrackEvent) {
 		event,
 	}
 
-	a.logger.Info("Sending event to Neo4j", "event", event.Event)
+	slog.Info("Sending event to Neo4j", "event", event.Event)
 	err := a.sendTrackEvent(trackEvents)
 	if err != nil {
-		a.logger.Error("Error while sending analytics events", "error", err.Error())
+		slog.Error("Error while sending analytics events", "error", err.Error())
 	}
 }
 func (a *Analytics) Enable() {
@@ -116,17 +107,17 @@ func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	var data int32
 	err = json.Unmarshal(bodyBytes, &data)
 	if err != nil {
-		a.logger.Error("Error while unmarshaling response from MixPanel", "error", err.Error())
+		slog.Error("Error while unmarshaling response from MixPanel", "error", err.Error())
 	}
 
-	a.logger.Info("Response from Neo4j", "status", resp.Status, "body", string(bodyBytes), "data", data)
+	slog.Info("Response from Neo4j", "status", resp.Status, "body", string(bodyBytes), "data", data)
 	return nil
 }
 
-func getDistinctID(logger *logger.Service) string {
+func getDistinctID() string {
 	distinctID, err := uuid.NewV6()
 	if err != nil {
-		logger.Error("Error while generating distinct ID for analytics", "error", err.Error())
+		slog.Error("Error while generating distinct ID for analytics", "error", err.Error())
 		return ""
 	}
 	return distinctID.String()

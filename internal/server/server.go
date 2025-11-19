@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/logger"
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -19,19 +19,17 @@ type Neo4jMCPServer struct {
 	dbService    database.Service
 	version      string
 	anService    analytics.Service
-	log          *logger.Service
 	gdsInstalled bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
-func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service, log *logger.Service) *Neo4jMCPServer {
+func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
 	// Create the server struct first, so we can reference it in the hooks.
 	srv := &Neo4jMCPServer{
 		config:       cfg,
 		dbService:    dbService,
 		version:      version,
-		log:          log,
 		anService:    anService,
 		gdsInstalled: false,
 	}
@@ -56,7 +54,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
-	s.log.Info("Starting Neo4j MCP Server...")
+	slog.Info("Starting Neo4j MCP Server...")
 	err := s.verifyRequirements()
 	if err != nil {
 		return err
@@ -69,7 +67,7 @@ func (s *Neo4jMCPServer) Start() error {
 	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-	s.log.Info("Started Neo4j MCP Server. Now listening for input...")
+	slog.Info("Started Neo4j MCP Server. Now listening for input...")
 	// Note: ServeStdio handles its own signal management for graceful shutdown
 	return server.ServeStdio(s.MCPServer)
 }
@@ -132,7 +130,7 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 
 // Stop gracefully stops the server
 func (s *Neo4jMCPServer) Stop() error {
-	s.log.Info("Stopping Neo4j MCP Server...")
+	slog.Info("Stopping Neo4j MCP Server...")
 	// Currently no cleanup needed - the MCP server handles its own lifecycle
 	// Database service cleanup is handled by the caller (main.go)
 	return nil

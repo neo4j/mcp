@@ -12,6 +12,9 @@ type Service struct {
 	level *slog.LevelVar
 }
 
+// Global logger instance for Phase 1 (stdio mode)
+var defaultService *Service
+
 const (
 	levelNotice    = slog.Level(2)  // Between Info and Warn
 	levelCritical  = slog.Level(10) // Between Error and Alert
@@ -56,9 +59,25 @@ var ValidLogLevels = func() []string {
 // ValidLogFormats lists valid log output formats
 var ValidLogFormats = []string{"text", "json"}
 
-// SetLevel dynamically changes the logging level.
+// SetLevel dynamically changes the logging level for this Service instance.
 func (s *Service) SetLevel(level string) {
 	s.level.Set(parseLevel(level))
+}
+
+// Init initializes the global logger for Phase 1 (stdio mode).
+// This sets up a default logger that can be accessed via slog package functions.
+// Must be called once at application startup.
+func Init(level, format string, writer io.Writer) {
+	defaultService = New(level, format, writer)
+	slog.SetDefault(defaultService.Logger)
+}
+
+// SetLevel changes the global log level.
+// Called by MCP setLevel hook in Phase 1 (stdio mode).
+func SetLevel(level string) {
+	if defaultService != nil {
+		defaultService.SetLevel(level)
+	}
 }
 
 // New creates a new logger service with the specified configuration.

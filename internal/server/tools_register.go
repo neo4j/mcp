@@ -47,7 +47,6 @@ func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 	}
 	deps := &tools.ToolDependencies{
 		DBService:        s.dbService,
-		Log:              s.log,
 		AnalyticsService: s.anService,
 	}
 	toolDefs := getAllToolsDefs(deps)

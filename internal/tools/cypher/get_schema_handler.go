@@ -2,6 +2,7 @@ package cypher
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
@@ -29,35 +30,35 @@ func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.Ca
 func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
 	if deps.DBService == nil {
 		errMessage := "database service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Emit analytics event
 	if deps.AnalyticsService == nil {
 		errMessage := "analytics service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("get-schema"))
-	deps.Log.Info("retrieving schema from the database")
+	slog.Info("retrieving schema from the database")
 
 	// Execute the APOC schema query
 	records, err := deps.DBService.ExecuteReadQuery(ctx, schemaQuery, nil)
 	if err != nil {
-		deps.Log.Error("failed to execute schema query", "error", err)
+		slog.Error("failed to execute schema query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	if len(records) == 0 {
-		deps.Log.Warn("schema is empty, no data in the database")
+		slog.Warn("schema is empty, no data in the database")
 		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
 	}
 	// Convert records to JSON using the existing utility function
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 
 	if err != nil {
-		deps.Log.Error("failed to format schema results to JSON", "error", err)
+		slog.Error("failed to format schema results to JSON", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	return mcp.NewToolResultText(response), nil

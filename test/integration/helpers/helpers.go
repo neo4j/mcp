@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"strings"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
@@ -48,9 +46,6 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	testID := makeTestID()
 
-	// Initialize logger for tests (suppress output to io.Discard)
-	logService := logger.New("debug", "text", io.Discard)
-
 	tc := &TestContext{
 		ctx:           ctx,
 		t:             t,
@@ -63,7 +58,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		cancel()     // Release context resources immediately
 	})
 
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j", logService)
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
@@ -72,7 +67,6 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	deps := &tools.ToolDependencies{
 		DBService:        databaseService,
 		AnalyticsService: analyticsService,
-		Log:              logService,
 	}
 
 	tc.AnalyticsService = analyticsService

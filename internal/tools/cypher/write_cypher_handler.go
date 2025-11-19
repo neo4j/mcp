@@ -2,6 +2,7 @@ package cypher
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -22,14 +23,14 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
-		deps.Log.Error("error binding arguments", "error", err)
+		slog.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	Query := args.Query
 	Params := args.Params
 
-	deps.Log.Info("executing write cypher query", "query", Query)
+	slog.Info("executing write cypher query", "query", Query)
 
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
@@ -47,25 +48,25 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 	// Execute the Cypher query using the database service
 	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {
-		deps.Log.Error("error executing cypher query", "error", err)
+		slog.Error("error executing cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		deps.Log.Error("error formatting query results", "error", err)
+		slog.Error("error formatting query results", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 

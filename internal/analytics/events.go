@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"log/slog"
 	"runtime"
 	"strings"
 	"time"
@@ -83,7 +84,7 @@ func (a *Analytics) getBaseProperties() baseProperties {
 func (a *Analytics) newInsertID() string {
 	insertID, err := uuid.NewV6()
 	if err != nil {
-		a.logger.Error("Error while generating insert ID for analytics", "error", err.Error())
+		slog.Error("Error while generating insert ID for analytics", "error", err.Error())
 		return ""
 	}
 	return insertID.String()
