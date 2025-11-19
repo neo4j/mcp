@@ -106,6 +106,10 @@ func parseLevel(level string) slog.Level {
 	return slog.LevelInfo // default
 }
 
+// replaceAttr is a slog.HandlerOptions.ReplaceAttr function that customizes
+// log level attribute formatting. It replaces the default log level values
+// with human-readable level names from levelNameMap when the attribute key
+// matches slog.LevelKey. All other attributes are passed through unchanged.
 func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
