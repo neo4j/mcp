@@ -54,8 +54,8 @@ func LoadConfig() (*Config, error) {
 		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		ReadOnly:  GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
 		Telemetry: GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
-		LogLevel:  GetEnvWithDefault("LOG_LEVEL", "info"),
-		LogFormat: GetEnvWithDefault("LOG_FORMAT", "text"),
+		LogLevel:  GetEnvWithDefault("NEO4J_LOG_LEVEL", "info"),
+		LogFormat: GetEnvWithDefault("NEO4J_LOG_FORMAT", "text"),
 	}
 
 	if err := cfg.Validate(); err != nil {
