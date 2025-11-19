@@ -12,6 +12,20 @@ BETA - Active development; not yet suitable for production.
 - APOC plugin installed in the Neo4j instance.
 - Any MCP-compatible client (e.g. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
+## Startup Checks & Adaptive Operation
+
+The server performs several pre-flight checks at startup to ensure your environment is correctly configured.
+
+**Mandatory Requirements**
+The server verifies the following core requirements. If any of these checks fail (e.g., due to an invalid configuration, incorrect credentials, or a missing APOC installation), the server will not start:
+
+- A valid connection to your Neo4j instance.
+- The ability to execute queries.
+- The presence of the APOC plugin.
+
+**Optional Requirements**
+If an optional dependency is missing, the server will start in an adaptive mode. For instance, if the Graph Data Science (GDS) library is not detected in your Neo4j installation, the server will still launch but will automatically disable all GDS-related tools, such as `list-gds-procedures`. All other tools will remain available.
+
 ## Installation (Binary)
 
 Releases: https://github.com/neo4j/mcp/releases
