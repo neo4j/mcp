@@ -3,6 +3,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"slices"
+
+	"github.com/neo4j/mcp/internal/logger"
 )
 
 // Config holds the application configuration
@@ -47,6 +50,21 @@ func (c *Config) Validate() error {
 
 // LoadConfig loads configuration from environment variables with defaults
 func LoadConfig() (*Config, error) {
+	logLevel := GetEnvWithDefault("NEO4J_LOG_LEVEL", "info")
+	logFormat := GetEnvWithDefault("NEO4J_LOG_FORMAT", "text")
+
+	// Validate log level and use default if invalid
+	if _, ok := logger.LogLevelMap[logLevel]; !ok {
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_LEVEL '%s', using default 'info'. Valid values: %v\n", logLevel, logger.ValidLogLevels)
+		logLevel = "info"
+	}
+
+	// Validate log format and use default if invalid
+	if !slices.Contains(logger.ValidLogFormats, logFormat) {
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
+		logFormat = "text"
+	}
+
 	cfg := &Config{
 		URI:       GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
 		Username:  GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
@@ -54,8 +72,8 @@ func LoadConfig() (*Config, error) {
 		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		ReadOnly:  GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
 		Telemetry: GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
-		LogLevel:  GetEnvWithDefault("NEO4J_LOG_LEVEL", "info"),
-		LogFormat: GetEnvWithDefault("NEO4J_LOG_FORMAT", "text"),
+		LogLevel:  logLevel,
+		LogFormat: logFormat,
 	}
 
 	if err := cfg.Validate(); err != nil {

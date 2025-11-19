@@ -12,6 +12,50 @@ type Service struct {
 	level *slog.LevelVar
 }
 
+const (
+	levelNotice    = slog.Level(2)  // Between Info and Warn
+	levelCritical  = slog.Level(10) // Between Error and Alert
+	levelAlert     = slog.Level(12)
+	levelEmergency = slog.Level(16) // Highest severity
+)
+
+// LogLevelMap maps string log level names to slog.Level values.
+// Exported for use in validation.
+var LogLevelMap = map[string]slog.Level{
+	"debug":     slog.LevelDebug,
+	"info":      slog.LevelInfo,
+	"notice":    levelNotice,
+	"warning":   slog.LevelWarn,
+	"error":     slog.LevelError,
+	"critical":  levelCritical,
+	"alert":     levelAlert,
+	"emergency": levelEmergency,
+}
+
+// levelNameMap maps slog.Level values to their uppercase string representations
+var levelNameMap = map[slog.Level]string{
+	slog.LevelDebug: "DEBUG",
+	slog.LevelInfo:  "INFO",
+	levelNotice:     "NOTICE",
+	slog.LevelWarn:  "WARNING",
+	slog.LevelError: "ERROR",
+	levelCritical:   "CRITICAL",
+	levelAlert:      "ALERT",
+	levelEmergency:  "EMERGENCY",
+}
+
+// ValidLogLevels lists valid log level names (derived from LogLevelMap)
+var ValidLogLevels = func() []string {
+	levels := make([]string, 0, len(LogLevelMap))
+	for level := range LogLevelMap {
+		levels = append(levels, level)
+	}
+	return levels
+}()
+
+// ValidLogFormats lists valid log output formats
+var ValidLogFormats = []string{"text", "json"}
+
 // SetLevel dynamically changes the logging level.
 func (s *Service) SetLevel(level string) {
 	s.level.Set(parseLevel(level))
@@ -52,61 +96,20 @@ func New(level, format string, writer io.Writer) *Service {
 	return service
 }
 
-const (
-	levelNotice    = slog.Level(2)  // Between Info and Warn
-	levelCritical  = slog.Level(10) // Between Error and Alert
-	levelAlert     = slog.Level(12)
-	levelEmergency = slog.Level(16) // Highest severity
-)
-
-// parseLevel converts a string to a slog.Level.
+// parseLevel converts a string to a slog.Level using the LogLevelMap.
 // Supports MCP log levels: debug, info, notice, warning, error, critical, alert, emergency.
+// Returns slog.LevelInfo as default if level is not recognized.
 func parseLevel(level string) slog.Level {
-	switch strings.ToLower(level) {
-	case "debug":
-		return slog.LevelDebug
-	case "info":
-		return slog.LevelInfo
-	case "notice":
-		return levelNotice
-	case "warn", "warning":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	case "critical":
-		return levelCritical
-	case "alert":
-		return levelAlert
-	case "emergency":
-		return levelEmergency
-	default:
-		return slog.LevelInfo
+	if lvl, ok := LogLevelMap[strings.ToLower(level)]; ok {
+		return lvl
 	}
+	return slog.LevelInfo // default
 }
 
 func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
-		levelName := ""
-		switch level {
-		case slog.LevelDebug:
-			levelName = "DEBUG"
-		case slog.LevelInfo:
-			levelName = "INFO"
-		case levelNotice:
-			levelName = "NOTICE"
-		case slog.LevelWarn:
-			levelName = "WARN"
-		case slog.LevelError:
-			levelName = "ERROR"
-		case levelCritical:
-			levelName = "CRITICAL"
-		case levelAlert:
-			levelName = "ALERT"
-		case levelEmergency:
-			levelName = "EMERGENCY"
-		}
-		if levelName != "" {
+		if levelName, ok := levelNameMap[level]; ok {
 			a.Value = slog.StringValue(levelName)
 		}
 	}
