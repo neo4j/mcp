@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -19,8 +20,10 @@ Options:
   -v, --version                       Show version information
   --neo4j-uri <URI>                   Neo4j connection URI (overrides environment variable NEO4J_URI)
   --neo4j-username <USERNAME>         Database username (overrides environment variable NEO4J_USERNAME)
-  --neo4j-password <PASSWORD>         Database password (overrides environment variable NEO4J_PASSWORD
+  --neo4j-password <PASSWORD>         Database password (overrides environment variable NEO4J_PASSWORD)
   --neo4j-database <DATABASE>         Database name (overrides environment variable NEO4J_DATABASE)
+  --neo4j-read-only <BOOLEAN>         Enable read-only mode: true or false (overrides environment variable NEO4J_READ_ONLY)
+  --neo4j-telemetry <BOOLEAN>         Enable telemetry: true or false (overrides environment variable NEO4J_TELEMETRY)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -41,6 +44,38 @@ Examples:
 
 For more information, visit: https://github.com/neo4j/mcp
 `
+
+// Args holds configuration values parsed from command-line flags
+type Args struct {
+	URI       string
+	Username  string
+	Password  string
+	Database  string
+	ReadOnly  string
+	Telemetry string
+}
+
+// ParseConfigFlags parses CLI flags and returns configuration values.
+// It should be called after HandleArgs to ensure help/version flags are processed first.
+func ParseConfigFlags() *Args {
+	neo4jURI := flag.String("neo4j-uri", "", "Neo4j connection URI (overrides NEO4J_URI env var)")
+	neo4jUsername := flag.String("neo4j-username", "", "Neo4j username (overrides NEO4J_USERNAME env var)")
+	neo4jPassword := flag.String("neo4j-password", "", "Neo4j password (overrides NEO4J_PASSWORD env var)")
+	neo4jDatabase := flag.String("neo4j-database", "", "Neo4j database name (overrides NEO4J_DATABASE env var)")
+	neo4jReadOnly := flag.String("neo4j-read-only", "", "Enable read-only mode: true or false (overrides NEO4J_READ_ONLY env var)")
+	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Enable telemetry: true or false (overrides NEO4J_TELEMETRY env var)")
+
+	flag.Parse()
+
+	return &Args{
+		URI:       *neo4jURI,
+		Username:  *neo4jUsername,
+		Password:  *neo4jPassword,
+		Database:  *neo4jDatabase,
+		ReadOnly:  *neo4jReadOnly,
+		Telemetry: *neo4jTelemetry,
+	}
+}
 
 // HandleArgs processes command-line arguments for version and help flags.
 // It exits the program after displaying the requested information.
@@ -65,7 +100,7 @@ func HandleArgs(version string) {
 			flags["version"] = true
 			i++
 		// Allow configuration flags to be parsed by the flag package
-		case "--neo4j-uri", "--neo4j-username", "--neo4j-password", "--neo4j-database":
+		case "--neo4j-uri", "--neo4j-username", "--neo4j-password", "--neo4j-database", "--neo4j-read-only", "--neo4j-telemetry":
 			// Check if there's a value following the flag
 			if i+1 >= len(os.Args) {
 				err = fmt.Errorf("%s requires a value", arg)
@@ -82,10 +117,11 @@ func HandleArgs(version string) {
 		default:
 			if arg == "--" {
 				// Stop processing our flags, let flag package handle the rest
-				i = len(os.Args) // Exit the loop
+				i = len(os.Args)
+			} else {
+				err = fmt.Errorf("unknown flag or argument: %s", arg)
+				i++
 			}
-			err = fmt.Errorf("unknown flag or argument: %s", arg)
-			i++
 		}
 		// Exit loop if an error occurred
 		if err != nil {
