@@ -28,7 +28,7 @@ func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
-		fmt.Println("Failed to load configuration: " + err.Error())
+		fmt.Fprintln(os.Stderr, "Failed to load configuration: "+err.Error())
 		os.Exit(1)
 	}
 
