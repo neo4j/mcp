@@ -60,13 +60,14 @@ func main() {
 
 	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
 
-	if !cfg.Telemetry || MixPanelEndpoint == "" || MixPanelToken == "" {
-		log.Println("Telemetry disabled.")
-		anService.Disable()
-	} else {
+	// Enable telemetry only when user has opted in AND the required tokens are present
+	if cfg.Telemetry && MixPanelEndpoint != "" && MixPanelToken != "" {
 		anService.Enable()
 		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
 		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
+	} else {
+		log.Println("Telemetry disabled.")
+		anService.Disable()
 	}
 
 	// Create and configure the MCP server
