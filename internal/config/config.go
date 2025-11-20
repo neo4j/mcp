@@ -43,11 +43,21 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// LoadConfig loads configuration from environment variables without validation.
-// Note: Database uses a default value ("neo4j") if NEO4J_DATABASE is not set, 
-// while URI, Username, and Password must be explicitly provided.
-func LoadConfig() *Config {
-	return &Config{
+// CLIOverrides holds optional configuration values from CLI flags
+type CLIOverrides struct {
+	URI       string
+	Username  string
+	Password  string
+	Database  string
+	ReadOnly  string
+	Telemetry string
+}
+
+// LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
+// CLI flag values take precedence over environment variables.
+// Returns an error if required configuration is missing or invalid.
+func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
+	cfg := &Config{
 		URI:       GetEnv("NEO4J_URI"),
 		Username:  GetEnv("NEO4J_USERNAME"),
 		Password:  GetEnv("NEO4J_PASSWORD"),
@@ -55,6 +65,35 @@ func LoadConfig() *Config {
 		ReadOnly:  GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
 		Telemetry: GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
 	}
+
+	// Apply CLI overrides if provided
+	if cliOverrides != nil {
+		if cliOverrides.URI != "" {
+			cfg.URI = cliOverrides.URI
+		}
+		if cliOverrides.Username != "" {
+			cfg.Username = cliOverrides.Username
+		}
+		if cliOverrides.Password != "" {
+			cfg.Password = cliOverrides.Password
+		}
+		if cliOverrides.Database != "" {
+			cfg.Database = cliOverrides.Database
+		}
+		if cliOverrides.ReadOnly != "" {
+			cfg.ReadOnly = cliOverrides.ReadOnly
+		}
+		if cliOverrides.Telemetry != "" {
+			cfg.Telemetry = cliOverrides.Telemetry
+		}
+	}
+
+	// Validate configuration
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 // GetEnv returns the value of an environment variable or empty string if not set

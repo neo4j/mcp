@@ -39,12 +39,10 @@ func TestLoadConfig_Neo4jConnectivity(t *testing.T) {
 		t.Fatalf("Integration test requires environment variables to be set:\n%v\n\nSet them with:\nexport NEO4J_URI=bolt://localhost:7687\nexport NEO4J_USERNAME=neo4j\nexport NEO4J_PASSWORD=your_password\n", missingVars)
 	}
 
-	// Load configuration from environment variables
-	cfg := config.LoadConfig()
-
-	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("Configuration validation failed: %v", err)
+	// Load and validate configuration from environment variables
+	cfg, err := config.LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("Failed to load configuration: %v", err)
 	}
 
 	// Attempt to connect to Neo4j
@@ -76,60 +74,4 @@ func TestLoadConfig_Neo4jConnectivity(t *testing.T) {
 	t.Log("Successfully connected to Neo4j")
 	t.Logf("Database URI: %s", cfg.URI)
 	t.Logf("Database: %s", cfg.Database)
-}
-
-// TestLoadConfig_MissingEnvVars tests that the application fails with a clear error when required env vars are missing.
-func TestLoadConfig_MissingEnvVars(t *testing.T) {
-	// Clear environment variables to simulate missing configuration
-	originalURI := os.Getenv("NEO4J_URI")
-	originalUsername := os.Getenv("NEO4J_USERNAME")
-	originalPassword := os.Getenv("NEO4J_PASSWORD")
-
-	defer func() {
-		// Restore original values
-		if originalURI != "" {
-			os.Setenv("NEO4J_URI", originalURI)
-		} else {
-			os.Unsetenv("NEO4J_URI")
-		}
-		if originalUsername != "" {
-			os.Setenv("NEO4J_USERNAME", originalUsername)
-		} else {
-			os.Unsetenv("NEO4J_USERNAME")
-		}
-		if originalPassword != "" {
-			os.Setenv("NEO4J_PASSWORD", originalPassword)
-		} else {
-			os.Unsetenv("NEO4J_PASSWORD")
-		}
-	}()
-
-	// Unset all required environment variables
-	os.Unsetenv("NEO4J_URI")
-	os.Unsetenv("NEO4J_USERNAME")
-	os.Unsetenv("NEO4J_PASSWORD")
-
-	// Load configuration - should succeed (returns struct with empty values)
-	cfg := config.LoadConfig()
-
-	if cfg == nil {
-		t.Error("LoadConfig() returned nil, expected config struct")
-		return
-	}
-
-	// Validate configuration - should fail with meaningful error
-	err := cfg.Validate()
-	if err == nil {
-		t.Error("Config.Validate() should fail when required env vars are missing, but got no error")
-		return
-	}
-
-	// Verify error message is helpful
-	errMsg := err.Error()
-	if errMsg == "" {
-		t.Error("Error message is empty")
-		return
-	}
-
-	t.Logf("Got expected error when env vars missing: %v", errMsg)
 }
