@@ -66,7 +66,7 @@ func handleGetSchema(ctx context.Context, request mcp.CallToolRequest, deps *too
 		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
 	}
 	structuredOutput, err := processCypherSchema(records)
-	if err != err {
+	if err != nil {
 		slog.Error("failed to process get-schema Cypher Query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -163,16 +163,7 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 		// Simplify Properties
 		// Input:  { "name": { "type": "STRING", "indexed": ... } }
 		// Output: { "name": "STRING" }
-		cleanProps := make(map[string]string)
-		if rawProps, ok := data["properties"].(map[string]interface{}); ok {
-			for propName, rawPropDetails := range rawProps {
-				if propDetails, ok := rawPropDetails.(map[string]interface{}); ok {
-					if typeName, ok := propDetails["type"].(string); ok {
-						cleanProps[propName] = typeName
-					}
-				}
-			}
-		}
+		cleanProps := simplifyProperties(data["properties"])
 
 		// Simplify Relationships
 		// Input:  { "CONNECTION": { "relationship": null, "direction": "out", "properties": {...} } }
@@ -197,16 +188,7 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 						}
 					}
 
-					relProps := make(map[string]string)
-					if rawRelProps, ok := relDetails["properties"].(map[string]interface{}); ok {
-						for rpName, rpDetails := range rawRelProps {
-							if rpMap, ok := rpDetails.(map[string]interface{}); ok {
-								if rpType, ok := rpMap["type"].(string); ok {
-									relProps[rpName] = rpType
-								}
-							}
-						}
-					}
+					relProps := simplifyProperties(relDetails["properties"])
 
 					cleanRels[relName] = Relationship{
 						Direction:  direction,
@@ -228,4 +210,18 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 	}
 
 	return simplifiedSchema, nil
+}
+
+func simplifyProperties(rawProps interface{}) map[string]string {
+	cleanProps := make(map[string]string)
+	if props, ok := rawProps.(map[string]interface{}); ok {
+		for propName, rawPropDetails := range props {
+			if propDetails, ok := rawPropDetails.(map[string]interface{}); ok {
+				if typeName, ok := propDetails["type"].(string); ok {
+					cleanProps[propName] = typeName
+				}
+			}
+		}
+	}
+	return cleanProps
 }

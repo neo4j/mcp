@@ -28,8 +28,34 @@ func TestGetSchemaHandler(t *testing.T) {
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]*neo4j.Record{
 				{
-					Values: []any{"value1"},
-					Keys:   []string{"key1"},
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title": map[string]any{"type": "STRING", "indexed": false},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"count":      1,
+									"direction":  "in",
+									"labels":     []any{"Person"},
+									"properties": map[string]any{},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"ACTED_IN",
+						map[string]any{
+							"type":       "relationship",
+							"properties": map[string]any{},
+						},
+					},
 				},
 			}, nil)
 
@@ -147,8 +173,34 @@ func TestGetSchemaHandler(t *testing.T) {
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Eq(map[string]any{"sampleSize": int64(200)})).
 			Return([]*neo4j.Record{
 				{
-					Values: []any{"value1"},
-					Keys:   []string{"key1"},
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title": map[string]any{"type": "STRING", "indexed": false},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"count":      1,
+									"direction":  "in",
+									"labels":     []any{"Person"},
+									"properties": map[string]any{},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"ACTED_IN",
+						map[string]any{
+							"type":       "relationship",
+							"properties": map[string]any{},
+						},
+					},
 				},
 			}, nil)
 
