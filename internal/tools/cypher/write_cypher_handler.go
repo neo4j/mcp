@@ -16,16 +16,19 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 }
 
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+	if deps.AnalyticsService == nil {
+		errMessage := "Analytics service is not initialized"
+		slog.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
 	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
 		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	// Emit analytics event
-	if deps.AnalyticsService != nil {
-		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("write-cypher"))
-	}
+	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("write-cypher"))
 
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
@@ -48,15 +51,11 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		if deps.AnalyticsService != nil {
-			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
-		}
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
 	}
 
 	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		if deps.AnalyticsService != nil {
-			deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
-		}
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
 	}
 
 	// Execute the Cypher query using the database service
