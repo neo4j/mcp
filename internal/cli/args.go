@@ -108,7 +108,7 @@ func HandleArgs(version string) {
 			}
 			// Check if next argument is another flag (starts with --)
 			nextArg := os.Args[i+1]
-			if strings.HasPrefix(nextArg, "--") {
+			if strings.HasPrefix(nextArg, "-") {
 				err = fmt.Errorf("%s requires a value (got flag %s instead)", arg, nextArg)
 				break
 			}
