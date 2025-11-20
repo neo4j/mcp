@@ -183,10 +183,6 @@ Controls the output format:
 - `text` - Human-readable text format (default)
 - `json` - Structured JSON format (useful for log aggregation)
 
-### Dynamic Level Adjustment
-
-MCP clients can dynamically change the log level at runtime by calling the [logging/setLevel](https://modelcontextprotocol.io/specification/2025-03-26/server/utilities/logging#setting-log-level) method. This allows clients to temporarily increase verbosity for debugging without restarting the server.
-
 ## Telemetry
 
 By default, `neo4j-mcp` collects anonymous usage data to help us improve the product.

@@ -9,7 +9,7 @@ import (
 	"github.com/neo4j/mcp/internal/logger"
 )
 
-func TestDynamicLogLevelChange(t *testing.T) {
+func TestLogLevelChange(t *testing.T) {
 	t.Run("changing log level from info to debug shows debug logs", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		log := logger.New("info", "text", buf)
@@ -105,7 +105,7 @@ func TestDynamicLogLevelChange(t *testing.T) {
 		}
 	})
 
-	t.Run("all log levels can be set dynamically", func(t *testing.T) {
+	t.Run("all valid log levels can be set", func(t *testing.T) {
 		for _, lvl := range logger.ValidLogLevels {
 			buf := &bytes.Buffer{}
 			log := logger.New("debug", "text", buf)
@@ -122,7 +122,7 @@ func TestDynamicLogLevelChange(t *testing.T) {
 		}
 	})
 
-	t.Run("json format with dynamic log level changes", func(t *testing.T) {
+	t.Run("json format with log level changes", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		log := logger.New("info", "json", buf)
 

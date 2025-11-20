@@ -25,15 +25,6 @@ type Neo4jMCPServer struct {
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
 func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
-	// Create the server struct first, so we can reference it in the hooks.
-	srv := &Neo4jMCPServer{
-		config:       cfg,
-		dbService:    dbService,
-		version:      version,
-		anService:    anService,
-		gdsInstalled: false,
-	}
-
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
 		version,
@@ -42,10 +33,14 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
 	)
 
-	// Assign the created mcpServer to our struct.
-	srv.MCPServer = mcpServer
-
-	return srv
+	return &Neo4jMCPServer{
+		MCPServer:    mcpServer,
+		config:       cfg,
+		dbService:    dbService,
+		version:      version,
+		anService:    anService,
+		gdsInstalled: false,
+	}
 }
 
 // Start initializes and starts the MCP server using stdio transport

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Service holds the logger and its dynamic level controller.
+// Service holds the logger and its level controller.
 type Service struct {
 	*slog.Logger
 	level *slog.LevelVar
@@ -42,7 +42,7 @@ var ValidLogLevels = []string{
 // ValidLogFormats lists valid log output formats
 var ValidLogFormats = []string{"text", "json"}
 
-// SetLevel dynamically changes the logging level for this Service instance.
+// SetLevel changes the logging level for this Service instance.
 func (s *Service) SetLevel(level string) {
 	s.level.Set(parseLevel(level))
 }
@@ -56,7 +56,6 @@ func Init(level, format string, writer io.Writer) {
 }
 
 // SetLevel changes the global log level.
-// Called by MCP setLevel hook in Phase 1 (stdio mode).
 func SetLevel(level string) {
 	if defaultService != nil {
 		defaultService.SetLevel(level)
