@@ -124,10 +124,32 @@ func parseLevel(level string) slog.Level {
 	}
 }
 
+var sensitiveKeys = map[string]bool{
+	// Authentication & API
+	"password":   true,
+	"token":      true,
+	"secret":     true,
+	"api_key":    true,
+	"auth_token": true,
+
+	// Connection details
+	"uri":      true,
+	"address":  true,
+	"host":     true,
+	"port":     true,
+	"bolt_uri": true,
+}
+
+// IsSensitiveKey checks if a key contains sensitive information that should be redacted.
+func IsSensitiveKey(key string) bool {
+	_, exists := sensitiveKeys[strings.ToLower(key)]
+	return exists
+}
+
 // replaceAttr is a slog.HandlerOptions.ReplaceAttr function that customizes
 // log level attribute formatting. It maps log levels to uppercase string
 // representations using range-based switch cases (following slog custom levels pattern).
-// All other attributes are passed through unchanged.
+// It also redacts sensitive information from log attributes based on predefined keys.
 func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)
@@ -150,5 +172,11 @@ func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 			a.Value = slog.StringValue("EMERGENCY")
 		}
 	}
+
+	// Redact sensitive information
+	if IsSensitiveKey(a.Key) {
+		a.Value = slog.StringValue("[REDACTED]")
+	}
+
 	return a
 }
