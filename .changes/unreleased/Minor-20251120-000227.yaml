@@ -1,0 +1,3 @@
+kind: Minor
+body: Added unified structured logging with slog. Configurable via NEO4J_LOG_LEVEL and NEO4J_LOG_FORMAT environment variables, and dynamic level adjustment via logging/setLevel method
+time: 2025-11-20T00:02:27.349268Z
