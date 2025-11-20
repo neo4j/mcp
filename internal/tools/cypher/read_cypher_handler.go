@@ -32,12 +32,11 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, dbServic
 
 	asService.EmitEvent(asService.NewToolsEvent("read-cypher"))
 	var args ReadCypherInput
-	// Use our custom BindArguments that preserves integer types
-	if err := BindArguments(request, &args); err != nil {
+
+	if err := request.BindArguments(&args); err != nil {
 		log.Printf("Error binding arguments: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
 	Query := args.Query
 	Params := args.Params
 

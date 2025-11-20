@@ -5,18 +5,8 @@ import (
 )
 
 type WriteCypherInput struct {
-	Query  string         `json:"query" jsonschema:"default=MATCH(n) RETURN n,description=The Cypher query to execute"`
-	Params map[string]any `json:"params" jsonschema:"default={},description=Parameters to pass to the Cypher query"`
-}
-
-// GetParams returns the params map
-func (w *WriteCypherInput) GetParams() map[string]any {
-	return w.Params
-}
-
-// SetParams sets the params map
-func (w *WriteCypherInput) SetParams(params map[string]any) {
-	w.Params = params
+	Query  string       `json:"query" jsonschema:"default=MATCH(n) RETURN n,description=The Cypher query to execute"`
+	Params CypherParams `json:"params" jsonschema:"default={},description=Parameters to pass to the Cypher query"`
 }
 
 func WriteCypherSpec() mcp.Tool {

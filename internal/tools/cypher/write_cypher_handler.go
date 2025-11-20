@@ -32,7 +32,7 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbServi
 	asService.EmitEvent(asService.NewToolsEvent("write-cypher"))
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
-	if err := BindArguments(request, &args); err != nil {
+	if err := request.BindArguments(&args); err != nil {
 		log.Printf("Error binding arguments: %v", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
