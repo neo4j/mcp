@@ -50,7 +50,7 @@ func TestToolRegister(t *testing.T) {
 			Username: "neo4j",
 			Password: "password",
 			Database: "neo4j",
-			ReadOnly: "true",
+			ReadOnly: true,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
@@ -75,7 +75,7 @@ func TestToolRegister(t *testing.T) {
 			Username: "neo4j",
 			Password: "password",
 			Database: "neo4j",
-			ReadOnly: "false",
+			ReadOnly: false,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 

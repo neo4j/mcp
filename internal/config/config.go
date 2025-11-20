@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 )
 
 // Config holds the application configuration
@@ -11,18 +13,14 @@ type Config struct {
 	Username  string
 	Password  string
 	Database  string
-	ReadOnly  string // If true, disables write tools
-	Telemetry string // if false, disables telemetry
+	ReadOnly  bool // If true, disables write tools
+	Telemetry bool // If false, disables telemetry
 }
 
 // Validate validates the configuration and returns an error if invalid
 func (c *Config) Validate() error {
 	if c == nil {
 		return fmt.Errorf("configuration is required but was nil")
-	}
-
-	if c.Telemetry != "false" && c.Telemetry != "true" {
-		return fmt.Errorf("%s cannot be converted to type %s", "NEO4J_TELEMETRY", "bool")
 	}
 
 	validations := []struct {
@@ -62,8 +60,8 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		Username:  GetEnv("NEO4J_USERNAME"),
 		Password:  GetEnv("NEO4J_PASSWORD"),
 		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		ReadOnly:  GetEnvWithDefault("NEO4J_READ_ONLY", "false"),
-		Telemetry: GetEnvWithDefault("NEO4J_TELEMETRY", "true"),
+		ReadOnly:  ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
+		Telemetry: ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
 	}
 
 	// Apply CLI overrides if provided
@@ -81,10 +79,10 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 			cfg.Database = cliOverrides.Database
 		}
 		if cliOverrides.ReadOnly != "" {
-			cfg.ReadOnly = cliOverrides.ReadOnly
+			cfg.ReadOnly = ParseBool(cliOverrides.ReadOnly, false)
 		}
 		if cliOverrides.Telemetry != "" {
-			cfg.Telemetry = cliOverrides.Telemetry
+			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
 		}
 	}
 
@@ -107,4 +105,21 @@ func GetEnvWithDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// ParseBool parses a string to bool using strconv.ParseBool.
+// Returns the default value if the string is empty or invalid.
+// Logs a warning if the value is non-empty but invalid.
+// Accepts: "1", "t", "T", "true", "True", "TRUE" for true
+//          "0", "f", "F", "false", "False", "FALSE" for false
+func ParseBool(value string, defaultValue bool) bool {
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		log.Printf("Warning: Invalid boolean value %q, using default: %v", value, defaultValue)
+		return defaultValue
+	}
+	return parsed
 }

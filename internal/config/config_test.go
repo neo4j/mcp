@@ -15,7 +15,8 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
+				ReadOnly:  false,
 				URI:       "bolt://localhost:7687",
 				Username:  "neo4j",
 				Password:  "password",
@@ -32,7 +33,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty URI",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "",
 				Username:  "neo4j",
 				Password:  "password",
@@ -44,7 +45,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty username",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "bolt://localhost:7687",
 				Username:  "",
 				Password:  "password",
@@ -56,7 +57,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty password",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "bolt://localhost:7687",
 				Username:  "neo4j",
 				Password:  "",
@@ -68,33 +69,11 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty database should not raise error",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "bolt://localhost:7687",
 				Username:  "neo4j",
 				Password:  "password",
 				Database:  "",
-			},
-			wantErr: false,
-			errMsg:  "",
-		},
-		{
-			name: "Invalid NEO4J_TELEMETRY type",
-			cfg: &Config{
-				Telemetry: "falsy",
-				URI:       "bolt://localhost:7687",
-				Username:  "neo4j",
-				Password:  "password",
-			},
-			wantErr: true,
-			errMsg:  "NEO4J_TELEMETRY cannot be converted to type bool",
-		},
-		{
-			name: "Correct NEO4J_TELEMETRY type",
-			cfg: &Config{
-				Telemetry: "true",
-				URI:       "bolt://localhost:7687",
-				Username:  "neo4j",
-				Password:  "password",
 			},
 			wantErr: false,
 			errMsg:  "",
@@ -248,3 +227,50 @@ func TestLoadConfig_PartialCLIOverrides(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_InvalidBooleanValues(t *testing.T) {
+	// Unit test: verify invalid boolean values fall back to defaults
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_TELEMETRY", "invalid-value")
+	t.Setenv("NEO4J_READ_ONLY", "not-a-boolean")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Invalid NEO4J_TELEMETRY should fall back to default (true)
+	if cfg.Telemetry != true {
+		t.Errorf("LoadConfig() Telemetry = %v, want true (default for invalid value)", cfg.Telemetry)
+	}
+
+	// Invalid NEO4J_READ_ONLY should fall back to default (false)
+	if cfg.ReadOnly != false {
+		t.Errorf("LoadConfig() ReadOnly = %v, want false (default for invalid value)", cfg.ReadOnly)
+	}
+}
+
+func TestLoadConfig_ValidBooleanValues(t *testing.T) {
+	// Unit test: verify valid boolean values are parsed correctly
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_TELEMETRY", "false")
+	t.Setenv("NEO4J_READ_ONLY", "true")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify telemetry is disabled
+	if cfg.Telemetry != false {
+		t.Errorf("LoadConfig() Telemetry = %v, want false", cfg.Telemetry)
+	}
+
+	// Verify read-only is enabled
+	if cfg.ReadOnly != true {
+		t.Errorf("LoadConfig() ReadOnly = %v, want true", cfg.ReadOnly)
+	}
+}

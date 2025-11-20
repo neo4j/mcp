@@ -67,10 +67,10 @@ func main() {
 	isAura := strings.Contains(cfg.URI, "database.neo4j.io")
 	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, isAura)
 
-	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
+	if !cfg.Telemetry || MixPanelEndpoint == "" || MixPanelToken == "" {
 		log.Println("Telemetry disabled.")
 		anService.Disable()
-	} else if cfg.Telemetry == "true" {
+	} else {
 		anService.Enable()
 		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
 		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")

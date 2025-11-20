@@ -22,7 +22,7 @@ func (s *Neo4jMCPServer) RegisterTools() error {
 	all := getAllTools(deps)
 
 	// If read-only mode is enabled, expose only tools annotated as read-only.
-	if deps != nil && s.config != nil && s.config.ReadOnly == "true" {
+	if deps != nil && s.config != nil && s.config.ReadOnly {
 		readOnlyTools := make([]server.ServerTool, 0, len(all))
 		for _, t := range all {
 			if t.Tool.Annotations.ReadOnlyHint != nil && *t.Tool.Annotations.ReadOnlyHint {
