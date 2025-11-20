@@ -2,6 +2,7 @@ package cypher
 
 import (
 	"context"
+	"log"
 	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -11,7 +12,7 @@ import (
 const (
 	// schemaQuery is the APOC query used to retrieve comprehensive schema information
 	schemaQuery = `
-        CALL apoc.meta.schema()
+        CALL apoc.meta.schema({sample: $sampleSize})
         YIELD value
         UNWIND keys(value) as key
         WITH key, value[key] as value
@@ -21,17 +22,24 @@ const (
 
 // GetSchemaHandler returns a handler function for the get_schema tool
 func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleGetSchema(ctx, deps)
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return handleGetSchema(ctx, request, deps)
 	}
 }
 
 // handleGetSchema retrieves Neo4j schema information using APOC
-func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+func handleGetSchema(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
 	if deps.DBService == nil {
 		errMessage := "database service is not initialized"
 		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
+	}
+	var args GetSchemaInput
+
+	// Use our custom BindArguments that preserves integer types
+	if err := request.BindArguments(&args); err != nil {
+		log.Printf("Error binding arguments: %v", err)
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	// Emit analytics event

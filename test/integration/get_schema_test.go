@@ -53,7 +53,9 @@ func TestGetSchema(t *testing.T) {
 	}
 
 	getSchema := cypher.GetSchemaHandler(tc.Deps)
-	res := tc.CallTool(getSchema, nil)
+	res := tc.CallTool(getSchema, map[string]any{
+		"sample-size": 100,
+	})
 
 	var schemaEntries []SchemaEntry
 	tc.ParseJSONResponse(res, &schemaEntries)

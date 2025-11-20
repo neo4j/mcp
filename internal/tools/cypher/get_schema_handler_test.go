@@ -24,7 +24,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("successful schema retrieval", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]*neo4j.Record{
 				{
 					Values: []any{"value1"},
@@ -54,7 +54,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("database query failure", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("connection failed"))
 
 		deps := &tools.ToolDependencies{
@@ -76,7 +76,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("JSON formatting failure", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]*neo4j.Record{
 				{
 					Values: []any{"value1"},
@@ -142,7 +142,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(1)
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Nil()).
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]*neo4j.Record{}, nil)
 
 		deps := &tools.ToolDependencies{
@@ -172,4 +172,44 @@ func TestGetSchemaHandler(t *testing.T) {
 			t.Error("Expected result content to be present for empty database case")
 		}
 	})
+	t.Run("successful schema retrieval with sampleSize parameter", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		// Expect ExecuteReadQuery to be called with the sampleSize from the request
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Eq(map[string]any{"sampleSize": int64(200)})).
+			Return([]*neo4j.Record{
+				{
+					Values: []any{"value1"},
+					Keys:   []string{"key1"},
+				},
+			}, nil)
+		mockDB.EXPECT().
+			Neo4jRecordsToJSON(gomock.Any()).
+			Return(`{"schema": "data"}`, nil)
+
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
+		}
+
+		handler := cypher.GetSchemaHandler(deps)
+		// Simulate a request with the sampleSize argument
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Arguments: map[string]any{
+					"sample-size": 200,
+				},
+			},
+		}
+
+		result, err := handler(context.Background(), request)
+
+		if err != nil {
+			t.Errorf("Expected no error, got: %v", err)
+		}
+		if result == nil || result.IsError {
+			t.Error("Expected success result")
+		}
+	})
+
 }
