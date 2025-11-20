@@ -16,10 +16,17 @@ func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.
 }
 
 func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+	if deps.DBService == nil {
+		errMessage := "Database service is not initialized"
+		slog.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
 	// Emit analytics event
 	if deps.AnalyticsService != nil {
 		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("write-cypher"))
 	}
+
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
@@ -29,6 +36,13 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 
 	Query := args.Query
 	Params := args.Params
+
+	// Validate that query is not empty
+	if Query == "" {
+		errMessage := "Query parameter is required and cannot be empty"
+		slog.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
 
 	slog.Info("executing write cypher query", "query", Query)
 
@@ -45,18 +59,6 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 		}
 	}
 
-	// Validate that query is not empty
-	if Query == "" {
-		errMessage := "Query parameter is required and cannot be empty"
-		slog.Error(errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
-
-	if deps.DBService == nil {
-		errMessage := "Database service is not initialized"
-		slog.Error(errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
 	// Execute the Cypher query using the database service
 	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {
