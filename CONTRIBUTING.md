@@ -33,16 +33,22 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 ## Environment Variables
 
 The MCP server requires certain environment variables to connect to a Neo4j instance.
-Defaults are provided for local development.
-For local testing, make sure to set these environment variables (your local Neo4j instance must be running and it might require different credentials):
 
+**Required variables** (server will not start without these):
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
-export NEO4J_DATABASE="neo4j"
-export NEO4J_READ_ONLY="true" // Optional: disables write tools
 ```
+
+**Optional variables** (with defaults):
+```bash
+export NEO4J_DATABASE="neo4j"          # Default: neo4j
+export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
+export NEO4J_TELEMETRY="true"          # Default: true
+```
+
+**Note:** Make sure your local Neo4j instance is running with the correct credentials before testing.
 
 ## Build / Test / Run
 

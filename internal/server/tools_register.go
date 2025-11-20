@@ -38,7 +38,7 @@ func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 	filters := make([]toolFilter, 0)
 
 	// If read-only mode is enabled, expose only tools annotated as read-only.
-	if s.config != nil && s.config.ReadOnly == "true" {
+	if s.config != nil && s.config.ReadOnly {
 		filters = append(filters, filterWriteTools)
 	}
 	// If GDS is not installed, disable GDS tools.
@@ -59,7 +59,6 @@ func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 		enabledTools = append(enabledTools, toolDef.definition)
 	}
 	return enabledTools
-
 }
 
 func filterWriteTools(tools []ToolDefinition) []ToolDefinition {

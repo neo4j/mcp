@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -32,7 +32,7 @@ func NewNeo4jService(driver neo4j.DriverWithContext, database string) (*Neo4jSer
 func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
 	// Verify database connectivity
 	if err := s.driver.VerifyConnectivity(ctx); err != nil {
-		log.Printf("Failed to verify database connectivity: %s", err.Error())
+		slog.Error("Failed to verify database connectivity", "error", err.Error())
 		return err
 	}
 	return nil
@@ -43,7 +43,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithReadersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
-		log.Printf("Error in ExecuteReadQuery: %v", wrappedErr)
+		slog.Error("Error in ExecuteReadQuery", "error", wrappedErr)
 		return nil, wrappedErr
 	}
 
@@ -55,7 +55,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithWritersRouting())
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
-		log.Printf("Error in ExecuteWriteQuery: %v", wrappedErr)
+		slog.Error("Error in ExecuteWriteQuery", "error", wrappedErr)
 		return nil, wrappedErr
 	}
 
@@ -67,7 +67,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
 	if s.driver == nil {
 		err := fmt.Errorf("neo4j driver is not initialized")
-		log.Printf("Error in GetQueryType: %v", err)
+		slog.Error("Error in GetQueryType", "error", err)
 		return neo4j.StatementTypeUnknown, err
 	}
 
@@ -75,13 +75,13 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database))
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
-		log.Printf("Error during GetQueryType: %v", wrappedErr)
+		slog.Error("Error during GetQueryType", "error", wrappedErr)
 		return neo4j.StatementTypeUnknown, wrappedErr
 	}
 
 	if res.Summary == nil {
 		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
-		log.Printf("Error during GetQueryType: %v", err)
+		slog.Error("Error during GetQueryType", "error", err)
 		return neo4j.StatementTypeUnknown, err
 	}
 
@@ -100,7 +100,7 @@ func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, erro
 	formattedResponse, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to format records as JSON: %w", err)
-		log.Printf("Error in Neo4jRecordsToJSON: %v", wrappedErr)
+		slog.Error("Error in Neo4jRecordsToJSON", "error", wrappedErr)
 		return "", wrappedErr
 	}
 

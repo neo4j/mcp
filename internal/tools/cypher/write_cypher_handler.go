@@ -2,72 +2,72 @@ package cypher
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/neo4j/mcp/internal/analytics"
-	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
 
 func WriteCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleWriteCypher(ctx, request, deps.DBService, deps.AnalyticsService)
+		return handleWriteCypher(ctx, request, deps)
 	}
 }
 
-func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, dbService database.Service, asService analytics.Service) (*mcp.CallToolResult, error) {
-	if asService == nil {
+func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+	if deps.AnalyticsService == nil {
 		errMessage := "Analytics service is not initialized"
-		log.Printf("%s", errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
-	if dbService == nil {
-		errMessage := "Database service is not initialized"
-		log.Printf("%s", errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	asService.EmitEvent(asService.NewToolsEvent("write-cypher"))
+	if deps.DBService == nil {
+		errMessage := "Database service is not initialized"
+		slog.Error(errMessage)
+		return mcp.NewToolResultError(errMessage), nil
+	}
+
+	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("write-cypher"))
+
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := request.BindArguments(&args); err != nil {
-		log.Printf("Error binding arguments: %v", err)
+		slog.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	Query := args.Query
 	Params := args.Params
-	// debug log -- to be removed at a later stage
-	log.Printf("Cypher-query: %s", Query)
-
-	lowerCaseQuery := strings.ToLower(Query)
-	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		asService.EmitEvent(asService.NewGDSProjCreatedEvent())
-	}
-
-	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		asService.EmitEvent(asService.NewGDSProjDropEvent())
-	}
 
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
-		log.Printf("%s", errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
+	slog.Info("executing write cypher query", "query", Query)
+
+	lowerCaseQuery := strings.ToLower(Query)
+	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
+	}
+
+	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
+		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
+	}
+
 	// Execute the Cypher query using the database service
-	records, err := dbService.ExecuteWriteQuery(ctx, Query, Params)
+	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {
-		log.Printf("Error executing Cypher query: %v", err)
+		slog.Error("error executing cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	response, err := dbService.Neo4jRecordsToJSON(records)
+	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		log.Printf("Error formatting query results: %v", err)
+		slog.Error("error formatting query results", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
