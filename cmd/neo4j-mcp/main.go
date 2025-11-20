@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
@@ -52,20 +51,14 @@ func main() {
 		}
 	}()
 
-	// Verify database connectivity
-	if err := driver.VerifyConnectivity(ctx); err != nil {
-		log.Printf("Failed to verify database connectivity: %v", err)
-		return
-	}
-
 	// Create database service
 	dbService, err := database.NewNeo4jService(driver, cfg.Database)
 	if err != nil {
 		log.Printf("Failed to create database service: %v", err)
 		return
 	}
-	isAura := strings.Contains(cfg.URI, "database.neo4j.io")
-	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, isAura)
+
+	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
 
 	if !cfg.Telemetry || MixPanelEndpoint == "" || MixPanelToken == "" {
 		log.Println("Telemetry disabled.")

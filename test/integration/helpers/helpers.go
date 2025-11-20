@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
-	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -30,12 +30,13 @@ func (ul UniqueLabel) String() string {
 
 // TestContext holds common test dependencies
 type TestContext struct {
-	ctx           context.Context
-	t             *testing.T
-	TestID        string
-	Service       database.Service
-	Deps          *tools.ToolDependencies
-	createdLabels map[string]bool
+	ctx              context.Context
+	t                *testing.T
+	TestID           string
+	Service          database.Service
+	Deps             *tools.ToolDependencies
+	createdLabels    map[string]bool
+	AnalyticsService *analytics.MockService
 }
 
 // NewTestContext creates a new test context with automatic cleanup
@@ -61,6 +62,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
 	analyticsService := getAnalyticsMock(t)
+	tc.AnalyticsService = analyticsService
 	deps := &tools.ToolDependencies{DBService: databaseService, AnalyticsService: analyticsService}
 
 	tc.Service = databaseService
@@ -70,10 +72,10 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 }
 
 // getAnalyticsMock is used to mock the analytics service, for integration test purpose.
-func getAnalyticsMock(t *testing.T) *analytics_mocks.MockService {
+func getAnalyticsMock(t *testing.T) *analytics.MockService {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	analyticsService := analytics_mocks.NewMockService(ctrl)
+	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().Disable().AnyTimes()
 	analyticsService.EXPECT().Enable().AnyTimes()
