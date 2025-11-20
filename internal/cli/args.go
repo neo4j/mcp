@@ -42,26 +42,6 @@ Examples:
 For more information, visit: https://github.com/neo4j/mcp
 `
 
-/*
-Example walkthrough for argument parsing:
-
-neo4j-mcp --neo4j-uri bolt://localhost:7687 --neo4j-username test
-
-os.Args:
-- os.Args[0] = "neo4j-mcp"
-- os.Args[1] = "--neo4j-uri"
-- os.Args[2] = "bolt://localhost:7687"
-- os.Args[3] = "--neo4j-username"
-- os.Args[4] = "test"
-
-As the loop processes:
-1. i=1: Matches case "--neo4j-uri" → i += 2 → i=3 (skips the URI value)
-2. i=3: Matches case "--neo4j-username" → i += 2 → i=5 (skips the "test" value)
-3. i=5: Loop ends
-
-This allows the arguments to "pass through" untouched so that flag.Parse() in main.go can later handle them properly.
-*/
-
 // HandleArgs processes command-line arguments for version and help flags.
 // It exits the program after displaying the requested information.
 // If unknown flags are encountered, it prints an error message and exits.
