@@ -1,3 +1,0 @@
-kind: Minor
-body: The server now performs comprehensive pre-flight checks to verify your environment, including Neo4j connection, query capabilities, APOC installation, and will gracefully start without GDS-specific tools if the GDS library is not found.
-time: 2025-11-17T14:59:56.826192Z
