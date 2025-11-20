@@ -15,50 +15,50 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 		name       string
 		arguments  map[string]any
 		wantQuery  string
-		wantParams cypher.CypherParams
+		wantParams cypher.Params
 		wantErr    bool
 	}{
 		{
 			name: "basic integer parameter",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.id = $id RETURN n",
-				"params": cypher.CypherParams{"id": 1},
+				"params": cypher.Params{"id": 1},
 			},
 			wantQuery:  "MATCH (n) WHERE n.id = $id RETURN n",
-			wantParams: cypher.CypherParams{"id": int64(1)},
+			wantParams: cypher.Params{"id": int64(1)},
 		},
 		{
 			name: "basic float parameter",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.value = $value RETURN n",
-				"params": cypher.CypherParams{"value": 1.5},
+				"params": cypher.Params{"value": 1.5},
 			},
 			wantQuery:  "MATCH (n) WHERE n.value = $value RETURN n",
-			wantParams: cypher.CypherParams{"value": float64(1.5)},
+			wantParams: cypher.Params{"value": float64(1.5)},
 		},
 		{
 			name: "float as whole number should become int",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.limit = $limit RETURN n",
-				"params": cypher.CypherParams{"limit": 1.0},
+				"params": cypher.Params{"limit": 1.0},
 			},
 			wantQuery:  "MATCH (n) WHERE n.limit = $limit RETURN n",
-			wantParams: cypher.CypherParams{"limit": int64(1)},
+			wantParams: cypher.Params{"limit": int64(1)},
 		},
 		{
 			name: "mixed parameters",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.id = $id AND n.value = $value RETURN n",
-				"params": cypher.CypherParams{"id": 1, "value": 2.5},
+				"params": cypher.Params{"id": 1, "value": 2.5},
 			},
 			wantQuery:  "MATCH (n) WHERE n.id = $id AND n.value = $value RETURN n",
-			wantParams: cypher.CypherParams{"id": int64(1), "value": float64(2.5)},
+			wantParams: cypher.Params{"id": int64(1), "value": float64(2.5)},
 		},
 		{
 			name: "nested map with numbers",
 			arguments: map[string]any{
 				"query": "MATCH (n) WHERE n.data = $data RETURN n",
-				"params": cypher.CypherParams{
+				"params": cypher.Params{
 					"data": map[string]any{
 						"count":     10,
 						"ratio":     0.5,
@@ -67,7 +67,7 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 				},
 			},
 			wantQuery: "MATCH (n) WHERE n.data = $data RETURN n",
-			wantParams: cypher.CypherParams{
+			wantParams: cypher.Params{
 				"data": map[string]any{
 					"count":     int64(10),
 					"ratio":     float64(0.5),
@@ -79,16 +79,16 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 			name: "slice with mixed numbers",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.list IN $list RETURN n",
-				"params": cypher.CypherParams{"list": []any{1, 2.0, 3.5}},
+				"params": cypher.Params{"list": []any{1, 2.0, 3.5}},
 			},
 			wantQuery:  "MATCH (n) WHERE n.list IN $list RETURN n",
-			wantParams: cypher.CypherParams{"list": []any{int64(1), int64(2), float64(3.5)}},
+			wantParams: cypher.Params{"list": []any{int64(1), int64(2), float64(3.5)}},
 		},
 		{
 			name: "deeply nested structure",
 			arguments: map[string]any{
 				"query": "MATCH (n) WHERE n.complex = $complex RETURN n",
-				"params": cypher.CypherParams{
+				"params": cypher.Params{
 					"complex": map[string]any{
 						"level1": map[string]any{
 							"level2": []any{
@@ -104,7 +104,7 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 				},
 			},
 			wantQuery: "MATCH (n) WHERE n.complex = $complex RETURN n",
-			wantParams: cypher.CypherParams{
+			wantParams: cypher.Params{
 				"complex": map[string]any{
 					"level1": map[string]any{
 						"level2": []any{
@@ -123,10 +123,10 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 			name: "empty params map",
 			arguments: map[string]any{
 				"query":  "MATCH (n) RETURN n",
-				"params": cypher.CypherParams{},
+				"params": cypher.Params{},
 			},
 			wantQuery:  "MATCH (n) RETURN n",
-			wantParams: cypher.CypherParams{},
+			wantParams: cypher.Params{},
 		},
 		{
 			name: "no params field (nil params)",
@@ -140,64 +140,64 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 			name: "string parameters should remain strings",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.name = $name RETURN n",
-				"params": cypher.CypherParams{"name": "Alice"},
+				"params": cypher.Params{"name": "Alice"},
 			},
 			wantQuery:  "MATCH (n) WHERE n.name = $name RETURN n",
-			wantParams: cypher.CypherParams{"name": "Alice"},
+			wantParams: cypher.Params{"name": "Alice"},
 		},
 		{
 			name: "boolean parameters should remain booleans",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.active = $active RETURN n",
-				"params": cypher.CypherParams{"active": true},
+				"params": cypher.Params{"active": true},
 			},
 			wantQuery:  "MATCH (n) WHERE n.active = $active RETURN n",
-			wantParams: cypher.CypherParams{"active": true},
+			wantParams: cypher.Params{"active": true},
 		},
 		{
 			name: "null parameters should remain nil",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.optional = $optional RETURN n",
-				"params": cypher.CypherParams{"optional": nil},
+				"params": cypher.Params{"optional": nil},
 			},
 			wantQuery:  "MATCH (n) WHERE n.optional = $optional RETURN n",
-			wantParams: cypher.CypherParams{"optional": nil},
+			wantParams: cypher.Params{"optional": nil},
 		},
 		{
 			name: "large integer should become int64",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.bignum = $bignum RETURN n",
-				"params": cypher.CypherParams{"bignum": 1000000000000000000}, // 10^18
+				"params": cypher.Params{"bignum": 1000000000000000000}, // 10^18
 			},
 			wantQuery:  "MATCH (n) WHERE n.bignum = $bignum RETURN n",
-			wantParams: cypher.CypherParams{"bignum": int64(1000000000000000000)},
+			wantParams: cypher.Params{"bignum": int64(1000000000000000000)},
 		},
 		{
 			name: "zero should become int64",
 			arguments: map[string]any{
 				"query":  "MATCH (n) LIMIT $limit",
-				"params": cypher.CypherParams{"limit": 0},
+				"params": cypher.Params{"limit": 0},
 			},
 			wantQuery:  "MATCH (n) LIMIT $limit",
-			wantParams: cypher.CypherParams{"limit": int64(0)},
+			wantParams: cypher.Params{"limit": int64(0)},
 		},
 		{
 			name: "zero point zero should become int64",
 			arguments: map[string]any{
 				"query":  "MATCH (n) LIMIT $limit",
-				"params": cypher.CypherParams{"limit": 0.0},
+				"params": cypher.Params{"limit": 0.0},
 			},
 			wantQuery:  "MATCH (n) LIMIT $limit",
-			wantParams: cypher.CypherParams{"limit": int64(0)},
+			wantParams: cypher.Params{"limit": int64(0)},
 		},
 		{
 			name: "negative numbers",
 			arguments: map[string]any{
 				"query":  "MATCH (n) WHERE n.balance = $balance AND n.adjustment = $adjustment RETURN n",
-				"params": cypher.CypherParams{"balance": -100, "adjustment": -1.5},
+				"params": cypher.Params{"balance": -100, "adjustment": -1.5},
 			},
 			wantQuery:  "MATCH (n) WHERE n.balance = $balance AND n.adjustment = $adjustment RETURN n",
-			wantParams: cypher.CypherParams{"balance": int64(-100), "adjustment": float64(-1.5)},
+			wantParams: cypher.Params{"balance": int64(-100), "adjustment": float64(-1.5)},
 		},
 	}
 
@@ -229,25 +229,25 @@ func TestBindArgumentsWithWriteCypherInput(t *testing.T) {
 		name       string
 		arguments  map[string]any
 		wantQuery  string
-		wantParams cypher.CypherParams
+		wantParams cypher.Params
 	}{
 		{
 			name: "write query with integer parameter",
 			arguments: map[string]any{
 				"query":  "CREATE (n:Node) SET n.count = $count RETURN n",
-				"params": cypher.CypherParams{"count": 5},
+				"params": cypher.Params{"count": 5},
 			},
 			wantQuery:  "CREATE (n:Node) SET n.count = $count RETURN n",
-			wantParams: cypher.CypherParams{"count": int64(5)},
+			wantParams: cypher.Params{"count": int64(5)},
 		},
 		{
 			name: "write query with mixed parameters",
 			arguments: map[string]any{
 				"query":  "CREATE (n:Node {name: $name, score: $score}) RETURN n",
-				"params": cypher.CypherParams{"name": "test", "score": 42.0},
+				"params": cypher.Params{"name": "test", "score": 42.0},
 			},
 			wantQuery:  "CREATE (n:Node {name: $name, score: $score}) RETURN n",
-			wantParams: cypher.CypherParams{"name": "test", "score": int64(42)},
+			wantParams: cypher.Params{"name": "test", "score": int64(42)},
 		},
 	}
 

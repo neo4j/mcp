@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 )
 
-type CypherParams map[string]any
+type Params map[string]any
 
-func (cp *CypherParams) UnmarshalJSON(data []byte) error {
+func (cp *Params) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	decoder.UseNumber()
