@@ -16,6 +16,7 @@ func TestToolRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+
 	aService := analytics.NewMockService(ctrl)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent().AnyTimes()

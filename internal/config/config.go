@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strconv"
+
+	"github.com/neo4j/mcp/internal/logger"
 )
 
 // Config holds the application configuration
@@ -15,6 +18,8 @@ type Config struct {
 	Database  string
 	ReadOnly  bool // If true, disables write tools
 	Telemetry bool // If false, disables telemetry
+	LogLevel  string
+	LogFormat string
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -55,6 +60,21 @@ type CLIOverrides struct {
 // CLI flag values take precedence over environment variables.
 // Returns an error if required configuration is missing or invalid.
 func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
+	logLevel := GetEnvWithDefault("NEO4J_LOG_LEVEL", "info")
+	logFormat := GetEnvWithDefault("NEO4J_LOG_FORMAT", "text")
+
+	// Validate log level and use default if invalid
+	if !slices.Contains(logger.ValidLogLevels, logLevel) {
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_LEVEL '%s', using default 'info'. Valid values: %v\n", logLevel, logger.ValidLogLevels)
+		logLevel = "info"
+	}
+
+	// Validate log format and use default if invalid
+	if !slices.Contains(logger.ValidLogFormats, logFormat) {
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
+		logFormat = "text"
+	}
+
 	cfg := &Config{
 		URI:       GetEnv("NEO4J_URI"),
 		Username:  GetEnv("NEO4J_USERNAME"),
@@ -62,6 +82,8 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 		ReadOnly:  ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
 		Telemetry: ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
+		LogLevel:  logLevel,
+		LogFormat: logFormat,
 	}
 
 	// Apply CLI overrides if provided
@@ -111,7 +133,8 @@ func GetEnvWithDefault(key, defaultValue string) string {
 // Returns the default value if the string is empty or invalid.
 // Logs a warning if the value is non-empty but invalid.
 // Accepts: "1", "t", "T", "true", "True", "TRUE" for true
-//          "0", "f", "F", "false", "False", "FALSE" for false
+//
+//	"0", "f", "F", "false", "False", "FALSE" for false
 func ParseBool(value string, defaultValue bool) bool {
 	if value == "" {
 		return defaultValue

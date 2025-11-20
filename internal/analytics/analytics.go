@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -71,11 +71,10 @@ func (a *Analytics) EmitEvent(event TrackEvent) {
 		event,
 	}
 
-	log.Printf("Sending %s event to Neo4j", event.Event)
+	slog.Info("Sending event to Neo4j", "event", event.Event)
 	err := a.sendTrackEvent(trackEvents)
 	if err != nil {
-		sendErr := fmt.Errorf("error while sending analytics events for analytics: %s", err.Error())
-		log.Printf("analytics error: %s", sendErr.Error())
+		slog.Error("Error while sending analytics events", "error", err.Error())
 	}
 }
 func (a *Analytics) Enable() {
@@ -108,17 +107,17 @@ func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	var data int32
 	err = json.Unmarshal(bodyBytes, &data)
 	if err != nil {
-		log.Printf("Error while unmarshaling response from MixPanel: %s", err.Error())
+		slog.Error("Error while unmarshaling response from MixPanel", "error", err.Error())
 	}
 
-	log.Printf("Response from Neo4j, Status: %s, Body: %s, Data: %d", resp.Status, string(bodyBytes), data)
+	slog.Info("Response from Neo4j", "status", resp.Status, "body", string(bodyBytes), "data", data)
 	return nil
 }
 
 func getDistinctID() string {
 	distinctID, err := uuid.NewV6()
 	if err != nil {
-		log.Printf("error while generating distinct id for analytics: %s", err.Error())
+		slog.Error("Error while generating distinct ID for analytics", "error", err.Error())
 		return ""
 	}
 	return distinctID.String()
