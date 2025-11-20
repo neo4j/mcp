@@ -1,0 +1,6 @@
+kind: Minor
+body: >-
+  The `get-schema` tool now returns a more concise, token-efficient JSON output.
+  It also accepts a new `sample-size` parameter to control the number of nodes
+  sampled for schema inference, which is useful for large graphs.
+time: 2025-11-20T22:52:55.588266Z

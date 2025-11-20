@@ -212,6 +212,7 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 	return simplifiedSchema, nil
 }
 
+// simplifyProperties removes all the not required information such as "existence", "indexed", "unique", and keep the type name.
 func simplifyProperties(rawProps interface{}) map[string]string {
 	cleanProps := make(map[string]string)
 	if props, ok := rawProps.(map[string]interface{}); ok {
