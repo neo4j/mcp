@@ -2,6 +2,7 @@ package cypher_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -31,9 +32,6 @@ func TestGetSchemaHandler(t *testing.T) {
 					Keys:   []string{"key1"},
 				},
 			}, nil)
-		mockDB.EXPECT().
-			Neo4jRecordsToJSON(gomock.Any()).
-			Return(`{"schema": "data"}`, nil)
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
@@ -56,36 +54,6 @@ func TestGetSchemaHandler(t *testing.T) {
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("connection failed"))
-
-		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: analyticsService,
-		}
-
-		handler := cypher.GetSchemaHandler(deps)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
-
-		if err != nil {
-			t.Errorf("Expected no error from handler, got: %v", err)
-		}
-		if result == nil || !result.IsError {
-			t.Error("Expected error result")
-		}
-	})
-
-	t.Run("JSON formatting failure", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return([]*neo4j.Record{
-				{
-					Values: []any{"value1"},
-					Keys:   []string{"key1"},
-				},
-			}, nil)
-		mockDB.EXPECT().
-			Neo4jRecordsToJSON(gomock.Any()).
-			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
@@ -183,9 +151,6 @@ func TestGetSchemaHandler(t *testing.T) {
 					Keys:   []string{"key1"},
 				},
 			}, nil)
-		mockDB.EXPECT().
-			Neo4jRecordsToJSON(gomock.Any()).
-			Return(`{"schema": "data"}`, nil)
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
@@ -212,4 +177,244 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 	})
 
+}
+
+func TestGetSchemaProcessing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().NewToolsEvent("get-schema").AnyTimes()
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	defer ctrl.Finish()
+
+	testCases := []struct {
+		name         string
+		mockRecords  []*neo4j.Record
+		expectedJSON string
+	}{
+		{
+			name: "successful schema processing",
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title":    map[string]any{"type": "STRING", "indexed": false},
+								"released": map[string]any{"type": "INTEGER", "indexed": true},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"count":     16,
+									"direction": "in",
+									"labels":    []any{"Person"},
+									"properties": map[string]any{
+										"year": map[string]any{"type": "DATE", "indexed": false},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"ACTED_IN",
+						map[string]any{
+							"type": "relationship",
+							"properties": map[string]any{
+								"roles": map[string]any{"type": "LIST"},
+							},
+						},
+					},
+				},
+			},
+			expectedJSON: `[
+				{
+					"key": "Movie",
+					"value": {
+						"properties": {
+							"released": "INTEGER",
+							"title": "STRING"
+						},
+						"relationships": {
+							"ACTED_IN": {
+								"direction": "in",
+								"labels": [
+									"Person"
+								],
+								"properties": {
+									"year": "DATE"
+								}
+							}
+						},
+						"type": "node"
+					}
+				},
+				{
+					"key": "ACTED_IN",
+					"value": {
+						"properties": {
+							"roles": "LIST"
+						},
+						"type": "relationship"
+					}
+				}
+			]`,
+		},
+		{
+			name: "schema with multiple nodes and varied relationships",
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title":    map[string]any{"type": "STRING", "indexed": false},
+								"released": map[string]any{"type": "INTEGER", "indexed": false},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"direction": "in", "labels": []any{"Person"}, "properties": map[string]any{"roles": map[string]any{"type": "LIST"}},
+								},
+								"DIRECTED": map[string]any{
+									"direction": "in", "labels": []any{"Person"}, "properties": map[string]any{},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Person",
+						map[string]any{
+							"type":       "node",
+							"properties": map[string]any{"name": map[string]any{"type": "STRING"}, "born": map[string]any{"type": "INTEGER"}},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"direction": "out", "labels": []any{"Movie"}, "properties": map[string]any{"roles": map[string]any{"type": "LIST"}},
+								},
+								"DIRECTED": map[string]any{
+									"direction": "out", "labels": []any{"Movie"}, "properties": map[string]any{},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys:   []string{"key", "value"},
+					Values: []any{"ACTED_IN", map[string]any{"type": "relationship", "properties": map[string]any{"roles": map[string]any{"type": "LIST"}}}},
+				},
+				{
+					Keys:   []string{"key", "value"},
+					Values: []any{"DIRECTED", map[string]any{"type": "relationship", "properties": map[string]any{}}},
+				},
+			},
+			expectedJSON: `[
+				{
+					"key": "Movie",
+					"value": {
+						"properties": {"released": "INTEGER", "title": "STRING"},
+						"relationships": {
+							"ACTED_IN": {"direction": "in", "labels": ["Person"], "properties": {"roles": "LIST"}},
+							"DIRECTED": {"direction": "in", "labels": ["Person"]}
+						},
+						"type": "node"
+					}
+				},
+				{
+					"key": "Person",
+					"value": {
+						"properties": {"born": "INTEGER", "name": "STRING"},
+						"relationships": {
+							"ACTED_IN": {"direction": "out", "labels": ["Movie"], "properties": {"roles": "LIST"}},
+							"DIRECTED": {"direction": "out", "labels": ["Movie"]}
+						},
+						"type": "node"
+					}
+				},
+				{
+					"key": "ACTED_IN",
+					"value": {"properties": {"roles": "LIST"}, "type": "relationship"}
+				},
+				{
+					"key": "DIRECTED",
+					"value": {"type": "relationship"}
+				}
+			]`,
+		},
+		{
+			name: "schema with a node with no relationships",
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Genre",
+						map[string]any{
+							"type":          "node",
+							"properties":    map[string]any{"name": map[string]any{"type": "STRING"}},
+							"relationships": map[string]any{},
+						},
+					},
+				},
+			},
+			expectedJSON: `[
+				{
+					"key": "Genre",
+					"value": {
+						"properties": {"name": "STRING"},
+						"type": "node"
+					}
+				}
+			]`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDB := db.NewMockService(ctrl)
+			mockDB.EXPECT().
+				ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(tc.mockRecords, nil)
+
+			deps := &tools.ToolDependencies{
+				DBService:        mockDB,
+				AnalyticsService: analyticsService,
+			}
+
+			handler := cypher.GetSchemaHandler(deps)
+			result, err := handler(context.Background(), mcp.CallToolRequest{})
+
+			if err != nil {
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+			if result == nil || result.IsError {
+				t.Fatal("Expected success result")
+			}
+
+			textContent, ok := result.Content[0].(mcp.TextContent)
+			if !ok {
+				t.Fatal("Expected result content to be TextContent")
+			}
+
+			var expectedData, actualData any
+			if err := json.Unmarshal([]byte(tc.expectedJSON), &expectedData); err != nil {
+				t.Fatalf("failed to unmarshal expected JSON: %v", err)
+			}
+			if err := json.Unmarshal([]byte(textContent.Text), &actualData); err != nil {
+				t.Fatalf("failed to unmarshal actual JSON: %v", err)
+			}
+
+			expectedFormatted, _ := json.MarshalIndent(expectedData, "", "  ")
+			actualFormatted, _ := json.MarshalIndent(actualData, "", "  ")
+
+			if string(expectedFormatted) != string(actualFormatted) {
+				t.Errorf("Expected JSON:\n%s\nGot JSON:\n%s", string(expectedFormatted), string(actualFormatted))
+			}
+		})
+	}
 }
