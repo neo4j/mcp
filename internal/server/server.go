@@ -40,7 +40,6 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		server.WithToolCapabilities(true),
 		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
 			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
-		server.WithLogging(),
 		server.WithHooks(&server.Hooks{
 			OnAfterSetLevel: []server.OnAfterSetLevelFunc{srv.onAfterSetLevelHook},
 		}),
