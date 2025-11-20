@@ -13,12 +13,22 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// newTestAnalytics creates an analytics service for testing and fails the test if creation fails
+func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTTPClient, uri string) *analytics.Analytics {
+	t.Helper()
+	service, err := analytics.NewAnalyticsWithClient(token, endpoint, client, uri)
+	if err != nil {
+		t.Fatalf("failed to create analytics service: %v", err)
+	}
+	return service
+}
+
 func TestAnalytics(t *testing.T) {
 	t.Run("EmitEvent should not send event if disabled", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockClient := amocks.NewMockHTTPClient(ctrl)
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
+		analyticsService := newTestAnalytics(t, "test-token", "http://localhost", mockClient, "bolt://localhost:7687")
 		analyticsService.Disable()
 		analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 	})
@@ -32,7 +42,7 @@ func TestAnalytics(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("1")),
 		}, nil)
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
+		analyticsService := newTestAnalytics(t, "test-token", "http://localhost", mockClient, "bolt://localhost:7687")
 		analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 	})
 
@@ -81,7 +91,7 @@ func TestAnalytics(t *testing.T) {
 				}, nil
 			})
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
+		analyticsService := newTestAnalytics(t, "test-token", "http://localhost", mockClient, "bolt://localhost:7687")
 		analyticsService.EmitEvent(event)
 	})
 
@@ -130,7 +140,7 @@ func TestAnalytics(t *testing.T) {
 				}, nil
 			})
 
-		analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", mockClient, false)
+		analyticsService := newTestAnalytics(t, "test-token", "http://localhost", mockClient, "bolt://localhost:7687")
 		analyticsService.EmitEvent(event)
 	})
 
@@ -167,7 +177,7 @@ func TestAnalytics(t *testing.T) {
 					Body:       io.NopCloser(strings.NewReader("1")),
 				}, nil)
 
-				analyticsService := analytics.NewAnalyticsWithClient("test-token", tc.mixpanelEndpoint, mockClient, false)
+				analyticsService := newTestAnalytics(t, "test-token", tc.mixpanelEndpoint, mockClient, "bolt://localhost:7687")
 				analyticsService.EmitEvent(analytics.TrackEvent{Event: "test_event"})
 			})
 		}
@@ -175,7 +185,7 @@ func TestAnalytics(t *testing.T) {
 }
 
 func TestEventCreation(t *testing.T) {
-	analyticsService := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, false)
+	analyticsService := newTestAnalytics(t, "test-token", "http://localhost", nil, "bolt://localhost:7687")
 
 	t.Run("NewGDSProjCreatedEvent", func(t *testing.T) {
 		event := analyticsService.NewGDSProjCreatedEvent()
@@ -222,7 +232,7 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
-		auraAnalytics := analytics.NewAnalyticsWithClient("test-token", "http://localhost", nil, true)
+		auraAnalytics := newTestAnalytics(t, "test-token", "http://localhost", nil, "bolt://mydb.databases.neo4j.io")
 		event := auraAnalytics.NewStartupEvent()
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {

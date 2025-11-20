@@ -1,7 +1,7 @@
 package analytics
 
 import (
-	"log"
+	"log/slog"
 	"runtime"
 	"strings"
 	"time"
@@ -38,21 +38,21 @@ type TrackEvent struct {
 func (a *Analytics) NewGDSProjCreatedEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_CREATED"}, "_"),
-		Properties: getBaseProperties(a.cfg),
+		Properties: a.getBaseProperties(),
 	}
 }
 
 func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "GDS_PROJ_DROP"}, "_"),
-		Properties: getBaseProperties(a.cfg),
+		Properties: a.getBaseProperties(),
 	}
 }
 
 func (a *Analytics) NewStartupEvent() TrackEvent {
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: getBaseProperties(a.cfg),
+		Properties: a.getBaseProperties(),
 	}
 }
 
@@ -60,31 +60,31 @@ func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{
-			baseProperties: getBaseProperties(a.cfg),
+			baseProperties: a.getBaseProperties(),
 			ToolUsed:       toolsUsed,
 		},
 	}
 }
 
-func getBaseProperties(cfg analyticsConfig) baseProperties {
-	uptime := time.Now().Unix() - cfg.startupTime
-	insertID := newInsertID()
+func (a *Analytics) getBaseProperties() baseProperties {
+	uptime := time.Now().Unix() - a.cfg.startupTime
+	insertID := a.newInsertID()
 	return baseProperties{
-		Token:      cfg.token,
-		DistinctID: cfg.distinctID,
+		Token:      a.cfg.token,
+		DistinctID: a.cfg.distinctID,
 		Time:       time.Now().UnixMilli(),
 		InsertID:   insertID,
 		Uptime:     uptime,
 		OS:         runtime.GOOS,
 		OSArch:     runtime.GOARCH,
-		IsAura:     cfg.isAura,
+		IsAura:     a.cfg.isAura,
 	}
 }
 
-func newInsertID() string {
+func (a *Analytics) newInsertID() string {
 	insertID, err := uuid.NewV6()
 	if err != nil {
-		log.Printf("Mixpanel error while generating uuid analytics events for analytics: %s", err.Error())
+		slog.Error("Error while generating insert ID for analytics", "error", err.Error())
 		return ""
 	}
 	return insertID.String()

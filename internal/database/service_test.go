@@ -3,12 +3,10 @@ package database_test
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/database"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
@@ -114,10 +112,8 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 }
 
 func TestNewNeo4jService(t *testing.T) {
-	logService := logger.New("debug", "text", io.Discard)
-
 	t.Run("nil driver error", func(t *testing.T) {
-		service, err := database.NewNeo4jService(nil, "", logService)
+		service, err := database.NewNeo4jService(nil, "")
 
 		if err == nil {
 			t.Errorf("expected error when driver is nil, got nil")

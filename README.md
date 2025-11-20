@@ -12,6 +12,20 @@ BETA - Active development; not yet suitable for production.
 - APOC plugin installed in the Neo4j instance.
 - Any MCP-compatible client (e.g. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
+## Startup Checks & Adaptive Operation
+
+The server performs several pre-flight checks at startup to ensure your environment is correctly configured.
+
+**Mandatory Requirements**
+The server verifies the following core requirements. If any of these checks fail (e.g., due to an invalid configuration, incorrect credentials, or a missing APOC installation), the server will not start:
+
+- A valid connection to your Neo4j instance.
+- The ability to execute queries.
+- The presence of the APOC plugin.
+
+**Optional Requirements**
+If an optional dependency is missing, the server will start in an adaptive mode. For instance, if the Graph Data Science (GDS) library is not detected in your Neo4j installation, the server will still launch but will automatically disable all GDS-related tools, such as `list-gds-procedures`. All other tools will remain available.
+
 ## Installation (Binary)
 
 Releases: https://github.com/neo4j/mcp/releases
@@ -56,7 +70,9 @@ Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/custo
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
         "NEO4J_READ_ONLY": "true", // Optional: disables write tools
-        "NEO4J_TELEMETRY": "false" // Optional: disables telemetry
+        "NEO4J_TELEMETRY": "false", // Optional: disables telemetry
+        "NEO4J_LOG_LEVEL": "info", // Optional: log level (debug, info, notice, warning, error, critical, alert, emergency)
+        "NEO4J_LOG_FORMAT": "text" // Optional: log format (text or json)
       }
     }
   }
@@ -91,7 +107,9 @@ You’ll then add the `neo4j-mcp` MCP in the mcpServers key:
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
         "NEO4J_READ_ONLY": "true", // Optional: disables write tools
-        "NEO4J_TELEMETRY": "false" // Optional: disables telemetry
+        "NEO4J_TELEMETRY": "false", // Optional: disables telemetry
+        "NEO4J_LOG_LEVEL": "info", // Optional: log level (debug, info, notice, warning, error, critical, alert, emergency)
+        "NEO4J_LOG_FORMAT": "text" // Optional: log format (text or json)
       }
     }
   }
@@ -103,6 +121,8 @@ Notes:
 - Adjust env vars for your setup (defaults shown above).
 - Set `NEO4J_READ_ONLY=true` to disable all write tools (e.g., `write-cypher`).
 - Set `NEO4J_TELEMETRY=false` to disable telemetry.
+- Set `NEO4J_LOG_LEVEL` to control logging verbosity (see Logging section below).
+- Set `NEO4J_LOG_FORMAT` to `json` for structured JSON logs (default is `text`).
 - When enabled, only read operations are available; write tools are not exposed to clients.
 - Neo4j Desktop default URI: `bolt://localhost:7687`.
 - Aura: use the connection string from the Aura console.
@@ -146,6 +166,26 @@ Below are some example prompts you can try in Copilot or any other MCP client:
 
 - Use a restricted Neo4j user for exploration.
 - Review generated Cypher before executing in production databases.
+
+## Logging
+
+The server uses structured logging with support for multiple log levels and output formats.
+
+### Configuration
+
+**Log Level** (`NEO4J_LOG_LEVEL`, default: `info`)
+
+Controls the verbosity of log output. Supports all [MCP log levels](https://modelcontextprotocol.io/specification/2025-03-26/server/utilities/logging#log-levels): `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`.
+
+**Log Format** (`NEO4J_LOG_FORMAT`, default: `text`)
+
+Controls the output format:
+- `text` - Human-readable text format (default)
+- `json` - Structured JSON format (useful for log aggregation)
+
+### Dynamic Level Adjustment
+
+MCP clients can dynamically change the log level at runtime by calling the [logging/setLevel](https://modelcontextprotocol.io/specification/2025-03-26/server/utilities/logging#setting-log-level) method. This allows clients to temporarily increase verbosity for debugging without restarting the server.
 
 ## Telemetry
 

@@ -2,6 +2,7 @@ package cypher
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -18,13 +19,13 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
 	if deps.AnalyticsService == nil {
 		errMessage := "Analytics service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
@@ -33,14 +34,14 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	var args ReadCypherInput
 	// Use our custom BindArguments that preserves integer types
 	if err := BindArguments(request, &args); err != nil {
-		deps.Log.Error("error binding arguments", "error", err)
+		slog.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	Query := args.Query
 	Params := args.Params
 
-	deps.Log.Info("executing read cypher query", "query", Query)
+	slog.Info("executing read cypher query", "query", Query)
 
 	lowerCaseQuery := strings.ToLower(Query)
 	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
@@ -54,33 +55,33 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
-		deps.Log.Error(errMessage)
+		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
 	queryType, err := deps.DBService.GetQueryType(ctx, Query, Params)
 	if err != nil {
-		deps.Log.Error("error classifying cypher query", "error", err)
+		slog.Error("error classifying cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	if queryType != neo4j.StatementTypeReadOnly { // only queryType == "r" are allowed in read-cypher
 		errMessage := "read-cypher can only run read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead."
-		deps.Log.Error("rejected non-read query", "type", queryType, "query", Query)
+		slog.Error("rejected non-read query", "type", queryType, "query", Query)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
 	// Execute the Cypher query using the database service (now confirmed read-only)
 	records, err := deps.DBService.ExecuteReadQuery(ctx, Query, Params)
 	if err != nil {
-		deps.Log.Error("error executing cypher query", "error", err)
+		slog.Error("error executing cypher query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
-		deps.Log.Error("error formatting query results", "error", err)
+		slog.Error("error formatting query results", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 

@@ -3,13 +3,11 @@ package cypher_test
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -23,8 +21,6 @@ func TestWriteCypherHandler(t *testing.T) {
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
 
-	log := logger.New("debug", "text", os.Stderr)
-
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
@@ -36,7 +32,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -71,7 +66,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -99,7 +93,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -128,7 +121,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -159,7 +151,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -186,7 +177,6 @@ func TestWriteCypherHandler(t *testing.T) {
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        nil,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -213,7 +203,6 @@ func TestWriteCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
-			Log:              log,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -235,7 +224,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -269,7 +257,6 @@ func TestWriteCypherHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -296,8 +283,6 @@ func TestWriteCypherHandler(t *testing.T) {
 func TestWriteCypherHandlerEvents(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	log := logger.New("debug", "text", os.Stderr)
-
 	defer ctrl.Finish()
 	t.Run("emits event for gds graph project", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -317,7 +302,6 @@ func TestWriteCypherHandlerEvents(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticServiceExplicitMock,
-			Log:              log,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
@@ -353,7 +337,6 @@ func TestWriteCypherHandlerEvents(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticServiceExplicitMock,
-			Log:              log,
 		}
 
 		handler := cypher.WriteCypherHandler(deps)

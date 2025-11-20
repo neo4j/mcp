@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
@@ -32,13 +32,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize logger
-	log := logger.New(cfg.LogLevel, cfg.LogFormat, os.Stderr)
+	// Initialize global logger
+	logger.Init(cfg.LogLevel, cfg.LogFormat, os.Stderr)
 
 	// Initialize Neo4j driver
 	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
-		log.Error("Failed to create Neo4j driver", "error", err)
+		slog.Error("Failed to create Neo4j driver", "error", err)
 		os.Exit(1)
 	}
 
@@ -46,48 +46,46 @@ func main() {
 	ctx := context.Background()
 	defer func() {
 		if err := driver.Close(ctx); err != nil {
-			log.Error("Error closing driver", "error", err)
+			slog.Error("Error closing driver", "error", err)
 		}
 	}()
 
-	// Verify database connectivity
-	if err := driver.VerifyConnectivity(ctx); err != nil {
-		log.Error("Failed to verify database connectivity", "error", err)
+	// Create database service
+	dbService, err := database.NewNeo4jService(driver, cfg.Database)
+	if err != nil {
+		slog.Error("Failed to create database service", "error", err)
 		return
 	}
 
-	// Create database service
-	dbService, err := database.NewNeo4jService(driver, cfg.Database, log)
+	anService, err := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
 	if err != nil {
-		log.Error("Failed to create database service", "error", err)
+		slog.Error("Failed to create analytics service", "error", err)
 		return
 	}
-	isAura := strings.Contains(cfg.URI, "database.neo4j.io")
-	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, isAura)
 
 	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
-		log.Info("Telemetry disabled.")
+		slog.Info("Telemetry disabled.")
 		anService.Disable()
 	} else if cfg.Telemetry == "true" {
 		anService.Enable()
-		log.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data " +
+		slog.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data " +
 			"such as: tools being used, the operating system, and CPU architecture.\n" +
 			"To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
 	}
 
 	// Create and configure the MCP server
-	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService, log)
+	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService)
 
 	// Gracefully handle shutdown
 	defer func() {
 		if err := mcpServer.Stop(); err != nil {
-			log.Error("Error stopping server", "error", err)
+			slog.Error("Error stopping server", "error", err)
 		}
 	}()
 
 	// Start the server (this blocks until the server is stopped)
 	if err := mcpServer.Start(); err != nil {
-		log.Error("Server error", "error", err)
+		slog.Error("Server error", "error", err)
 		return // so that defer can run
 	}
 

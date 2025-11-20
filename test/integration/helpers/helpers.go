@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"strings"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
@@ -32,12 +30,13 @@ func (ul UniqueLabel) String() string {
 
 // TestContext holds common test dependencies
 type TestContext struct {
-	ctx           context.Context
-	t             *testing.T
-	TestID        string
-	Service       database.Service
-	Deps          *tools.ToolDependencies
-	createdLabels map[string]bool
+	ctx              context.Context
+	t                *testing.T
+	TestID           string
+	Service          database.Service
+	Deps             *tools.ToolDependencies
+	createdLabels    map[string]bool
+	AnalyticsService *analytics.MockService
 }
 
 // NewTestContext creates a new test context with automatic cleanup
@@ -58,10 +57,8 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		tc.Cleanup() // Clean up test data
 		cancel()     // Release context resources immediately
 	})
-	// Initialize logger for tests (suppress output to io.Discard)
-	logService := logger.New("debug", "text", io.Discard)
 
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j", logService)
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
@@ -70,9 +67,9 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	deps := &tools.ToolDependencies{
 		DBService:        databaseService,
 		AnalyticsService: analyticsService,
-		Log:              logService,
 	}
 
+	tc.AnalyticsService = analyticsService
 	tc.Service = databaseService
 	tc.Deps = deps
 

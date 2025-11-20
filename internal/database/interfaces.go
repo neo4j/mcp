@@ -27,8 +27,13 @@ type RecordFormatter interface {
 	Neo4jRecordsToJSON(records []*neo4j.Record) (string, error)
 }
 
+type Helpers interface {
+	VerifyConnectivity(ctx context.Context) error
+}
+
 // Service combines query execution and record formatting
 type Service interface {
 	QueryExecutor
 	RecordFormatter
+	Helpers
 }

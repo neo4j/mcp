@@ -3,13 +3,11 @@ package gds_test
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/gds"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -23,8 +21,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
 
-	log := logger.New("debug", "text", os.Stderr)
-
 	t.Run("successful list-gds-procedures", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
@@ -36,7 +32,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -57,7 +52,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        nil,
 			AnalyticsService: analyticsService,
-			Log:              log,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -77,7 +71,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
-			Log:              log,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -99,7 +92,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
@@ -128,7 +120,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
-			Log:              log,
 			AnalyticsService: analyticsService,
 		}
 
