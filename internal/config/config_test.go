@@ -15,7 +15,8 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
+				ReadOnly:  false,
 				URI:       "bolt://localhost:7687",
 				Username:  "neo4j",
 				Password:  "password",
@@ -32,7 +33,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty URI",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "",
 				Username:  "neo4j",
 				Password:  "password",
@@ -44,7 +45,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty username",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "bolt://localhost:7687",
 				Username:  "",
 				Password:  "password",
@@ -56,7 +57,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty password",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "bolt://localhost:7687",
 				Username:  "neo4j",
 				Password:  "",
@@ -68,33 +69,11 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "empty database should not raise error",
 			cfg: &Config{
-				Telemetry: "true",
+				Telemetry: true,
 				URI:       "bolt://localhost:7687",
 				Username:  "neo4j",
 				Password:  "password",
 				Database:  "",
-			},
-			wantErr: false,
-			errMsg:  "",
-		},
-		{
-			name: "Invalid NEO4J_TELEMETRY type",
-			cfg: &Config{
-				Telemetry: "falsy",
-				URI:       "bolt://localhost:7687",
-				Username:  "neo4j",
-				Password:  "password",
-			},
-			wantErr: true,
-			errMsg:  "NEO4J_TELEMETRY cannot be converted to type bool",
-		},
-		{
-			name: "Correct NEO4J_TELEMETRY type",
-			cfg: &Config{
-				Telemetry: "true",
-				URI:       "bolt://localhost:7687",
-				Username:  "neo4j",
-				Password:  "password",
 			},
 			wantErr: false,
 			errMsg:  "",
@@ -123,47 +102,175 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestLoadConfig(t *testing.T) {
-	// Test LoadConfig with current environment (whatever it is)
-	// We don't modify environment variables to avoid parallel test issues
-	cfg, err := LoadConfig()
+func TestLoadConfig_ValidConfig(t *testing.T) {
+	// Unit test: set required env variables and verify LoadConfig works
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 
+	cfg, err := LoadConfig(nil)
 	if err != nil {
-		// If LoadConfig fails, it means the current environment has invalid config
-		// This is fine - we just verify that validation is working
-		if !strings.Contains(err.Error(), "invalid configuration") {
-			t.Errorf("LoadConfig() error = %v, want error containing 'invalid configuration'", err)
-		}
-		if cfg != nil {
-			t.Errorf("LoadConfig() expected nil config on error, got %v", cfg)
-		}
-		return
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
 	}
 
-	// If LoadConfig succeeds, verify the config is valid
 	if cfg == nil {
-		t.Error("LoadConfig() returned nil config without error")
+		t.Fatal("LoadConfig() returned nil config")
+	}
+
+	if cfg.URI != "bolt://localhost:7687" {
+		t.Errorf("LoadConfig() URI = %v, want bolt://localhost:7687", cfg.URI)
+	}
+	if cfg.Username != "testuser" {
+		t.Errorf("LoadConfig() Username = %v, want testuser", cfg.Username)
+	}
+	if cfg.Password != "testpass" {
+		t.Errorf("LoadConfig() Password = %v, want testpass", cfg.Password)
+	}
+	if cfg.Database != "neo4j" {
+		t.Errorf("LoadConfig() Database = %v, want neo4j", cfg.Database)
+	}
+}
+
+func TestLoadConfig_MissingRequiredEnvVars(t *testing.T) {
+	// Unit test: verify LoadConfig returns error when required env vars are missing
+	t.Setenv("NEO4J_URI", "")
+	t.Setenv("NEO4J_USERNAME", "")
+	t.Setenv("NEO4J_PASSWORD", "")
+
+	cfg, err := LoadConfig(nil)
+
+	// LoadConfig should return an error because validation fails
+	if err == nil {
+		t.Error("LoadConfig() expected error when required env vars are missing, got nil")
 		return
 	}
 
-	// Verify that the returned config passes validation
-	if err := cfg.Validate(); err != nil {
-		t.Errorf("LoadConfig() returned config that fails validation: %v", err)
+	// Config should be nil when there's an error
+	if cfg != nil {
+		t.Error("LoadConfig() expected nil config when validation fails, got config")
 	}
 
-	// Verify config has reasonable default values (if env vars are not set)
-	// We can't test specific values since we don't know the environment,
-	// but we can verify they're not empty
-	if cfg.URI == "" {
-		t.Error("LoadConfig() returned empty URI")
+	// Should contain an error about required fields
+	if !strings.Contains(err.Error(), "required") {
+		t.Errorf("LoadConfig() error = %v, want error containing 'required'", err)
 	}
-	if cfg.Username == "" {
-		t.Error("LoadConfig() returned empty username")
+}
+
+func TestLoadConfig_CLIOverrides(t *testing.T) {
+	// Unit test: verify CLI overrides take precedence over environment variables
+	t.Setenv("NEO4J_URI", "bolt://env-host:7687")
+	t.Setenv("NEO4J_USERNAME", "env-user")
+	t.Setenv("NEO4J_PASSWORD", "env-pass")
+	t.Setenv("NEO4J_DATABASE", "env-db")
+
+	overrides := &CLIOverrides{
+		URI:      "bolt://cli-host:7687",
+		Username: "cli-user",
+		Password: "cli-pass",
+		Database: "cli-db",
 	}
-	if cfg.Password == "" {
-		t.Error("LoadConfig() returned empty password")
+
+	cfg, err := LoadConfig(overrides)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
 	}
-	if cfg.Database == "" {
-		t.Error("LoadConfig() returned empty database")
+
+	// Verify CLI values override env values
+	if cfg.URI != "bolt://cli-host:7687" {
+		t.Errorf("LoadConfig() URI = %v, want bolt://cli-host:7687", cfg.URI)
+	}
+	if cfg.Username != "cli-user" {
+		t.Errorf("LoadConfig() Username = %v, want cli-user", cfg.Username)
+	}
+	if cfg.Password != "cli-pass" {
+		t.Errorf("LoadConfig() Password = %v, want cli-pass", cfg.Password)
+	}
+	if cfg.Database != "cli-db" {
+		t.Errorf("LoadConfig() Database = %v, want cli-db", cfg.Database)
+	}
+}
+
+func TestLoadConfig_PartialCLIOverrides(t *testing.T) {
+	// Unit test: verify partial CLI overrides work (some from CLI, some from env)
+	t.Setenv("NEO4J_URI", "bolt://env-host:7687")
+	t.Setenv("NEO4J_USERNAME", "env-user")
+	t.Setenv("NEO4J_PASSWORD", "env-pass")
+	t.Setenv("NEO4J_DATABASE", "env-db")
+
+	// Only override URI and Username, leave Password and Database from env
+	overrides := &CLIOverrides{
+		URI:      "bolt://cli-host:7687",
+		Username: "cli-user",
+		Password: "",
+		Database: "",
+	}
+
+	cfg, err := LoadConfig(overrides)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify CLI values override env values where provided
+	if cfg.URI != "bolt://cli-host:7687" {
+		t.Errorf("LoadConfig() URI = %v, want bolt://cli-host:7687", cfg.URI)
+	}
+	if cfg.Username != "cli-user" {
+		t.Errorf("LoadConfig() Username = %v, want cli-user", cfg.Username)
+	}
+	// Verify env values are used where CLI values are empty
+	if cfg.Password != "env-pass" {
+		t.Errorf("LoadConfig() Password = %v, want env-pass", cfg.Password)
+	}
+	if cfg.Database != "env-db" {
+		t.Errorf("LoadConfig() Database = %v, want env-db", cfg.Database)
+	}
+}
+
+func TestLoadConfig_InvalidBooleanValues(t *testing.T) {
+	// Unit test: verify invalid boolean values fall back to defaults
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_TELEMETRY", "invalid-value")
+	t.Setenv("NEO4J_READ_ONLY", "not-a-boolean")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Invalid NEO4J_TELEMETRY should fall back to default (true)
+	if cfg.Telemetry != true {
+		t.Errorf("LoadConfig() Telemetry = %v, want true (default for invalid value)", cfg.Telemetry)
+	}
+
+	// Invalid NEO4J_READ_ONLY should fall back to default (false)
+	if cfg.ReadOnly != false {
+		t.Errorf("LoadConfig() ReadOnly = %v, want false (default for invalid value)", cfg.ReadOnly)
+	}
+}
+
+func TestLoadConfig_ValidBooleanValues(t *testing.T) {
+	// Unit test: verify valid boolean values are parsed correctly
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_TELEMETRY", "false")
+	t.Setenv("NEO4J_READ_ONLY", "true")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify telemetry is disabled
+	if cfg.Telemetry != false {
+		t.Errorf("LoadConfig() Telemetry = %v, want false", cfg.Telemetry)
+	}
+
+	// Verify read-only is enabled
+	if cfg.ReadOnly != true {
+		t.Errorf("LoadConfig() ReadOnly = %v, want true", cfg.ReadOnly)
 	}
 }

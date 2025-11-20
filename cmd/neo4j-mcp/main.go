@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 
@@ -24,8 +25,18 @@ func main() {
 	// Handle CLI arguments (version, help, etc.)
 	cli.HandleArgs(Version)
 
-	// get config from environment variables
-	cfg, err := config.LoadConfig()
+	// Parse CLI flags for configuration
+	cliArgs := cli.ParseConfigFlags()
+
+	// Load and validate configuration (env vars + CLI overrides)
+	cfg, err := config.LoadConfig(&config.CLIOverrides{
+		URI:       cliArgs.URI,
+		Username:  cliArgs.Username,
+		Password:  cliArgs.Password,
+		Database:  cliArgs.Database,
+		ReadOnly:  cliArgs.ReadOnly,
+		Telemetry: cliArgs.Telemetry,
+	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
 		fmt.Fprintln(os.Stderr, "Failed to load configuration: "+err.Error())
@@ -59,14 +70,14 @@ func main() {
 
 	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
 
-	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
-		slog.Info("Telemetry disabled.")
-		anService.Disable()
-	} else if cfg.Telemetry == "true" {
+	// Enable telemetry only when user has opted in AND the required tokens are present
+	if cfg.Telemetry && MixPanelEndpoint != "" && MixPanelToken != "" {
 		anService.Enable()
-		slog.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data " +
-			"such as: tools being used, the operating system, and CPU architecture.\n" +
-			"To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
+		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
+		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
+	} else {
+		log.Println("Telemetry disabled.")
+		anService.Disable()
 	}
 
 	// Create and configure the MCP server

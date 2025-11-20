@@ -1,0 +1,3 @@
+kind: Minor
+body: Added CLI flags for configuration (--neo4j-uri, --neo4j-username, --neo4j-password, --neo4j-database, --neo4j-read-only, --neo4j-telemetry) that override environment variables. NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD are now required environment variables (no defaults provided).
+time: 2025-11-20T14:46:49.67341Z
