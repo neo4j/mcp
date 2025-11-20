@@ -17,10 +17,10 @@ Usage:
 Options:
   -h, --help                          Show this help message
   -v, --version                       Show version information
-  --neo4j-uri <URI>                   Neo4j connection URI (overrides env var)
-  --neo4j-username <USERNAME>         Database username (overrides env var)
-  --neo4j-password <PASSWORD>         Database password (overrides env var)
-  --neo4j-database <DATABASE>         Database name (overrides env var)
+  --neo4j-uri <URI>                   Neo4j connection URI (overrides environment variable NEO4J_URI)
+  --neo4j-username <USERNAME>         Database username (overrides environment variable NEO4J_USERNAME)
+  --neo4j-password <PASSWORD>         Database password (overrides environment variable NEO4J_PASSWORD
+  --neo4j-database <DATABASE>         Database name (overrides environment variable NEO4J_DATABASE)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
