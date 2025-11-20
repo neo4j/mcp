@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
+	"os"
 
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -24,39 +27,46 @@ func main() {
 	// get config from environment variables
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		// Can't use logger here yet, so just print to stderr
+		fmt.Fprintln(os.Stderr, "Failed to load configuration: "+err.Error())
+		os.Exit(1)
 	}
+
+	// Initialize global logger
+	logger.Init(cfg.LogLevel, cfg.LogFormat, os.Stderr)
 
 	// Initialize Neo4j driver
 	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	if err != nil {
-		log.Fatalf("Failed to create Neo4j driver: %v", err)
+		slog.Error("Failed to create Neo4j driver", "error", err)
+		os.Exit(1)
 	}
 
 	// Gracefully handle shutdown
 	ctx := context.Background()
 	defer func() {
 		if err := driver.Close(ctx); err != nil {
-			log.Printf("Error closing driver: %v", err)
+			slog.Error("Error closing driver", "error", err)
 		}
 	}()
 
 	// Create database service
 	dbService, err := database.NewNeo4jService(driver, cfg.Database)
 	if err != nil {
-		log.Printf("Failed to create database service: %v", err)
+		slog.Error("Failed to create database service", "error", err)
 		return
 	}
 
 	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
 
 	if cfg.Telemetry == "false" || MixPanelEndpoint == "" || MixPanelToken == "" {
-		log.Println("Telemetry disabled.")
+		slog.Info("Telemetry disabled.")
 		anService.Disable()
 	} else if cfg.Telemetry == "true" {
 		anService.Enable()
-		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
-		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
+		slog.Info("Telemetry is enabled to help us improve the product by collecting anonymous usage data " +
+			"such as: tools being used, the operating system, and CPU architecture.\n" +
+			"To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
 	}
 
 	// Create and configure the MCP server
@@ -65,13 +75,13 @@ func main() {
 	// Gracefully handle shutdown
 	defer func() {
 		if err := mcpServer.Stop(); err != nil {
-			log.Printf("Error stopping server: %v", err)
+			slog.Error("Error stopping server", "error", err)
 		}
 	}()
 
 	// Start the server (this blocks until the server is stopped)
 	if err := mcpServer.Start(); err != nil {
-		log.Printf("Server error: %v", err)
+		slog.Error("Server error", "error", err)
 		return // so that defer can run
 	}
 

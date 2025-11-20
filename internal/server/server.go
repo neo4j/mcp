@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
@@ -44,7 +45,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
-	log.Println("Starting Neo4j MCP Server...")
+	slog.Info("Starting Neo4j MCP Server...")
 	err := s.verifyRequirements()
 	if err != nil {
 		return err
@@ -57,7 +58,7 @@ func (s *Neo4jMCPServer) Start() error {
 	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-	log.Println("Started Neo4j MCP Server. Now listening for input...")
+	slog.Info("Started Neo4j MCP Server. Now listening for input...")
 	// Note: ServeStdio handles its own signal management for graceful shutdown
 	return server.ServeStdio(s.MCPServer)
 }
@@ -120,7 +121,7 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 
 // Stop gracefully stops the server
 func (s *Neo4jMCPServer) Stop() error {
-	log.Println("Stopping Neo4j MCP Server...")
+	slog.Info("Stopping Neo4j MCP Server...")
 	// Currently no cleanup needed - the MCP server handles its own lifecycle
 	// Database service cleanup is handled by the caller (main.go)
 	return nil

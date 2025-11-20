@@ -36,3 +36,7 @@ go.work.sum
 bin/
 # Added by goreleaser init:
 dist/
+
+# Agents
+CLAUDE.md
+gemini.md

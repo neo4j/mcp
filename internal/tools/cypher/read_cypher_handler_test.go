@@ -352,8 +352,8 @@ func TestReadCypherHandler(t *testing.T) {
 
 func TestReadCypherHandlerEvents(t *testing.T) {
 	ctrl := gomock.NewController(t)
-
 	defer ctrl.Finish()
+
 	t.Run("emits event for gds graph project", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

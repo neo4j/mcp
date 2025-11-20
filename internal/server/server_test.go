@@ -22,6 +22,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Password: "password",
 		Database: "neo4j",
 	}
+
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
@@ -227,7 +228,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 			t.Errorf("Start() unexpected error = %v", err)
 		}
 	})
-
 }
 
 func TestNewNeo4jMCPServerEvents(t *testing.T) {

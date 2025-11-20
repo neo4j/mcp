@@ -70,7 +70,9 @@ Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/custo
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
         "NEO4J_READ_ONLY": "true", // Optional: disables write tools
-        "NEO4J_TELEMETRY": "false" // Optional: disables telemetry
+        "NEO4J_TELEMETRY": "false", // Optional: disables telemetry
+        "NEO4J_LOG_LEVEL": "info", // Optional: log level (debug, info, notice, warning, error, critical, alert, emergency)
+        "NEO4J_LOG_FORMAT": "text" // Optional: log format (text or json)
       }
     }
   }
@@ -105,7 +107,9 @@ You’ll then add the `neo4j-mcp` MCP in the mcpServers key:
         "NEO4J_PASSWORD": "password",
         "NEO4J_DATABASE": "neo4j",
         "NEO4J_READ_ONLY": "true", // Optional: disables write tools
-        "NEO4J_TELEMETRY": "false" // Optional: disables telemetry
+        "NEO4J_TELEMETRY": "false", // Optional: disables telemetry
+        "NEO4J_LOG_LEVEL": "info", // Optional: log level (debug, info, notice, warning, error, critical, alert, emergency)
+        "NEO4J_LOG_FORMAT": "text" // Optional: log format (text or json)
       }
     }
   }
@@ -117,6 +121,8 @@ Notes:
 - Adjust env vars for your setup (defaults shown above).
 - Set `NEO4J_READ_ONLY=true` to disable all write tools (e.g., `write-cypher`).
 - Set `NEO4J_TELEMETRY=false` to disable telemetry.
+- Set `NEO4J_LOG_LEVEL` to control logging verbosity (see Logging section below).
+- Set `NEO4J_LOG_FORMAT` to `json` for structured JSON logs (default is `text`).
 - When enabled, only read operations are available; write tools are not exposed to clients.
 - Neo4j Desktop default URI: `bolt://localhost:7687`.
 - Aura: use the connection string from the Aura console.
@@ -160,6 +166,22 @@ Below are some example prompts you can try in Copilot or any other MCP client:
 
 - Use a restricted Neo4j user for exploration.
 - Review generated Cypher before executing in production databases.
+
+## Logging
+
+The server uses structured logging with support for multiple log levels and output formats.
+
+### Configuration
+
+**Log Level** (`NEO4J_LOG_LEVEL`, default: `info`)
+
+Controls the verbosity of log output. Supports all [MCP log levels](https://modelcontextprotocol.io/specification/2025-03-26/server/utilities/logging#log-levels): `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`.
+
+**Log Format** (`NEO4J_LOG_FORMAT`, default: `text`)
+
+Controls the output format:
+- `text` - Human-readable text format (default)
+- `json` - Structured JSON format (useful for log aggregation)
 
 ## Telemetry
 

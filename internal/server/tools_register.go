@@ -59,7 +59,6 @@ func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 		enabledTools = append(enabledTools, toolDef.definition)
 	}
 	return enabledTools
-
 }
 
 func filterWriteTools(tools []ToolDefinition) []ToolDefinition {
