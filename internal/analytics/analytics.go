@@ -31,7 +31,7 @@ type Analytics struct {
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string) (*Analytics, error) {
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -42,10 +42,10 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		isAura:           isAura(uri),
 	}
 
-	return &Analytics{cfg: cfg, disabled: false}, nil
+	return &Analytics{cfg: cfg, disabled: false}
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) (*Analytics, error) {
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -56,7 +56,7 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) (*A
 		isAura:           isAura(uri),
 	}
 
-	return &Analytics{cfg: cfg, disabled: false}, nil
+	return &Analytics{cfg: cfg, disabled: false}
 }
 
 func isAura(uri string) bool {

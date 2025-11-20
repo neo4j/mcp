@@ -13,14 +13,10 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// newTestAnalytics creates an analytics service for testing and fails the test if creation fails
+// newTestAnalytics creates an analytics service for testing
 func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTTPClient, uri string) *analytics.Analytics {
 	t.Helper()
-	service, err := analytics.NewAnalyticsWithClient(token, endpoint, client, uri)
-	if err != nil {
-		t.Fatalf("failed to create analytics service: %v", err)
-	}
-	return service
+	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri)
 }
 
 func TestAnalytics(t *testing.T) {
