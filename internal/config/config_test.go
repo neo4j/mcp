@@ -130,11 +130,13 @@ func TestLoadConfig_ValidConfig(t *testing.T) {
 	t.Setenv("NEO4J_PASSWORD", "testpass")
 	t.Setenv("NEO4J_DATABASE", "neo4j")
 
-	cfg := LoadConfig()
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
 
 	if cfg == nil {
-		t.Error("LoadConfig() returned nil config")
-		return
+		t.Fatal("LoadConfig() returned nil config")
 	}
 
 	if cfg.URI != "bolt://localhost:7687" {
@@ -149,37 +151,100 @@ func TestLoadConfig_ValidConfig(t *testing.T) {
 	if cfg.Database != "neo4j" {
 		t.Errorf("LoadConfig() Database = %v, want neo4j", cfg.Database)
 	}
-
-	// Verify that the returned config passes validation
-	if err := cfg.Validate(); err != nil {
-		t.Errorf("LoadConfig() returned config that fails validation: %v", err)
-	}
 }
 
 func TestLoadConfig_MissingRequiredEnvVars(t *testing.T) {
-	// Unit test: verify LoadConfig returns config with empty required fields
-	// which will fail validation
+	// Unit test: verify LoadConfig returns error when required env vars are missing
 	t.Setenv("NEO4J_URI", "")
 	t.Setenv("NEO4J_USERNAME", "")
 	t.Setenv("NEO4J_PASSWORD", "")
 
-	cfg := LoadConfig()
+	cfg, err := LoadConfig(nil)
 
-	if cfg == nil {
-		t.Error("LoadConfig() returned nil config")
+	// LoadConfig should return an error because validation fails
+	if err == nil {
+		t.Error("LoadConfig() expected error when required env vars are missing, got nil")
 		return
 	}
 
-	// Verify that validation fails
-	err := cfg.Validate()
-	if err == nil {
-		t.Error("Config.Validate() expected error when required env vars are missing, got nil")
-		return
+	// Config should be nil when there's an error
+	if cfg != nil {
+		t.Error("LoadConfig() expected nil config when validation fails, got config")
 	}
 
 	// Should contain an error about required fields
 	if !strings.Contains(err.Error(), "required") {
-		t.Errorf("Config.Validate() error = %v, want error containing 'required'", err)
+		t.Errorf("LoadConfig() error = %v, want error containing 'required'", err)
+	}
+}
+
+func TestLoadConfig_CLIOverrides(t *testing.T) {
+	// Unit test: verify CLI overrides take precedence over environment variables
+	t.Setenv("NEO4J_URI", "bolt://env-host:7687")
+	t.Setenv("NEO4J_USERNAME", "env-user")
+	t.Setenv("NEO4J_PASSWORD", "env-pass")
+	t.Setenv("NEO4J_DATABASE", "env-db")
+
+	overrides := &CLIOverrides{
+		URI:      "bolt://cli-host:7687",
+		Username: "cli-user",
+		Password: "cli-pass",
+		Database: "cli-db",
+	}
+
+	cfg, err := LoadConfig(overrides)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify CLI values override env values
+	if cfg.URI != "bolt://cli-host:7687" {
+		t.Errorf("LoadConfig() URI = %v, want bolt://cli-host:7687", cfg.URI)
+	}
+	if cfg.Username != "cli-user" {
+		t.Errorf("LoadConfig() Username = %v, want cli-user", cfg.Username)
+	}
+	if cfg.Password != "cli-pass" {
+		t.Errorf("LoadConfig() Password = %v, want cli-pass", cfg.Password)
+	}
+	if cfg.Database != "cli-db" {
+		t.Errorf("LoadConfig() Database = %v, want cli-db", cfg.Database)
+	}
+}
+
+func TestLoadConfig_PartialCLIOverrides(t *testing.T) {
+	// Unit test: verify partial CLI overrides work (some from CLI, some from env)
+	t.Setenv("NEO4J_URI", "bolt://env-host:7687")
+	t.Setenv("NEO4J_USERNAME", "env-user")
+	t.Setenv("NEO4J_PASSWORD", "env-pass")
+	t.Setenv("NEO4J_DATABASE", "env-db")
+
+	// Only override URI and Username, leave Password and Database from env
+	overrides := &CLIOverrides{
+		URI:      "bolt://cli-host:7687",
+		Username: "cli-user",
+		Password: "",
+		Database: "",
+	}
+
+	cfg, err := LoadConfig(overrides)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify CLI values override env values where provided
+	if cfg.URI != "bolt://cli-host:7687" {
+		t.Errorf("LoadConfig() URI = %v, want bolt://cli-host:7687", cfg.URI)
+	}
+	if cfg.Username != "cli-user" {
+		t.Errorf("LoadConfig() Username = %v, want cli-user", cfg.Username)
+	}
+	// Verify env values are used where CLI values are empty
+	if cfg.Password != "env-pass" {
+		t.Errorf("LoadConfig() Password = %v, want env-pass", cfg.Password)
+	}
+	if cfg.Database != "env-db" {
+		t.Errorf("LoadConfig() Database = %v, want env-db", cfg.Database)
 	}
 }
 
