@@ -1,3 +1,0 @@
-kind: Minor
-body: The "params" parameter of the "read-cypher" / "write-cypher" commands now correctly converts numbers with a decimal part (e.g. "1.0") into Neo4j floating-point numbers.
-time: 2025-11-20T17:25:52.46699Z

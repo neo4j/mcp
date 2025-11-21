@@ -330,7 +330,7 @@ func TestConvertNumbers(t *testing.T) {
 			expected: float64(3.14),
 		},
 		{
-			name:     "whole number float from json.Number becomes int",
+			name:     "whole number float from json.Number becomes float",
 			input:    json.Number("10.0"),
 			expected: float64(10),
 		},
@@ -340,7 +340,7 @@ func TestConvertNumbers(t *testing.T) {
 			expected: int64(0),
 		},
 		{
-			name:     "zero point zero from json.Number becomes int",
+			name:     "zero point zero from json.Number becomes float",
 			input:    json.Number("0.0"),
 			expected: float64(0),
 		},
