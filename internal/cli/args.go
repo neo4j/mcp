@@ -24,6 +24,7 @@ Options:
   --neo4j-database <DATABASE>         Database name (overrides environment variable NEO4J_DATABASE)
   --neo4j-read-only <BOOLEAN>         Enable read-only mode: true or false (overrides environment variable NEO4J_READ_ONLY)
   --neo4j-telemetry <BOOLEAN>         Enable telemetry: true or false (overrides environment variable NEO4J_TELEMETRY)
+  --neo4j-schema-sample-size <INT>    Number of nodes to sample for schema inference (overrides environment variable NEO4J_SCHEMA_SAMPLE_SIZE)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -34,6 +35,7 @@ Optional Environment Variables:
   NEO4J_DATABASE  Database name (default: neo4j)
   NEO4J_TELEMETRY Enable/disable telemetry (default: true)
   NEO4J_READ_ONLY Enable read-only mode (default: false)
+  NEO4J_SCHEMA_SAMPLE_SIZE Number of nodes to sample for schema inference (default: 100)
 
 Examples:
   # Using environment variables
@@ -47,12 +49,13 @@ For more information, visit: https://github.com/neo4j/mcp
 
 // Args holds configuration values parsed from command-line flags
 type Args struct {
-	URI       string
-	Username  string
-	Password  string
-	Database  string
-	ReadOnly  string
-	Telemetry string
+	URI              string
+	Username         string
+	Password         string
+	Database         string
+	ReadOnly         string
+	Telemetry        string
+	SchemaSampleSize string
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
@@ -64,16 +67,18 @@ func ParseConfigFlags() *Args {
 	neo4jDatabase := flag.String("neo4j-database", "", "Neo4j database name (overrides NEO4J_DATABASE env var)")
 	neo4jReadOnly := flag.String("neo4j-read-only", "", "Enable read-only mode: true or false (overrides NEO4J_READ_ONLY env var)")
 	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Enable telemetry: true or false (overrides NEO4J_TELEMETRY env var)")
+	neo4jSchemaSampleSize := flag.String("neo4j-schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_SCHEMA_SAMPLE_SIZE env var)")
 
 	flag.Parse()
 
 	return &Args{
-		URI:       *neo4jURI,
-		Username:  *neo4jUsername,
-		Password:  *neo4jPassword,
-		Database:  *neo4jDatabase,
-		ReadOnly:  *neo4jReadOnly,
-		Telemetry: *neo4jTelemetry,
+		URI:              *neo4jURI,
+		Username:         *neo4jUsername,
+		Password:         *neo4jPassword,
+		Database:         *neo4jDatabase,
+		ReadOnly:         *neo4jReadOnly,
+		Telemetry:        *neo4jTelemetry,
+		SchemaSampleSize: *neo4jSchemaSampleSize,
 	}
 }
 
@@ -100,7 +105,7 @@ func HandleArgs(version string) {
 			flags["version"] = true
 			i++
 		// Allow configuration flags to be parsed by the flag package
-		case "--neo4j-uri", "--neo4j-username", "--neo4j-password", "--neo4j-database", "--neo4j-read-only", "--neo4j-telemetry":
+		case "--neo4j-uri", "--neo4j-username", "--neo4j-password", "--neo4j-database", "--neo4j-read-only", "--neo4j-telemetry", "--neo4j-schema-sample-size":
 			// Check if there's a value following the flag
 			if i+1 >= len(os.Args) {
 				err = fmt.Errorf("%s requires a value", arg)

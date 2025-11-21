@@ -4,7 +4,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-// TODO: define an optimized get-schema output and add it as outputSchema
 func GetSchemaSpec() mcp.Tool {
 	return mcp.NewTool("get-schema",
 		mcp.WithDescription(`

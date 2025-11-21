@@ -1,0 +1,7 @@
+kind: Minor
+body: >-
+  The `get-schema` tool now returns a more concise, token-efficient JSON output.
+  The `sample-size` parameter is now configured via the
+  `NEO4J_SCHEMA_SAMPLE_SIZE` environment variable.
+  Alternatively the argument `--neo4j-schema-sample-size` can be used.
+time: 2025-11-20T22:52:55.588266Z

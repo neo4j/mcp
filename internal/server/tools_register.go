@@ -49,7 +49,7 @@ func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 		DBService:        s.dbService,
 		AnalyticsService: s.anService,
 	}
-	toolDefs := getAllToolsDefs(deps)
+	toolDefs := s.getAllToolsDefs(deps)
 
 	for _, filter := range filters {
 		toolDefs = filter(toolDefs)
@@ -82,14 +82,14 @@ func filterGDSTools(tools []ToolDefinition) []ToolDefinition {
 }
 
 // getAllToolsDefs returns all available tools with their specs and handlers
-func getAllToolsDefs(deps *tools.ToolDependencies) []ToolDefinition {
+func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDefinition {
 
 	return []ToolDefinition{
 		{
 			category: cypherCategory,
 			definition: server.ServerTool{
 				Tool:    cypher.GetSchemaSpec(),
-				Handler: cypher.GetSchemaHandler(deps),
+				Handler: cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize),
 			},
 			readonly: true,
 		},

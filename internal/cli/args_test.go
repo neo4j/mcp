@@ -174,6 +174,19 @@ func TestHandleArgs(t *testing.T) {
 			version:          testVersion,
 			expectedExitCode: -1, // Should not exit
 		},
+		{
+			name:             "schema sample size flag with valid value",
+			args:             []string{testProgramName, "--neo4j-schema-sample-size", "500"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit
+		},
+		{
+			name:             "schema sample size flag missing value",
+			args:             []string{testProgramName, "--neo4j-schema-sample-size"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-schema-sample-size requires a value",
+		},
 	}
 
 	for _, tt := range tests {

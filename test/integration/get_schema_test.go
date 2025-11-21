@@ -10,32 +10,21 @@ import (
 	"github.com/neo4j/mcp/test/integration/helpers"
 )
 
-type SchemaPropertyType struct {
-	Array     bool   `json:"array"`
-	Existence bool   `json:"existence"`
-	Indexed   bool   `json:"indexed"`
-	Type      string `json:"type"`
+type SchemaItem struct {
+	Key   string       `json:"key"`
+	Value SchemaDetail `json:"value"`
 }
 
-type RelationshipType struct {
-	Count      int                           `json:"count"`
-	Direction  string                        `json:"direction"`
-	Labels     []string                      `json:"labels"`
-	Properties map[string]SchemaPropertyType `json:"properties"`
+type SchemaDetail struct {
+	Type          string                  `json:"type"`
+	Properties    map[string]string       `json:"properties,omitempty"`
+	Relationships map[string]Relationship `json:"relationships,omitempty"`
 }
 
-// SchemaValue represents the guaranteed structure inside the "value" field.
-type SchemaValue struct {
-	Properties    map[string]SchemaPropertyType `json:"properties"`
-	Relationships map[string]RelationshipType   `json:"relationships"`
-	Type          string                        `json:"type"`
-}
-
-// SchemaEntry represents one element of the returned by get-schema :
-// { "key": "...", "value": { ... } }
-type SchemaEntry struct {
-	Key   string      `json:"key"`
-	Value SchemaValue `json:"value"`
+type Relationship struct {
+	Direction  string            `json:"direction"`
+	Labels     []string          `json:"labels"` // List of target node labels
+	Properties map[string]string `json:"properties,omitempty"`
 }
 
 func TestGetSchema(t *testing.T) {
@@ -52,10 +41,10 @@ func TestGetSchema(t *testing.T) {
 		t.Fatalf("failed to seed Company node: %v", err)
 	}
 
-	getSchema := cypher.GetSchemaHandler(tc.Deps)
+	getSchema := cypher.GetSchemaHandler(tc.Deps, 100)
 	res := tc.CallTool(getSchema, nil)
 
-	var schemaEntries []SchemaEntry
+	var schemaEntries []SchemaItem
 	tc.ParseJSONResponse(res, &schemaEntries)
 
 	if len(schemaEntries) == 0 {
@@ -64,49 +53,24 @@ func TestGetSchema(t *testing.T) {
 	assertSchemaHasLabel(t, schemaEntries, personLabel.String())
 	assertSchemaHasLabel(t, schemaEntries, companyLabel.String())
 
-	personEntry := getSchemaEntryByTypeOrLabel(schemaEntries, personLabel.String())
-	personProperties := map[string]SchemaPropertyType{
-		"name": {
-			Indexed:   false,
-			Array:     false,
-			Existence: false,
-			Type:      "STRING",
-		},
-		"age": {
-			Indexed:   false,
-			Array:     false,
-			Existence: false,
-			Type:      "INTEGER",
-		},
+	personEntry := getSchemaItemByTypeOrLabel(schemaEntries, personLabel.String())
+	personProperties := map[string]any{
+		"name": "STRING",
+		"age":  "INTEGER",
 	}
 	assertSchemaEntryHasProperties(t, personEntry.Value.Properties, personProperties)
 
-	companyEntry := getSchemaEntryByTypeOrLabel(schemaEntries, companyLabel.String())
-	companyProperties := map[string]SchemaPropertyType{
-		"name": {
-			Indexed:   false,
-			Array:     false,
-			Existence: false,
-			Type:      "STRING",
-		},
-		"founded": {
-			Indexed:   false,
-			Array:     false,
-			Existence: false,
-			Type:      "INTEGER",
-		},
+	companyEntry := getSchemaItemByTypeOrLabel(schemaEntries, companyLabel.String())
+	companyProperties := map[string]any{
+		"name":    "STRING",
+		"founded": "INTEGER",
 	}
 	assertSchemaEntryHasProperties(t, companyEntry.Value.Properties, companyProperties)
-
-	// TODO keep extending the coverage of the schema tests:
-	// - test different types such as float, duration etc ...
-	// - test primitive array such as []float
-	// - test Relationship
 }
 
 // assertSchemaHasLabel checks if the schema contains a node type with expected label
-func assertSchemaHasLabel(t *testing.T, schemaEntries []SchemaEntry, label string) {
-	foundLabel := slices.ContainsFunc(schemaEntries, func(schemaEntry SchemaEntry) bool {
+func assertSchemaHasLabel(t *testing.T, schemaEntries []SchemaItem, label string) {
+	foundLabel := slices.ContainsFunc(schemaEntries, func(schemaEntry SchemaItem) bool {
 		return schemaEntry.Key == label
 	})
 
@@ -115,33 +79,23 @@ func assertSchemaHasLabel(t *testing.T, schemaEntries []SchemaEntry, label strin
 	}
 }
 
-func getSchemaEntryByTypeOrLabel(schemaEntries []SchemaEntry, labelOrType string) SchemaEntry {
-	idx := slices.IndexFunc(schemaEntries, func(schemaEntry SchemaEntry) bool {
+func getSchemaItemByTypeOrLabel(schemaEntries []SchemaItem, labelOrType string) SchemaItem {
+	idx := slices.IndexFunc(schemaEntries, func(schemaEntry SchemaItem) bool {
 		return schemaEntry.Key == labelOrType
 	})
 
 	return schemaEntries[idx]
 }
 
-func assertSchemaEntryHasProperties(t *testing.T, entryProperties map[string]SchemaPropertyType, expectedProperties map[string]SchemaPropertyType) {
+func assertSchemaEntryHasProperties(t *testing.T, entryProperties map[string]string, expectedProperties map[string]any) {
 	for name, expected := range expectedProperties {
 		got, ok := entryProperties[name]
 		if !ok {
 			t.Fatalf("property %s expected for schema properties but not found, found properties: %v", name, entryProperties)
 		}
 
-		if got.Array != expected.Array {
-			t.Fatalf("property %s not found: Array mismatch (expected=%t got=%t)", name, expected.Array, got.Array)
+		if got != expected {
+			t.Fatalf("property with name: %s has an invalid type (expected=%v got=%v)", name, expected, got)
 		}
-		if got.Existence != expected.Existence {
-			t.Fatalf("property %s not found: Existence mismatch (expected=%t got=%t)", name, expected.Existence, got.Existence)
-		}
-		if got.Indexed != expected.Indexed {
-			t.Fatalf("property %s not found: Indexed mismatch (expected=%t got=%t)", name, expected.Indexed, got.Indexed)
-		}
-		if got.Type != expected.Type {
-			t.Fatalf("property %s not found: Type mismatch (expected=%s got=%s)", name, expected.Type, got.Type)
-		}
-
 	}
 }

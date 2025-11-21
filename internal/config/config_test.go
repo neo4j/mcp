@@ -274,3 +274,51 @@ func TestLoadConfig_ValidBooleanValues(t *testing.T) {
 		t.Errorf("LoadConfig() ReadOnly = %v, want true", cfg.ReadOnly)
 	}
 }
+
+func TestLoadConfig_ValidIntValue(t *testing.T) {
+	// Set required env variables for basic validation to pass
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+
+	t.Run("default value", func(t *testing.T) {
+		// Unset the env var to test default
+		t.Setenv("NEO4J_SCHEMA_SAMPLE_SIZE", "")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.SchemaSampleSize != 100 {
+			t.Errorf("LoadConfig() SchemaSampleSize = %v, want 100", cfg.SchemaSampleSize)
+		}
+	})
+
+	t.Run("value from env", func(t *testing.T) {
+		t.Setenv("NEO4J_SCHEMA_SAMPLE_SIZE", "500")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.SchemaSampleSize != 500 {
+			t.Errorf("LoadConfig() SchemaSampleSize = %v, want 500", cfg.SchemaSampleSize)
+		}
+	})
+
+	t.Run("invalid value from env", func(t *testing.T) {
+		t.Setenv("NEO4J_SCHEMA_SAMPLE_SIZE", "invalid")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		// Should fall back to default
+		if cfg.SchemaSampleSize != 100 {
+			t.Errorf("LoadConfig() SchemaSampleSize = %v, want 100", cfg.SchemaSampleSize)
+		}
+	})
+}

@@ -12,14 +12,15 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	URI       string
-	Username  string
-	Password  string
-	Database  string
-	ReadOnly  bool // If true, disables write tools
-	Telemetry bool // If false, disables telemetry
-	LogLevel  string
-	LogFormat string
+	URI              string
+	Username         string
+	Password         string
+	Database         string
+	ReadOnly         bool // If true, disables write tools
+	Telemetry        bool // If false, disables telemetry
+	LogLevel         string
+	LogFormat        string
+	SchemaSampleSize int32
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -76,14 +77,15 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	}
 
 	cfg := &Config{
-		URI:       GetEnv("NEO4J_URI"),
-		Username:  GetEnv("NEO4J_USERNAME"),
-		Password:  GetEnv("NEO4J_PASSWORD"),
-		Database:  GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		ReadOnly:  ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
-		Telemetry: ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
-		LogLevel:  logLevel,
-		LogFormat: logFormat,
+		URI:              GetEnv("NEO4J_URI"),
+		Username:         GetEnv("NEO4J_USERNAME"),
+		Password:         GetEnv("NEO4J_PASSWORD"),
+		Database:         GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		ReadOnly:         ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
+		Telemetry:        ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
+		LogLevel:         logLevel,
+		LogFormat:        logFormat,
+		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), 100),
 	}
 
 	// Apply CLI overrides if provided
@@ -145,4 +147,18 @@ func ParseBool(value string, defaultValue bool) bool {
 		return defaultValue
 	}
 	return parsed
+}
+
+// ParseInt32 parses a string to int32.
+// Returns the default value if the string is empty or invalid.
+func ParseInt32(value string, defaultValue int32) int32 {
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		log.Printf("Warning: Invalid integer value %q, using default: %v", value, defaultValue)
+		return defaultValue
+	}
+	return int32(parsed)
 }
