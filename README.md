@@ -83,6 +83,7 @@ Available flags:
 - `--neo4j-database` - Database name (overrides NEO4J_DATABASE)
 - `--neo4j-read-only` - Enable read-only mode: `true` or `false` (overrides NEO4J_READ_ONLY)
 - `--neo4j-telemetry` - Enable telemetry: `true` or `false` (overrides NEO4J_TELEMETRY)
+- `--neo4j-schema-sample-size` - Modify the sample size used to infer the Neo4j schema
 
 Use `neo4j-mcp --help` to see all available options.
 
