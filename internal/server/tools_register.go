@@ -89,7 +89,7 @@ func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDef
 			category: cypherCategory,
 			definition: server.ServerTool{
 				Tool:    cypher.GetSchemaSpec(),
-				Handler: cypher.GetSchemaHandler(deps, int32(s.config.SchemaSampleSize)),
+				Handler: cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize),
 			},
 			readonly: true,
 		},

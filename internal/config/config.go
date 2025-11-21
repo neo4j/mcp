@@ -20,7 +20,7 @@ type Config struct {
 	Telemetry        bool // If false, disables telemetry
 	LogLevel         string
 	LogFormat        string
-	SchemaSampleSize int
+	SchemaSampleSize int32
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -85,7 +85,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		Telemetry:        ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
 		LogLevel:         logLevel,
 		LogFormat:        logFormat,
-		SchemaSampleSize: ParseInt(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), 100),
+		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), 100),
 	}
 
 	// Apply CLI overrides if provided
@@ -149,16 +149,16 @@ func ParseBool(value string, defaultValue bool) bool {
 	return parsed
 }
 
-// ParseInt parses a string to int.
+// ParseInt32 parses a string to int32.
 // Returns the default value if the string is empty or invalid.
-func ParseInt(value string, defaultValue int) int {
+func ParseInt32(value string, defaultValue int32) int32 {
 	if value == "" {
 		return defaultValue
 	}
-	parsed, err := strconv.Atoi(value)
+	parsed, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		log.Printf("Warning: Invalid integer value %q, using default: %v", value, defaultValue)
 		return defaultValue
 	}
-	return parsed
+	return int32(parsed)
 }
