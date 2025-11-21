@@ -1,6 +1,8 @@
 kind: Minor
 body: >-
   The `get-schema` tool now returns a more concise, token-efficient JSON output.
-  It also accepts a new `sample-size` parameter to control the number of nodes
-  sampled for schema inference, which is useful for large graphs.
+  The `sample-size` parameter is now configured via the
+  `NEO4J_SCHEMA_SAMPLE_SIZE` environment variable instead of a tool argument.
+  This is useful for controlling the number of nodes sampled for schema
+  inference on large graphs.
 time: 2025-11-20T22:52:55.588266Z

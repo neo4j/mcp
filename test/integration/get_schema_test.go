@@ -41,10 +41,8 @@ func TestGetSchema(t *testing.T) {
 		t.Fatalf("failed to seed Company node: %v", err)
 	}
 
-	getSchema := cypher.GetSchemaHandler(tc.Deps)
-	res := tc.CallTool(getSchema, map[string]any{
-		"sample-size": 100,
-	})
+	getSchema := cypher.GetSchemaHandler(tc.Deps, 100)
+	res := tc.CallTool(getSchema, nil)
 
 	var schemaEntries []SchemaItem
 	tc.ParseJSONResponse(res, &schemaEntries)

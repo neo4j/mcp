@@ -4,10 +4,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-type GetSchemaInput struct {
-	SampleSize int64 `json:"sample-size" jsonschema:"default=100,description=The number of nodes to sample to infer the database schema."`
-}
-
 func GetSchemaSpec() mcp.Tool {
 	return mcp.NewTool("get-schema",
 		mcp.WithDescription(`
@@ -18,6 +14,5 @@ func GetSchemaSpec() mcp.Tool {
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(true),
-		mcp.WithInputSchema[GetSchemaInput](),
 	)
 }

@@ -23,14 +23,14 @@ const (
 )
 
 // GetSchemaHandler returns a handler function for the get_schema tool
-func GetSchemaHandler(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return handleGetSchema(ctx, request, deps)
+func GetSchemaHandler(deps *tools.ToolDependencies, schemaSampleSize int32) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return handleGetSchema(ctx, deps, schemaSampleSize)
 	}
 }
 
 // handleGetSchema retrieves Neo4j schema information using APOC
-func handleGetSchema(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
+func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSampleSize int32) (*mcp.CallToolResult, error) {
 	if deps.DBService == nil {
 		errMessage := "database service is not initialized"
 		slog.Error(errMessage)
@@ -42,20 +42,13 @@ func handleGetSchema(ctx context.Context, request mcp.CallToolRequest, deps *too
 		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-	var args GetSchemaInput
-
-	// Use our custom BindArguments that preserves integer types
-	if err := request.BindArguments(&args); err != nil {
-		slog.Error("error binding arguments", "error", err)
-		return mcp.NewToolResultError(err.Error()), nil
-	}
 
 	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("get-schema"))
 	slog.Info("retrieving schema from the database")
 
 	// Execute the APOC schema query
 	records, err := deps.DBService.ExecuteReadQuery(ctx, schemaQuery, map[string]any{
-		"sampleSize": args.SampleSize,
+		"sampleSize": schemaSampleSize,
 	})
 	if err != nil {
 		slog.Error("failed to execute schema query", "error", err)

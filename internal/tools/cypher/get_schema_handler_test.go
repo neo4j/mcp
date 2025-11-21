@@ -25,7 +25,7 @@ func TestGetSchemaHandler(t *testing.T) {
 	t.Run("successful schema retrieval", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Eq(map[string]any{"sampleSize": int32(100)})).
 			Return([]*neo4j.Record{
 				{
 					Keys: []string{"key", "value"},
@@ -64,7 +64,7 @@ func TestGetSchemaHandler(t *testing.T) {
 			AnalyticsService: analyticsService,
 		}
 
-		handler := cypher.GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps, 100)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -86,7 +86,7 @@ func TestGetSchemaHandler(t *testing.T) {
 			AnalyticsService: analyticsService,
 		}
 
-		handler := cypher.GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps, 100)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -103,7 +103,7 @@ func TestGetSchemaHandler(t *testing.T) {
 			AnalyticsService: analyticsService,
 		}
 
-		handler := cypher.GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps, 100)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -120,7 +120,7 @@ func TestGetSchemaHandler(t *testing.T) {
 			AnalyticsService: nil,
 		}
 
-		handler := cypher.GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps, 100)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -144,7 +144,7 @@ func TestGetSchemaHandler(t *testing.T) {
 			AnalyticsService: analyticsService,
 		}
 
-		handler := cypher.GetSchemaHandler(deps)
+		handler := cypher.GetSchemaHandler(deps, 100)
 		result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 		if err != nil {
@@ -164,68 +164,6 @@ func TestGetSchemaHandler(t *testing.T) {
 		textContent := result.Content[0].(mcp.TextContent)
 		if textContent.Text != "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned." {
 			t.Error("Expected result content to be present for empty database case")
-		}
-	})
-	t.Run("successful schema retrieval with sampleSize parameter", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		// Expect ExecuteReadQuery to be called with the sampleSize from the request
-		mockDB.EXPECT().
-			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Eq(map[string]any{"sampleSize": int64(200)})).
-			Return([]*neo4j.Record{
-				{
-					Keys: []string{"key", "value"},
-					Values: []any{
-						"Movie",
-						map[string]any{
-							"type": "node",
-							"properties": map[string]any{
-								"title": map[string]any{"type": "STRING", "indexed": false},
-							},
-							"relationships": map[string]any{
-								"ACTED_IN": map[string]any{
-									"count":      1,
-									"direction":  "in",
-									"labels":     []any{"Person"},
-									"properties": map[string]any{},
-								},
-							},
-						},
-					},
-				},
-				{
-					Keys: []string{"key", "value"},
-					Values: []any{
-						"ACTED_IN",
-						map[string]any{
-							"type":       "relationship",
-							"properties": map[string]any{},
-						},
-					},
-				},
-			}, nil)
-
-		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: analyticsService,
-		}
-
-		handler := cypher.GetSchemaHandler(deps)
-		// Simulate a request with the sampleSize argument
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"sample-size": 200,
-				},
-			},
-		}
-
-		result, err := handler(context.Background(), request)
-
-		if err != nil {
-			t.Errorf("Expected no error, got: %v", err)
-		}
-		if result == nil || result.IsError {
-			t.Error("Expected success result")
 		}
 	})
 
@@ -438,7 +376,7 @@ func TestGetSchemaProcessing(t *testing.T) {
 				AnalyticsService: analyticsService,
 			}
 
-			handler := cypher.GetSchemaHandler(deps)
+			handler := cypher.GetSchemaHandler(deps, 100)
 			result, err := handler(context.Background(), mcp.CallToolRequest{})
 
 			if err != nil {

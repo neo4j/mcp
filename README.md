@@ -76,6 +76,7 @@ neo4j-mcp --neo4j-uri "bolt://localhost:7687" \
 ```
 
 Available flags:
+
 - `--neo4j-uri` - Neo4j connection URI (overrides NEO4J_URI)
 - `--neo4j-username` - Database username (overrides NEO4J_USERNAME)
 - `--neo4j-password` - Database password (overrides NEO4J_PASSWORD)
@@ -96,14 +97,15 @@ Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/custo
       "type": "stdio",
       "command": "neo4j-mcp",
       "env": {
-        "NEO4J_URI": "bolt://localhost:7687",      // Required: Neo4j connection URI
-        "NEO4J_USERNAME": "neo4j",                 // Required: Database username
-        "NEO4J_PASSWORD": "password",              // Required: Database password
-        "NEO4J_DATABASE": "neo4j",                 // Optional: Database name (default: neo4j)
-        "NEO4J_READ_ONLY": "true",                 // Optional: Disables write tools (default: false)
-        "NEO4J_TELEMETRY": "false",                // Optional: Disables telemetry (default: true)
-        "NEO4J_LOG_LEVEL": "info",                 // Optional: Log level (default: info)
-        "NEO4J_LOG_FORMAT": "text"                 // Optional: Log format (default: text)
+        "NEO4J_URI": "bolt://localhost:7687", // Required: Neo4j connection URI
+        "NEO4J_USERNAME": "neo4j", // Required: Database username
+        "NEO4J_PASSWORD": "password", // Required: Database password
+        "NEO4J_DATABASE": "neo4j", // Optional: Database name (default: neo4j)
+        "NEO4J_READ_ONLY": "true", // Optional: Disables write tools (default: false)
+        "NEO4J_TELEMETRY": "false", // Optional: Disables telemetry (default: true)
+        "NEO4J_LOG_LEVEL": "info", // Optional: Log level (default: info)
+        "NEO4J_LOG_FORMAT": "text", // Optional: Log format (default: text)
+        "NEO4J_SCHEMA_SAMPLE_SIZE": "100" // Optional: Number of nodes to sample for schema inference (default: 100)
       }
     }
   }
@@ -135,14 +137,15 @@ You'll then add the `neo4j-mcp` MCP in the mcpServers key:
       "command": "neo4j-mcp",
       "args": [],
       "env": {
-        "NEO4J_URI": "bolt://localhost:7687",      // Required: Neo4j connection URI
-        "NEO4J_USERNAME": "neo4j",                 // Required: Database username
-        "NEO4J_PASSWORD": "password",              // Required: Database password
-        "NEO4J_DATABASE": "neo4j",                 // Optional: Database name (default: neo4j)
-        "NEO4J_READ_ONLY": "true",                 // Optional: Disables write tools (default: false)
-        "NEO4J_TELEMETRY": "false",                // Optional: Disables telemetry (default: true)
-        "NEO4J_LOG_LEVEL": "info",                 // Optional: Log level (default: info)
-        "NEO4J_LOG_FORMAT": "text"                 // Optional: Log format (default: text)
+        "NEO4J_URI": "bolt://localhost:7687", // Required: Neo4j connection URI
+        "NEO4J_USERNAME": "neo4j", // Required: Database username
+        "NEO4J_PASSWORD": "password", // Required: Database password
+        "NEO4J_DATABASE": "neo4j", // Optional: Database name (default: neo4j)
+        "NEO4J_READ_ONLY": "true", // Optional: Disables write tools (default: false)
+        "NEO4J_TELEMETRY": "false", // Optional: Disables telemetry (default: true)
+        "NEO4J_LOG_LEVEL": "info", // Optional: Log level (default: info)
+        "NEO4J_LOG_FORMAT": "text", // Optional: Log format (default: text)
+        "NEO4J_SCHEMA_SAMPLE_SIZE": "100" // Optional: Number of nodes to sample for schema inference (default: 100)
       }
     }
   }
@@ -150,6 +153,7 @@ You'll then add the `neo4j-mcp` MCP in the mcpServers key:
 ```
 
 **Important Notes:**
+
 - The first three environment variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) are **required**. The server will fail to start if any are missing.
 - Neo4j Desktop default URI: `bolt://localhost:7687`
 - Aura: use the connection string from the Aura console
@@ -171,6 +175,7 @@ Provided tools:
 Enable readonly mode by setting the `NEO4J_READ_ONLY` environment variable to `true` (for example, `"NEO4J_READ_ONLY": "true"`). Accepted values are `true` or `false` (default: `false`).
 
 You can also override this setting using the `--neo4j-read-only` CLI flag:
+
 ```bash
 neo4j-mcp --neo4j-uri "bolt://localhost:7687" --neo4j-username "neo4j" --neo4j-password "password" --neo4j-read-only true
 ```
@@ -214,6 +219,7 @@ Controls the verbosity of log output. Supports all [MCP log levels](https://mode
 **Log Format** (`NEO4J_LOG_FORMAT`, default: `text`)
 
 Controls the output format:
+
 - `text` - Human-readable text format (default)
 - `json` - Structured JSON format (useful for log aggregation)
 

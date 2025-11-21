@@ -9,4 +9,5 @@ import (
 type ToolDependencies struct {
 	DBService        database.Service
 	AnalyticsService analytics.Service
+	SchemaSampleSize int
 }
