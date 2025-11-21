@@ -9,12 +9,15 @@ env:
   NEO4J_DATABASE: "neo4j"
 
 tasks:
-  run:
-    cmds:
-      - go run ./cmd/neo4j-mcp
   build:
     cmds:
       - go build -C cmd/neo4j-mcp -o ../../bin/
+  run:
+    cmds:
+      - go run ./cmd/neo4j-mcp
+  run:compiled:
+    cmds:
+      - ./bin/neo4j-mcp {{.CLI_ARGS}}
 
   generate:
     cmds:

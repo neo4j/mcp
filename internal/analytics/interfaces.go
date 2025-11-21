@@ -13,7 +13,7 @@ type Service interface {
 	EmitEvent(event TrackEvent)
 	NewGDSProjCreatedEvent() TrackEvent
 	NewGDSProjDropEvent() TrackEvent
-	NewStartupEvent() TrackEvent
+	NewStartupEvent(startupEventInfo StartupEventInfo) TrackEvent
 	NewToolsEvent(toolsUsed string) TrackEvent
 }
 

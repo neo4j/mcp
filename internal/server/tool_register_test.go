@@ -19,7 +19,7 @@ func TestToolRegister(t *testing.T) {
 
 	aService := analytics.NewMockService(ctrl)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	aService.EXPECT().NewStartupEvent().AnyTimes()
+	aService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
 
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)

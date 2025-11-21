@@ -10,6 +10,7 @@ import (
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -51,8 +52,7 @@ func (s *Neo4jMCPServer) Start() error {
 		return err
 	}
 
-	// track startup event
-	s.anService.EmitEvent(s.anService.NewStartupEvent())
+	s.emitStartupEvent()
 
 	// Register tools
 	if err := s.registerTools(); err != nil {
@@ -117,6 +117,85 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 	}
 
 	return nil
+}
+
+func (s *Neo4jMCPServer) emitStartupEvent() {
+	// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
+	records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+
+	if err != nil {
+		slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
+		return
+	}
+
+	startupInfo := recordsToStartupEventInfo(records, s.version)
+
+	// track startup event
+	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
+}
+
+func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analytics.StartupEventInfo {
+	startupInfo := analytics.StartupEventInfo{
+		Neo4jVersion:  "not-found",
+		Edition:       "not-found",
+		CypherVersion: []string{"not-found"},
+		McpVersion:    mcpVersion,
+	}
+	for _, record := range records {
+		nameRaw, ok := record.Get("name")
+		if !ok {
+			slog.Debug("missing 'name' column in dbms.components record")
+			continue
+		}
+		name, ok := nameRaw.(string)
+		if !ok {
+			slog.Debug("invalid 'name' type in dbms.components record")
+			continue
+		}
+
+		editionRaw, ok := record.Get("edition")
+		if !ok {
+			slog.Debug("missing 'edition' column in dbms.components record")
+			continue
+		}
+		edition, ok := editionRaw.(string)
+		if !ok {
+			slog.Debug("invalid 'edition' type in dbms.components record")
+			continue
+		}
+		versionsRaw, ok := record.Get("versions")
+		if !ok {
+			slog.Debug("missing 'versions' column in dbms.components record")
+			continue
+		}
+		versions, ok := versionsRaw.([]interface{})
+		if !ok {
+			slog.Debug("invalid 'versions' type in dbms.components record")
+			continue
+		}
+
+		switch name {
+		case "Neo4j Kernel":
+			// versions can be an array, e,g. Cypher can have multiple versions. "Cypher": ["5", "25"]
+			if len(versions) > 0 {
+				if v, ok := versions[0].(string); ok {
+					startupInfo.Neo4jVersion = v
+				}
+			}
+
+			startupInfo.Edition = edition
+		case "Cypher":
+			var stringVersions []string
+			for _, v := range versions {
+				if s, ok := v.(string); ok {
+					stringVersions = append(stringVersions, s)
+				}
+			}
+
+			startupInfo.CypherVersion = stringVersions
+		}
+	}
+	return startupInfo
 }
 
 // Stop gracefully stops the server

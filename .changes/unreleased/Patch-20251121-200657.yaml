@@ -1,0 +1,3 @@
+kind: Patch
+body: Extend analytics insights with dbms.components information such as "Edition", "Neo4j version", "MCP Version", "Cypher Version"
+time: 2025-11-21T20:06:57.060045Z

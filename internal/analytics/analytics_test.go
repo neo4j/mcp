@@ -211,7 +211,12 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewStartupEvent", func(t *testing.T) {
-		event := analyticsService.NewStartupEvent()
+		event := analyticsService.NewStartupEvent(analytics.StartupEventInfo{
+			Neo4jVersion:  "2025.09.01",
+			CypherVersion: []string{"5", "25"},
+			Edition:       "enterprise",
+			McpVersion:    "1.0.0",
+		})
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
 		}
@@ -225,11 +230,34 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == true {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], false)
 		}
+		if props["neo4j_version"] != "2025.09.01" {
+			t.Errorf("unexpected Neo4jVersion: got %v, want %v", props["neo4j_version"], "2025.09.01")
+		}
+		if props["edition"] != "enterprise" {
+			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
+		}
+
+		if props["mcp_version"] != "1.0.0" {
+			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
+		}
+
+		cypherVersion, ok := props["cypher_version"].([]interface{})
+		if !ok {
+			t.Fatalf("cypher_version is not a []interface{}")
+		}
+		if len(cypherVersion) != 2 || cypherVersion[0] != "5" || cypherVersion[1] != "25" {
+			t.Errorf("unexpected cypher_version: got %v, want %v", props["cypher_version"], []string{"5", "25"})
+		}
 	})
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
 		auraAnalytics := newTestAnalytics(t, "test-token", "http://localhost", nil, "bolt://mydb.databases.neo4j.io")
-		event := auraAnalytics.NewStartupEvent()
+		event := auraAnalytics.NewStartupEvent(analytics.StartupEventInfo{
+			Neo4jVersion:  "2025.09.01",
+			CypherVersion: []string{"5", "25"},
+			Edition:       "enterprise",
+			McpVersion:    "1.0.0",
+		})
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -243,6 +271,23 @@ func TestEventCreation(t *testing.T) {
 		}
 		if props["isAura"] == false {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], true)
+		}
+		if props["neo4j_version"] != "2025.09.01" {
+			t.Errorf("unexpected Neo4jVersion: got %v, want %v", props["neo4j_version"], "2025.09.01")
+		}
+		if props["edition"] != "enterprise" {
+			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
+		}
+		if props["mcp_version"] != "1.0.0" {
+			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
+		}
+
+		cypherVersion, ok := props["cypher_version"].([]interface{})
+		if !ok {
+			t.Fatalf("cypher_version is not a []interface{}")
+		}
+		if len(cypherVersion) != 2 || cypherVersion[0] != "5" || cypherVersion[1] != "25" {
+			t.Errorf("unexpected cypher_version: got %v, want %v", props["cypher_version"], []string{"5", "25"})
 		}
 	})
 
