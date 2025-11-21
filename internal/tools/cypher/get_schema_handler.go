@@ -154,43 +154,62 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 		// Transformation logic.
 
 		//  Extract Type ("node" or "relationship")
-		itemType, _ := data["type"].(string)
+		itemType, ok := data["type"].(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid type returned")
+		}
 
 		// Simplify Properties
 		// Input:  { "name": { "type": "STRING", "indexed": ... } }
 		// Output: { "name": "STRING" }
-		cleanProps := simplifyProperties(data["properties"])
+		cleanProps, ok := simplifyProperties(data["properties"])
+		if !ok {
+			return nil, fmt.Errorf("invalid properties returned")
+		}
 
 		// Simplify Relationships
 		// Input:  { "CONNECTION": { "relationship": null, "direction": "out", "properties": {...} } }
 		// Output: { "CONNECTION": { "direction": "out", "properties": {"dist": "FLOAT"} } }
 		var cleanRels map[string]Relationship
 
-		if rawRels, ok := data["relationships"].(map[string]interface{}); ok && len(rawRels) > 0 {
-			cleanRels = make(map[string]Relationship)
-			for relName, rawRelDetails := range rawRels {
-				if relDetails, ok := rawRelDetails.(map[string]interface{}); ok {
-
+		rawRels, relsExist := data["relationships"]
+		// relationship can be nil
+		if relsExist && rawRels != nil {
+			if relsMap, ok := rawRels.(map[string]interface{}); ok && len(relsMap) > 0 {
+				cleanRels = make(map[string]Relationship)
+				for relName, rawRelDetails := range relsMap {
+					relDetails, ok := rawRelDetails.(map[string]interface{})
+					if !ok {
+						return nil, fmt.Errorf("invalid relationship returned")
+					}
 					// Extract Direction
-					direction, _ := relDetails["direction"].(string)
+					direction, ok := relDetails["direction"].(string)
+					if !ok {
+						return nil, fmt.Errorf("invalid direction returned")
+					}
 
 					// Extract Target Labels
 					var labels []string
-					if rawLabels, ok := relDetails["labels"].([]interface{}); ok {
-						for _, l := range rawLabels {
-							if lStr, ok := l.(string); ok {
-								labels = append(labels, lStr)
-							}
+					rawLabels, ok := relDetails["labels"].([]interface{})
+					if !ok {
+						return nil, fmt.Errorf("invalid relationship labels returned")
+					}
+					for _, l := range rawLabels {
+						if lStr, ok := l.(string); ok {
+							labels = append(labels, lStr)
 						}
 					}
 
-					relProps := simplifyProperties(relDetails["properties"])
-
+					relProps, ok := simplifyProperties(relDetails["properties"])
+					if !ok {
+						return nil, fmt.Errorf("invalid relationship properties returned")
+					}
 					cleanRels[relName] = Relationship{
 						Direction:  direction,
 						Labels:     labels,
 						Properties: relProps,
 					}
+
 				}
 			}
 		}
@@ -209,16 +228,20 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 }
 
 // simplifyProperties removes all the not required information such as "existence", "indexed", "unique", and keep the type name.
-func simplifyProperties(rawProps interface{}) map[string]string {
+func simplifyProperties(rawProps interface{}) (map[string]string, bool) {
 	cleanProps := make(map[string]string)
 	if props, ok := rawProps.(map[string]interface{}); ok {
 		for propName, rawPropDetails := range props {
 			if propDetails, ok := rawPropDetails.(map[string]interface{}); ok {
 				if typeName, ok := propDetails["type"].(string); ok {
 					cleanProps[propName] = typeName
+				} else {
+					return nil, false
 				}
 			}
 		}
+	} else {
+		return nil, false
 	}
-	return cleanProps
+	return cleanProps, true
 }

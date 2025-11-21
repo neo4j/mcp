@@ -178,11 +178,13 @@ func TestGetSchemaProcessing(t *testing.T) {
 
 	testCases := []struct {
 		name         string
+		expectedErr  bool
 		mockRecords  []*neo4j.Record
 		expectedJSON string
 	}{
 		{
-			name: "successful schema processing",
+			name:        "successful schema processing",
+			expectedErr: false,
 			mockRecords: []*neo4j.Record{
 				{
 					Keys: []string{"key", "value"},
@@ -254,7 +256,8 @@ func TestGetSchemaProcessing(t *testing.T) {
 			]`,
 		},
 		{
-			name: "schema with multiple nodes and varied relationships",
+			name:        "schema with multiple nodes and varied relationships",
+			expectedErr: false,
 			mockRecords: []*neo4j.Record{
 				{
 					Keys: []string{"key", "value"},
@@ -338,7 +341,8 @@ func TestGetSchemaProcessing(t *testing.T) {
 			]`,
 		},
 		{
-			name: "schema with a node with no relationships",
+			name:        "schema with a node with no relationships",
+			expectedErr: false,
 			mockRecords: []*neo4j.Record{
 				{
 					Keys: []string{"key", "value"},
@@ -362,6 +366,156 @@ func TestGetSchemaProcessing(t *testing.T) {
 				}
 			]`,
 		},
+		{
+			name:        "schema with a node with no relationships (relationships nil)",
+			expectedErr: false,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Genre",
+						map[string]any{
+							"type":          "node",
+							"properties":    map[string]any{"name": map[string]any{"type": "STRING"}},
+							"relationships": nil,
+						},
+					},
+				},
+			},
+			expectedJSON: `[
+				{
+					"key": "Genre",
+					"value": {
+						"properties": {"name": "STRING"},
+						"type": "node"
+					}
+				}
+			]`,
+		},
+		{
+			name:        "should fail for invalid output returned by apoc.meta.schema (no key returned)",
+			expectedErr: true,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"value"},
+					Values: []any{
+						"Genre",
+					},
+				},
+			},
+			expectedJSON: `[]`,
+		},
+		{
+			name:        "should fail for invalid output returned by apoc.meta.schema (invalid properties)",
+			expectedErr: true,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Genre",
+						map[string]any{
+							"type":          "node",
+							"properties":    12,
+							"relationships": map[string]any{},
+						},
+					},
+				},
+			},
+			expectedJSON: `[]`,
+		},
+		{
+			name:        "should fail for invalid output returned by apoc.meta.schema (invalid Node.Relationship.direction)",
+			expectedErr: true,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title":    map[string]any{"type": "STRING", "indexed": false},
+								"released": map[string]any{"type": "INTEGER", "indexed": false},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"direction": 12, "labels": []any{"Person"}, "properties": map[string]any{"roles": map[string]any{"type": "LIST"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedJSON: `[]`,
+		},
+		{
+			name:        "should fail for invalid output returned by apoc.meta.schema (invalid Node.relationship)",
+			expectedErr: true,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title":    map[string]any{"type": "STRING", "indexed": false},
+								"released": map[string]any{"type": "INTEGER", "indexed": false},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": "something",
+							},
+						},
+					},
+				},
+			},
+			expectedJSON: `[]`,
+		},
+		{
+			name:        "should fail for invalid output returned by apoc.meta.schema (invalid Node.relationship labels)",
+			expectedErr: true,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Movie",
+						map[string]any{
+							"type": "node",
+							"properties": map[string]any{
+								"title":    map[string]any{"type": "STRING", "indexed": false},
+								"released": map[string]any{"type": "INTEGER", "indexed": false},
+							},
+							"relationships": map[string]any{
+								"ACTED_IN": map[string]any{
+									"direction": "in", "labels": "not-valid", "properties": map[string]any{
+										"role": map[string]any{"type": "STRING", "indexed": false},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedJSON: `[]`,
+		},
+		{
+			name:        "should fail for invalid output returned by apoc.meta.schema (invalid relationship properties)",
+			expectedErr: true,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"ACTED_IN",
+						map[string]any{
+							"type":       "relationship",
+							"labels":     []any{"Person"},
+							"properties": "not-valid",
+						},
+					},
+				},
+			},
+			expectedJSON: `[]`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -382,7 +536,11 @@ func TestGetSchemaProcessing(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Expected no error, got: %v", err)
 			}
+
 			if result == nil || result.IsError {
+				if tc.expectedErr {
+					return
+				}
 				t.Fatal("Expected success result")
 			}
 
