@@ -32,12 +32,11 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("read-cypher"))
 
 	var args ReadCypherInput
-	// Use our custom BindArguments that preserves integer types
-	if err := BindArguments(request, &args); err != nil {
+
+	if err := request.BindArguments(&args); err != nil {
 		slog.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-
 	Query := args.Query
 	Params := args.Params
 

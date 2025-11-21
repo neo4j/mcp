@@ -32,7 +32,7 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 
 	var args WriteCypherInput
 	// Use our custom BindArguments that preserves integer types
-	if err := BindArguments(request, &args); err != nil {
+	if err := request.BindArguments(&args); err != nil {
 		slog.Error("error binding arguments", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
