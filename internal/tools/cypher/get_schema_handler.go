@@ -89,8 +89,8 @@ type Relationship struct {
 	Properties map[string]string `json:"properties,omitempty"`
 }
 
-// processCypherSchema is a func that transform a list of Neo4j.Record in a JSON tagged struct,
-// this allow to maintain the same APOC query supported by multiple Neo4j versions while returning a tokens aware version of it.
+// processCypherSchema is a func that transforms a list of Neo4j.Record in a JSON tagged struct,
+// this allows us to maintain the same APOC query supported by multiple Neo4j versions while returning a tokens aware version of it.
 // Properties are optimized to return directly the type and removing unnecessary information:
 // From:
 //
