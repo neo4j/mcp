@@ -3,8 +3,17 @@ package cypher
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 )
 
+// Params is a map of Cypher query parameters with custom JSON unmarshaling
+// that preserves numeric types correctly for Neo4j.
+//
+// When unmarshaling from JSON:
+//   - Whole numbers (e.g., 1, 42, -10) become int64
+//   - Numbers with fractional parts (e.g., 1.5, 3.14) become float64
+//   - Numbers with decimal notation but no fraction (e.g., 10.0) become float64
+//   - Other types (strings, booleans, null) are preserved as-is
 type Params map[string]any
 
 func (cp *Params) UnmarshalJSON(data []byte) error {
@@ -16,8 +25,11 @@ func (cp *Params) UnmarshalJSON(data []byte) error {
 	if err := decoder.Decode(&temp); err != nil {
 		return err
 	}
-
-	*cp = ConvertNumbers(temp).(map[string]any)
+	paramConverted, ok := ConvertNumbers(temp).(map[string]any)
+	if !ok {
+		return fmt.Errorf("error during Unmarshaling of Params")
+	}
+	*cp = paramConverted
 	return nil
 }
 
