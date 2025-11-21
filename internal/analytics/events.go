@@ -25,6 +25,14 @@ type baseProperties struct {
 	IsAura     bool   `json:"isAura"`
 }
 
+type startupProperties struct {
+	baseProperties
+	Neo4jVersion  string   `json:"neo4j_version"`
+	Edition       string   `json:"edition"`
+	CypherVersion []string `json:"cypher_version"`
+	McpVersion    string   `json:"mcp_version"`
+}
+
 type toolsProperties struct {
 	baseProperties
 	ToolUsed string `json:"tools_used"`
@@ -49,10 +57,23 @@ func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
 	}
 }
 
-func (a *Analytics) NewStartupEvent() TrackEvent {
+type StartupEventInfo struct {
+	Neo4jVersion  string
+	Edition       string
+	CypherVersion []string
+	McpVersion    string
+}
+
+func (a *Analytics) NewStartupEvent(startupInfoEvent StartupEventInfo) TrackEvent {
 	return TrackEvent{
-		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: a.getBaseProperties(),
+		Event: strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
+		Properties: startupProperties{
+			baseProperties: a.getBaseProperties(),
+			Neo4jVersion:   startupInfoEvent.Neo4jVersion,
+			Edition:        startupInfoEvent.Edition,
+			CypherVersion:  startupInfoEvent.CypherVersion,
+			McpVersion:     startupInfoEvent.McpVersion,
+		},
 	}
 }
 
