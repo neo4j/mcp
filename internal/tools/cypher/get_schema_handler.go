@@ -134,7 +134,10 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 		if !ok {
 			return nil, fmt.Errorf("missing 'key' column in record")
 		}
-		keyStr, _ := keyRaw.(string)
+		keyStr, ok := keyRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid key returned")
+		}
 
 		// Extract "value" (The map containing properties, type, relationships)
 		valRaw, ok := record.Get("value")
