@@ -6,6 +6,9 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
@@ -30,12 +33,13 @@ func main() {
 
 	// Load and validate configuration (env vars + CLI overrides)
 	cfg, err := config.LoadConfig(&config.CLIOverrides{
-		URI:       cliArgs.URI,
-		Username:  cliArgs.Username,
-		Password:  cliArgs.Password,
-		Database:  cliArgs.Database,
-		ReadOnly:  cliArgs.ReadOnly,
-		Telemetry: cliArgs.Telemetry,
+		URI:           cliArgs.URI,
+		Username:      cliArgs.Username,
+		Password:      cliArgs.Password,
+		Database:      cliArgs.Database,
+		ReadOnly:      cliArgs.ReadOnly,
+		Telemetry:     cliArgs.Telemetry,
+		TransportMode: cliArgs.TransportMode,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
@@ -83,17 +87,24 @@ func main() {
 	// Create and configure the MCP server
 	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService)
 
-	// Gracefully handle shutdown
-	defer func() {
-		if err := mcpServer.Stop(); err != nil {
-			slog.Error("Error stopping server", "error", err)
-		}
-	}()
-
 	// Start the server (this blocks until the server is stopped)
 	if err := mcpServer.Start(); err != nil {
 		slog.Error("Server error", "error", err)
-		return // so that defer can run
 	}
 
+	// wait for shutdown signal to kill server
+	if cfg.TransportMode == config.TransportModeHTTP {
+		// Block here forever - HTTP server runs in its own goroutine
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+		<-sigChan
+		slog.Info("Shutdown signal received, stopping server...")
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := mcpServer.Stop(shutdownCtx); err != nil {
+			slog.Error("Error stopping server", "error", err)
+		}
+	}
 }

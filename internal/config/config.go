@@ -10,6 +10,13 @@ import (
 	"github.com/neo4j/mcp/internal/logger"
 )
 
+const (
+	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
+	DefaultSchemaSampleSize int32  = 100
+	TransportModeStdio      string = "stdio"
+	TransportModeHTTP       string = "http"
+)
+
 // Config holds the application configuration
 type Config struct {
 	URI              string
@@ -87,7 +94,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		Telemetry:        ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
 		LogLevel:         logLevel,
 		LogFormat:        logFormat,
-		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), 100),
+		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
 		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
 	}
 

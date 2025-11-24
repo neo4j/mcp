@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
@@ -12,9 +14,14 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 )
 
+const (
+	httpServerBasePath = "/mcp/"
+)
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	MCPServer    *server.MCPServer
+	httpServer   *http.Server
 	config       *config.Config
 	dbService    database.Service
 	version      string
@@ -45,7 +52,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
-	slog.Info("Starting Neo4j MCP Server...")
+	slog.Info("Starting Neo4j MCP Server", "transportMode", s.config.TransportMode)
 	err := s.verifyRequirements()
 	if err != nil {
 		return err
@@ -59,8 +66,17 @@ func (s *Neo4jMCPServer) Start() error {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
 	slog.Info("Started Neo4j MCP Server. Now listening for input...")
-	// Note: ServeStdio handles its own signal management for graceful shutdown
-	return server.ServeStdio(s.MCPServer)
+
+	switch s.config.TransportMode {
+	case config.TransportModeHTTP:
+		// Note: ServeHTTP handles its own signal management for graceful shutdown
+		return s.StartHTTPServer()
+	case config.TransportModeStdio:
+		// Note: ServeStdio handles its own signal management for graceful shutdown
+		return server.ServeStdio(s.MCPServer)
+	default:
+		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
+	}
 }
 
 // verifyRequirements check the Neo4j requirements:
@@ -120,9 +136,67 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 }
 
 // Stop gracefully stops the server
-func (s *Neo4jMCPServer) Stop() error {
+func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 	slog.Info("Stopping Neo4j MCP Server...")
 	// Currently no cleanup needed - the MCP server handles its own lifecycle
 	// Database service cleanup is handled by the caller (main.go)
+	if s.httpServer != nil {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			slog.Error("Error shutting down HTTP server", "error", err)
+			return err
+		}
+	}
+	slog.Info("Neo4j MCP Server stopped.")
 	return nil
+}
+
+func (s *Neo4jMCPServer) StartHTTPServer() error {
+	slog.Info("Starting HTTP server for MCP...")
+
+	// Create the StreamableHTTPServer with configuration
+	mcpServerHTTP := server.NewStreamableHTTPServer(
+		s.MCPServer,
+		server.WithStateLess(true),
+	)
+
+	// Create HTTP server with custom routes
+	mux := http.NewServeMux()
+
+	// Add MCP endpoints
+	mux.Handle(httpServerBasePath, mcpServerHTTP)
+
+	// Add middleware -- todo: allowed origins and basic auth can be added here
+	handler := addMiddleware(mux)
+
+	// todo: add port from config/env var
+	log.Println("Starting custom StreamableHTTP server on :8080")
+	s.httpServer = &http.Server{
+		Addr:              ":8080",
+		Handler:           handler,
+		ReadTimeout:       30 * time.Second,  // Max time to read request including body
+		WriteTimeout:      60 * time.Second,  // Max time to write response
+		IdleTimeout:       120 * time.Second, // Max time for keep-alive connections
+		ReadHeaderTimeout: 10 * time.Second,  // Max time to read request headers
+	}
+
+	go func() {
+		slog.Info("HTTP server listening", "addr", s.httpServer.Addr)
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("HTTP server ListenAndServe error", "error", err)
+		}
+	}()
+
+	return nil
+}
+
+func addMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Example middleware: Logging
+		slog.Info("HTTP Request", "method", r.Method, "url", r.URL.Path)
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
 }
