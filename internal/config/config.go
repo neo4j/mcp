@@ -21,6 +21,7 @@ type Config struct {
 	LogLevel         string
 	LogFormat        string
 	SchemaSampleSize int32
+	TransportMode    string // MCP Transport mode (e.g., "stdio", "http")
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -49,12 +50,13 @@ func (c *Config) Validate() error {
 
 // CLIOverrides holds optional configuration values from CLI flags
 type CLIOverrides struct {
-	URI       string
-	Username  string
-	Password  string
-	Database  string
-	ReadOnly  string
-	Telemetry string
+	URI           string
+	Username      string
+	Password      string
+	Database      string
+	ReadOnly      string
+	Telemetry     string
+	TransportMode string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -86,6 +88,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogLevel:         logLevel,
 		LogFormat:        logFormat,
 		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), 100),
+		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
 	}
 
 	// Apply CLI overrides if provided
@@ -107,6 +110,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.Telemetry != "" {
 			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
+		}
+		if cliOverrides.TransportMode != "" {
+			cfg.TransportMode = cliOverrides.TransportMode
 		}
 	}
 
