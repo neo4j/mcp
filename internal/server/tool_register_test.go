@@ -16,13 +16,13 @@ func TestToolRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-
 	aService := analytics.NewMockService(ctrl)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	aService.EXPECT().NewStartupEvent().AnyTimes()
+	aService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
 
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
 			URI:      "bolt://test-host:7687",
 			Username: "neo4j",
@@ -49,6 +49,7 @@ func TestToolRegister(t *testing.T) {
 
 	t.Run("should register only readonly tools when readonly", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
 			URI:      "bolt://test-host:7687",
 			Username: "neo4j",
@@ -75,6 +76,7 @@ func TestToolRegister(t *testing.T) {
 	})
 	t.Run("should register also not write tools when readonly is set to false", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
 			URI:      "bolt://test-host:7687",
 			Username: "neo4j",
@@ -102,6 +104,7 @@ func TestToolRegister(t *testing.T) {
 
 	t.Run("should remove GDS tools if GDS is not present", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, false)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
 			URI:      "bolt://test-host:7687",
 			Username: "neo4j",
