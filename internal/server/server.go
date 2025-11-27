@@ -1,10 +1,8 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -190,14 +188,6 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 func addMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Example middleware: Logging
-		// Read and log request body
-		bodyBytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			slog.Error("Failed to read request body", "error", err)
-		} else {
-			// Restore the body for downstream handlers
-			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		}
 
 		slog.Debug("HTTP Request",
 			"method", r.Method,
@@ -207,7 +197,6 @@ func addMiddleware(next http.Handler) http.Handler {
 			"content_length", r.ContentLength,
 			"host", r.Host,
 			"query", r.URL.RawQuery,
-			"body", string(bodyBytes),
 		)
 
 		// Call the next handler
