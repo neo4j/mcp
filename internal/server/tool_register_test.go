@@ -24,10 +24,11 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -51,11 +52,12 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: true,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -78,11 +80,12 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: false,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -106,11 +109,12 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, false)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: false,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 

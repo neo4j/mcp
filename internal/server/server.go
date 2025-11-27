@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
@@ -13,9 +15,14 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+const (
+	httpServerBasePath = "/"
+)
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	MCPServer    *server.MCPServer
+	httpServer   *http.Server
 	config       *config.Config
 	dbService    database.Service
 	version      string
@@ -46,7 +53,6 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
-	slog.Info("Starting Neo4j MCP Server...")
 	err := s.verifyRequirements()
 	if err != nil {
 		return err
@@ -58,9 +64,18 @@ func (s *Neo4jMCPServer) Start() error {
 	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-	slog.Info("Started Neo4j MCP Server. Now listening for input...")
-	// Note: ServeStdio handles its own signal management for graceful shutdown
-	return server.ServeStdio(s.MCPServer)
+
+	switch s.config.TransportMode {
+	case config.TransportModeHTTP:
+		// Note: ServeHTTP handles its own signal management for graceful shutdown
+		return s.StartHTTPServer()
+	case config.TransportModeStdio:
+		slog.Info("Starting stdio server")
+		// Note: ServeStdio handles its own signal management for graceful shutdown
+		return server.ServeStdio(s.MCPServer)
+	default:
+		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
+	}
 }
 
 // verifyRequirements check the Neo4j requirements:
@@ -199,9 +214,71 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 }
 
 // Stop gracefully stops the server
-func (s *Neo4jMCPServer) Stop() error {
+func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 	slog.Info("Stopping Neo4j MCP Server...")
-	// Currently no cleanup needed - the MCP server handles its own lifecycle
-	// Database service cleanup is handled by the caller (main.go)
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			slog.Error("Error shutting down HTTP server", "error", err)
+			return err
+		}
+	}
+	slog.Info("Neo4j MCP Server stopped.")
 	return nil
+}
+
+func (s *Neo4jMCPServer) StartHTTPServer() error {
+	addr := fmt.Sprintf("%s:%s", s.config.HTTPHost, s.config.HTTPPort)
+	serverURL := fmt.Sprintf("http://%s", addr)
+
+	// Create the StreamableHTTPServer with configuration
+	mcpServerHTTP := server.NewStreamableHTTPServer(
+		s.MCPServer,
+		server.WithStateLess(true),
+	)
+
+	// Create HTTP server with custom routes
+	mux := http.NewServeMux()
+
+	// Add MCP endpoints - StreamableHTTPServer internally handles /mcp path
+	mux.Handle(httpServerBasePath, mcpServerHTTP)
+
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: addMiddleware(mux),
+		// Timeouts optimized for stateless HTTP MCP requests
+		ReadTimeout:       10 * time.Second, // Time to read request body (handles slow uploads)
+		WriteTimeout:      30 * time.Second, // Time to write complete response (allows complex queries)
+		IdleTimeout:       60 * time.Second, // Connection reuse window for HTTP clients
+		ReadHeaderTimeout: 5 * time.Second,  // Time to read headers (prevents slow header attacks)
+	}
+
+	slog.Info("HTTP server listening", "url", serverURL)
+
+	// This blocks and serves requests
+	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("HTTP server error", "error", err)
+		return fmt.Errorf("HTTP server failed: %w", err)
+	}
+
+	return nil
+}
+
+// addMiddleware is a simple placeholder example of adding middleware to the HTTP server
+func addMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Example middleware: Logging
+
+		slog.Debug("HTTP Request",
+			"method", r.Method,
+			"url", r.URL.Path,
+			"remote_addr", r.RemoteAddr,
+			"user_agent", r.UserAgent(),
+			"content_length", r.ContentLength,
+			"host", r.Host,
+			"query", r.URL.RawQuery,
+		)
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
 }
