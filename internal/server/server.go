@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -15,7 +17,7 @@ import (
 )
 
 const (
-	httpServerBasePath = "/mcp/"
+	httpServerBasePath = "/"
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -52,7 +54,6 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // Start initializes and starts the MCP server using stdio transport
 func (s *Neo4jMCPServer) Start() error {
-	slog.Info("Starting Neo4j MCP Server", "transportMode", s.config.TransportMode)
 	err := s.verifyRequirements()
 	if err != nil {
 		return err
@@ -65,13 +66,13 @@ func (s *Neo4jMCPServer) Start() error {
 	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-	slog.Info("Started Neo4j MCP Server. Now listening for input...")
 
 	switch s.config.TransportMode {
 	case config.TransportModeHTTP:
 		// Note: ServeHTTP handles its own signal management for graceful shutdown
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:
+		slog.Info("Starting stdio server")
 		// Note: ServeStdio handles its own signal management for graceful shutdown
 		return server.ServeStdio(s.MCPServer)
 	default:
@@ -138,11 +139,7 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 // Stop gracefully stops the server
 func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 	slog.Info("Stopping Neo4j MCP Server...")
-	// Currently no cleanup needed - the MCP server handles its own lifecycle
-	// Database service cleanup is handled by the caller (main.go)
 	if s.httpServer != nil {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
 		if err := s.httpServer.Shutdown(ctx); err != nil {
 			slog.Error("Error shutting down HTTP server", "error", err)
 			return err
@@ -153,7 +150,8 @@ func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 }
 
 func (s *Neo4jMCPServer) StartHTTPServer() error {
-	slog.Info("Starting HTTP server for MCP...")
+	addr := fmt.Sprintf("%s:%s", s.config.HTTPHost, s.config.HTTPPort)
+	serverURL := fmt.Sprintf("http://%s", addr)
 
 	// Create the StreamableHTTPServer with configuration
 	mcpServerHTTP := server.NewStreamableHTTPServer(
@@ -164,37 +162,53 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Create HTTP server with custom routes
 	mux := http.NewServeMux()
 
-	// Add MCP endpoints
+	// Add MCP endpoints - StreamableHTTPServer internally handles /mcp path
 	mux.Handle(httpServerBasePath, mcpServerHTTP)
 
-	// Add middleware -- todo: allowed origins and basic auth can be added here
-	handler := addMiddleware(mux)
-
-	// todo: add port from config/env var
-	log.Println("Starting custom StreamableHTTP server on :8080")
 	s.httpServer = &http.Server{
-		Addr:              ":8080",
-		Handler:           handler,
-		ReadTimeout:       30 * time.Second,  // Max time to read request including body
-		WriteTimeout:      60 * time.Second,  // Max time to write response
-		IdleTimeout:       120 * time.Second, // Max time for keep-alive connections
-		ReadHeaderTimeout: 10 * time.Second,  // Max time to read request headers
+		Addr:    addr,
+		Handler: addMiddleware(mux),
+		// Timeouts optimized for stateless HTTP MCP requests
+		ReadTimeout:       10 * time.Second, // Time to read request body (handles slow uploads)
+		WriteTimeout:      30 * time.Second, // Time to write complete response (allows complex queries)
+		IdleTimeout:       60 * time.Second, // Connection reuse window for HTTP clients
+		ReadHeaderTimeout: 5 * time.Second,  // Time to read headers (prevents slow header attacks)
 	}
 
-	go func() {
-		slog.Info("HTTP server listening", "addr", s.httpServer.Addr)
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("HTTP server ListenAndServe error", "error", err)
-		}
-	}()
+	slog.Info("HTTP server listening", "url", serverURL)
+
+	// This blocks and serves requests
+	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("HTTP server error", "error", err)
+		return fmt.Errorf("HTTP server failed: %w", err)
+	}
 
 	return nil
 }
 
+// addMiddleware is a simple placeholder example of adding middleware to the HTTP server
 func addMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Example middleware: Logging
-		slog.Info("HTTP Request", "method", r.Method, "url", r.URL.Path)
+		// Read and log request body
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			slog.Error("Failed to read request body", "error", err)
+		} else {
+			// Restore the body for downstream handlers
+			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		slog.Debug("HTTP Request",
+			"method", r.Method,
+			"url", r.URL.Path,
+			"remote_addr", r.RemoteAddr,
+			"user_agent", r.UserAgent(),
+			"content_length", r.ContentLength,
+			"host", r.Host,
+			"query", r.URL.RawQuery,
+			"body", string(bodyBytes),
+		)
 
 		// Call the next handler
 		next.ServeHTTP(w, r)

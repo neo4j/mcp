@@ -149,7 +149,9 @@ func TestServerLifecycle(t *testing.T) {
 		if startErr != nil {
 			t.Fatalf("Start() returned an unexpected error after stop: %v", startErr)
 		}
-		if err := s.Stop(); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.Stop(ctx); err != nil {
 			t.Fatalf("Stop() returned an unexpected error: %v", err)
 		}
 	})

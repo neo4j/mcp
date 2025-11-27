@@ -29,6 +29,8 @@ type Config struct {
 	LogFormat        string
 	SchemaSampleSize int32
 	TransportMode    string // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort         string // HTTP server port (default: "8080")
+	HTTPHost         string // HTTP server host (default: "127.0.0.1")
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -64,6 +66,8 @@ type CLIOverrides struct {
 	ReadOnly      string
 	Telemetry     string
 	TransportMode string
+	Port          string
+	Host          string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -96,6 +100,8 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogFormat:        logFormat,
 		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
 		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
+		HTTPPort:         GetEnvWithDefault("NEO4J_MCP_HTTP_PORT", "8080"),
+		HTTPHost:         GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 	}
 
 	// Apply CLI overrides if provided
@@ -120,6 +126,12 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.TransportMode != "" {
 			cfg.TransportMode = cliOverrides.TransportMode
+		}
+		if cliOverrides.Port != "" {
+			cfg.HTTPPort = cliOverrides.Port
+		}
+		if cliOverrides.Host != "" {
+			cfg.HTTPHost = cliOverrides.Host
 		}
 	}
 

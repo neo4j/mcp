@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -147,7 +148,8 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		}
 
 		// Stop should work without errors
-		err = s.Stop()
+		ctx := context.Background()
+		err = s.Stop(ctx)
 		if err != nil {
 			t.Errorf("Stop() unexpected error = %v", err)
 		}
@@ -284,7 +286,8 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 			t.Errorf("Start() unexpected error = %v", err)
 		}
 		// Stop should work without errors
-		err = s.Stop()
+		ctx := context.Background()
+		err = s.Stop(ctx)
 		if err != nil {
 			t.Errorf("Stop() unexpected error = %v", err)
 		}
