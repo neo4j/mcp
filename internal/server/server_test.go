@@ -18,10 +18,11 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		URI:      "bolt://test-host:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
+		URI:           "bolt://test-host:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		TransportMode: "stdio",
 	}
 
 	analyticsService := analytics.NewMockService(ctrl)
@@ -237,10 +238,11 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		URI:      "bolt://test-host:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
+		URI:           "bolt://test-host:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		TransportMode: "stdio",
 	}
 
 	mockDB := db.NewMockService(ctrl)

@@ -16,7 +16,6 @@ func TestToolRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-
 	aService := analytics.NewMockService(ctrl)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent().AnyTimes()
@@ -24,10 +23,11 @@ func TestToolRegister(t *testing.T) {
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -50,11 +50,12 @@ func TestToolRegister(t *testing.T) {
 	t.Run("should register only readonly tools when readonly", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: true,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -76,11 +77,12 @@ func TestToolRegister(t *testing.T) {
 	t.Run("should register also not write tools when readonly is set to false", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: false,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -103,11 +105,12 @@ func TestToolRegister(t *testing.T) {
 	t.Run("should remove GDS tools if GDS is not present", func(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, false)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: false,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			TransportMode: "stdio",
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 

@@ -62,15 +62,21 @@ func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
 	return dbs.driver
 }
 
-func (dbs *dbService) GetDriverConf() *config.Config {
+func (dbs *dbService) GetDriverConf(transport string) *config.Config {
 	if dbs.useContainer == true {
 		return containerrunner.GetDriverConf()
 	}
 
+	// Default to stdio transport if not specified
+	if transport == "" {
+		transport = config.TransportModeStdio
+	}
+
 	cfg := &config.Config{
-		URI:      config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		URI:           config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		TransportMode: config.GetEnvWithDefault("NEO4J_MCP_TRANSPORT", transport),
 	}
 
 	return cfg

@@ -17,7 +17,7 @@ import (
 
 func TestServerLifecycle(t *testing.T) {
 	t.Parallel()
-	testCFG := dbs.GetDriverConf()
+	testCFG := dbs.GetDriverConf(config.TransportModeStdio)
 	testCases := []struct {
 		name        string
 		config      *config.Config
@@ -31,20 +31,22 @@ func TestServerLifecycle(t *testing.T) {
 		{
 			name: "Neo4jMCPServer should fail to start: invalid host",
 			config: &config.Config{
-				URI:      "bolt://not-a-valid-host:7687",
-				Username: testCFG.Username,
-				Password: testCFG.Password,
-				Database: testCFG.Database,
+				URI:           "bolt://not-a-valid-host:7687",
+				Username:      testCFG.Username,
+				Password:      testCFG.Password,
+				Database:      testCFG.Database,
+				TransportMode: config.TransportModeStdio,
 			},
 			expectError: true,
 		},
 		{
 			name: "Neo4jMCPServer should fail to start: invalid database name",
 			config: &config.Config{
-				URI:      testCFG.URI,
-				Username: testCFG.Username,
-				Password: testCFG.Password,
-				Database: "not-a-valid-db-name",
+				URI:           testCFG.URI,
+				Username:      testCFG.Username,
+				Password:      testCFG.Password,
+				Database:      "not-a-valid-db-name",
+				TransportMode: config.TransportModeStdio,
 			},
 			expectError: true,
 		},
