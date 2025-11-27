@@ -119,7 +119,6 @@ func TestServerLifecycle(t *testing.T) {
 	}
 
 	t.Run("server stop should return no errors", func(t *testing.T) {
-
 		driver, err := neo4j.NewDriverWithContext(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
 		if err != nil {
 			t.Fatalf("failed to create Neo4j driver: %s", err.Error())

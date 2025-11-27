@@ -27,7 +27,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
 
 	t.Run("starts server successfully", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
@@ -58,6 +58,8 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 				},
 			},
 		}, nil)
+
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
@@ -135,6 +137,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 				},
 			},
 		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
@@ -178,6 +181,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		}, nil)
 		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
@@ -219,6 +223,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 				},
 			},
 		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
@@ -273,10 +278,20 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 			},
 		},
 	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1).Return([]*neo4j.Record{
+		{
+			Keys:   []string{"name", "edition", "versions"},
+			Values: []any{"Neo4j Kernel", "enterprise", []any{"5.18.0"}},
+		},
+		{
+			Keys:   []string{"name", "edition", "versions"},
+			Values: []any{"Cypher", "enterprise", []any{"5"}},
+		},
+	}, nil)
 	analyticsService := analytics.NewMockService(ctrl)
 
 	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
-		analyticsService.EXPECT().NewStartupEvent().Times(1)
+		analyticsService.EXPECT().NewStartupEvent(gomock.Any()).Times(1)
 		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(1)
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
