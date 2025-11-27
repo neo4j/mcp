@@ -26,7 +26,7 @@ Options:
   --neo4j-read-only <BOOLEAN>         Enable read-only mode: true or false (overrides environment variable NEO4J_READ_ONLY)
   --neo4j-telemetry <BOOLEAN>         Enable telemetry: true or false (overrides environment variable NEO4J_TELEMETRY)
   --neo4j-schema-sample-size <INT>    Number of nodes to sample for schema inference (overrides environment variable NEO4J_SCHEMA_SAMPLE_SIZE)
-  --neo4j-transport-mode <MODE>       MCP Transport mode (e.g., 'stdio', 'http') (overrides environment variable NEO4J_TRANSPORT_MODE)
+  --neo4j-transport-mode <MODE>       MCP Transport mode (e.g., 'stdio', 'http') (overrides environment variable NEO4J_MCP_TRANSPORT)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -38,7 +38,7 @@ Optional Environment Variables:
   NEO4J_TELEMETRY Enable/disable telemetry (default: true)
   NEO4J_READ_ONLY Enable read-only mode (default: false)
   NEO4J_SCHEMA_SAMPLE_SIZE Number of nodes to sample for schema inference (default: 100)
-  NEO4J_TRANSPORT_MODE MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
+  NEO4J_MCP_TRANSPORT MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
 
 Examples:
   # Using environment variables
@@ -85,7 +85,7 @@ func ParseConfigFlags() *Args {
 	neo4jReadOnly := flag.String("neo4j-read-only", "", "Enable read-only mode: true or false (overrides NEO4J_READ_ONLY env var)")
 	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Enable telemetry: true or false (overrides NEO4J_TELEMETRY env var)")
 	neo4jSchemaSampleSize := flag.String("neo4j-schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_SCHEMA_SAMPLE_SIZE env var)")
-	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "MCP Transport mode (e.g., 'stdio', 'http') (overrides NEO4J_TRANSPORT_MODE env var)")
+	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "MCP Transport mode (e.g., 'stdio', 'http') (overrides NEO4J_MCP_TRANSPORT env var)")
 
 	flag.Parse()
 

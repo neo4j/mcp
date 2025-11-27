@@ -113,7 +113,8 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		Password:      "test-password",
 		Database:      "neo4j",
 		TransportMode: config.TransportModeHTTP,
-		HTTPPort:      ":0", // Use port 0 to get a random available port
+		HTTPHost:      "127.0.0.1",
+		HTTPPort:      "0", // Use port 0 to get a random available port
 	}
 
 	// Setup mocks for server initialization

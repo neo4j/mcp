@@ -54,6 +54,16 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate transport mode
+	allowedTransportModes := []string{TransportModeStdio, TransportModeHTTP}
+	if c.TransportMode == "" {
+		// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
+		c.TransportMode = TransportModeStdio
+	}
+	if !slices.Contains(allowedTransportModes, c.TransportMode) {
+		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, allowedTransportModes)
+	}
+
 	return nil
 }
 
