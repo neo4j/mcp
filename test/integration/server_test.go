@@ -24,8 +24,14 @@ func TestServerLifecycle(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "Neo4jMCPServer should correctly start",
-			config:      testCFG,
+			name: "Neo4jMCPServer should correctly start",
+			config: &config.Config{
+				URI:           testCFG.URI,
+				Username:      testCFG.Username,
+				Password:      testCFG.Password,
+				Database:      testCFG.Database,
+				TransportMode: config.TransportModeStdio,
+			},
 			expectError: false,
 		},
 		{
@@ -131,7 +137,14 @@ func TestServerLifecycle(t *testing.T) {
 			t.Fatalf("failed to create database service: %v", err)
 		}
 
-		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService, testContext.AnalyticsService)
+		testCFGWithTransport := &config.Config{
+			URI:           testCFG.URI,
+			Username:      testCFG.Username,
+			Password:      testCFG.Password,
+			Database:      testCFG.Database,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", testCFGWithTransport, dbService, testContext.AnalyticsService)
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}
@@ -151,9 +164,9 @@ func TestServerLifecycle(t *testing.T) {
 		if startErr != nil {
 			t.Fatalf("Start() returned an unexpected error after stop: %v", startErr)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := s.Stop(ctx); err != nil {
+		if err := s.Stop(stopCtx); err != nil {
 			t.Fatalf("Stop() returned an unexpected error: %v", err)
 		}
 	})
