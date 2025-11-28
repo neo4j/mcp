@@ -91,14 +91,55 @@ func main() {
 			fmt.Printf("  %d. %s - %s\n", i+1, resource.URI, resource.Name)
 		}
 	}
-
+	callGetSchema(context.Background(), c)
+	callReadCypher(context.Background(), c)
 	fmt.Println("Client initialized successfully. Shutting down...")
+}
 
-	// initRequest, err := client.Initialize(context.Background(), initReq)
-	// if err != nil {
-	// 	log.Fatalf("Error while initializing mcp spec. Error: %s", err.Error())
-	// }
-	// log.Print(initRequest)
+func callReadCypher(ctx context.Context, c *client.Client) {
+	// Call the read-cypher tool to retrieve Neo4j database schema
+	fmt.Println("Calling read-cypher tool...")
+	toolRequest := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "read-cypher",
+			Arguments: map[string]interface{}{
+				"Query": "RETURN 1",
+			},
+		},
+	}
+
+	toolResult, err := c.CallTool(ctx, toolRequest)
+	if err != nil {
+		log.Fatalf("Failed to call read-cypher tool: %v", err)
+	}
+
+	fmt.Printf("Schema result: %+v\n", toolResult)
+	if toolResult.IsError == true {
+		log.Fatal("error with Tool", toolResult.Content)
+	}
+
+}
+
+func callGetSchema(ctx context.Context, c *client.Client) {
+	// Call the get-schema tool to retrieve Neo4j database schema
+	fmt.Println("Calling get-schema tool...")
+	toolRequest := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      "get-schema",
+			Arguments: map[string]interface{}{},
+		},
+	}
+
+	toolResult, err := c.CallTool(ctx, toolRequest)
+	if err != nil {
+		log.Fatalf("Failed to call get-schema tool: %v", err)
+	}
+
+	fmt.Printf("Schema result: %+v\n", toolResult)
+	if toolResult.IsError == true {
+		log.Fatal("error with Tool", toolResult.Content)
+	}
+
 }
 
 func captureServerLog(c *client.Client) {
