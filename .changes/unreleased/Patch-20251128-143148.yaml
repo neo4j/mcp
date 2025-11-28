@@ -1,0 +1,3 @@
+kind: Patch
+body: Removed "params" argument from the list of required arguments for tools such as read-cypher/write-cypher.
+time: 2025-11-28T14:31:48.214244Z
