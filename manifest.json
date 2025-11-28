@@ -1,0 +1,131 @@
+{
+  "manifest_version": "0.2",
+  "name": "neo4j-mcp",
+  "version": "1.0.0",
+  "description": "Official Model Context Protocol (MCP) server for Neo4j.",
+  "author": {
+    "name": "Neo4j",
+    "url": "https://neo4j.com/"
+  },
+  "homepage": "https://github.com/neo4j/mcp",
+  "documentation": "https://neo4j.com/docs/mcp/",
+  "support": "https://github.com/neo4j/mcp/issues",
+  "user_config": {
+    "NEO4J_URI": {
+      "type": "string",
+      "title": "Connection URI",
+      "description": "Connection URI (e.g., bolt://localhost:7687)",
+      "required": true,
+      "sensitive": false
+    },
+    "NEO4J_USERNAME": {
+      "type": "string",
+      "title": "Neo4j username",
+      "description": "Neo4j username (e.g., neo4j)",
+      "required": true,
+      "sensitive": false
+    },
+    "NEO4J_PASSWORD": {
+      "type": "string",
+      "title": "Neo4j password",
+      "description": "Neo4j password",
+      "required": true,
+      "sensitive": false
+    },
+    "NEO4J_DATABASE": {
+      "type": "string",
+      "title": "Database name",
+      "description": "Database name (e.g., neo4j)",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_READ_ONLY": {
+      "type": "boolean",
+      "title": "Readonly flag",
+      "description": "Set to true to disable write tools",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_TELEMETRY": {
+      "type": "boolean",
+      "title": "Telemetry",
+      "description": "Set to false to disable telemetry (default true)",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_LOG_LEVEL": {
+      "type": "string",
+      "title": "Log Level",
+      "description": "Log level (e.g., debug, info, notice, warning, error, critical, alert, emergency)",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_LOG_FORMAT": {
+      "type": "string",
+      "title": "Log Format",
+      "description": "Log output format: text or json (default text)",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_SCHEMA_SAMPLE_SIZE": {
+      "type": "string",
+      "title": "Schema inference sample size",
+      "description": "Number of nodes to sample for schema inference",
+      "required": false,
+      "sensitive": false
+    }
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "./bin/neo4j-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/./bin/neo4j-mcp",
+      "args": [],
+      "env": {
+        "NEO4J_URI": "${user_config.NEO4J_URI}",
+        "NEO4J_USERNAME": "${user_config.NEO4J_USERNAME}",
+        "NEO4J_PASSWORD": "${user_config.NEO4J_PASSWORD}",
+        "NEO4J_DATABASE": "${user_config.NEO4J_DATABASE}",
+        "NEO4J_READ_ONLY": "${user_config.NEO4J_READ_ONLY}",
+        "NEO4J_TELEMETRY": "${user_config.NEO4J_TELEMETRY}",
+        "NEO4J_LOG_LEVEL": "${user_config.NEO4J_LOG_LEVEL}",
+        "NEO4J_LOG_FORMAT": "${user_config.NEO4J_LOG_FORMAT}",
+        "NEO4J_SCHEMA_SAMPLE_SIZE": "${user_config.NEO4J_SCHEMA_SAMPLE_SIZE}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "get-schema",
+      "description": "Introspect labels, relationship types, property keys"
+    },
+    {
+      "name": "read-cypher",
+      "description": "Execute arbitrary Cypher (read mode)"
+    },
+    {
+      "name": "write-cypher",
+      "description": "Execute arbitrary Cypher (write mode)"
+    },
+    {
+      "name": "list-gds-procedures",
+      "description": "List GDS procedures available in the instance"
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "linux", "win32"]
+  },
+  "keywords": [
+    "Neo4j",
+    "MCP",
+    "Neo4j MCP",
+    "Neo4j MCP Server",
+    "Neo4j Official MCP Server",
+    "neo4j-mcp"
+  ],
+  "license": "GPL",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neo4j/mcp"
+  }
+}
