@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
@@ -76,6 +77,25 @@ func (s *Neo4jMCPServer) Start() error {
 	default:
 		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
 	}
+}
+
+// parseAllowedOrigins parses the allowed origins string into a slice of strings
+func parseAllowedOrigins(allowedOriginsStr string) []string {
+	if allowedOriginsStr == "" {
+		return []string{}
+	}
+
+	if allowedOriginsStr == "*" {
+		return []string{"*"}
+	}
+	allowedOrigins := make([]string, 0)
+	origins := strings.Split(allowedOriginsStr, ",")
+
+	for _, origin := range origins {
+		allowedOrigins = append(allowedOrigins, strings.TrimSpace(origin))
+	}
+
+	return allowedOrigins
 }
 
 // verifyRequirements check the Neo4j requirements:
@@ -242,9 +262,11 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Add MCP endpoints - StreamableHTTPServer internally handles /mcp path
 	mux.Handle(httpServerBasePath, mcpServerHTTP)
 
+	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
+
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: addMiddleware(mux),
+		Handler: addMiddleware(allowedOrigins, mux),
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       10 * time.Second, // Time to read request body (handles slow uploads)
 		WriteTimeout:      30 * time.Second, // Time to write complete response (allows complex queries)
@@ -261,24 +283,4 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	}
 
 	return nil
-}
-
-// addMiddleware is a simple placeholder example of adding middleware to the HTTP server
-func addMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Example middleware: Logging
-
-		slog.Debug("HTTP Request",
-			"method", r.Method,
-			"url", r.URL.Path,
-			"remote_addr", r.RemoteAddr,
-			"user_agent", r.UserAgent(),
-			"content_length", r.ContentLength,
-			"host", r.Host,
-			"query", r.URL.RawQuery,
-		)
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
 }

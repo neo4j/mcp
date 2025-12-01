@@ -74,7 +74,7 @@ func TestServerLifecycle(t *testing.T) {
 				}
 			}()
 
-			dbService, err := database.NewNeo4jService(driver, tc.config.Database)
+			dbService, err := database.NewNeo4jService(driver, tc.config.Database, "")
 			if err != nil {
 				t.Fatalf("failed to create database service: %v", err)
 				return
@@ -131,7 +131,7 @@ func TestServerLifecycle(t *testing.T) {
 			}
 		}()
 
-		dbService, err := database.NewNeo4jService(driver, testCFG.Database)
+		dbService, err := database.NewNeo4jService(driver, testCFG.Database, "")
 		if err != nil {
 			t.Fatalf("failed to create database service: %v", err)
 		}

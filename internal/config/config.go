@@ -19,18 +19,19 @@ const (
 
 // Config holds the application configuration
 type Config struct {
-	URI              string
-	Username         string
-	Password         string
-	Database         string
-	ReadOnly         bool // If true, disables write tools
-	Telemetry        bool // If false, disables telemetry
-	LogLevel         string
-	LogFormat        string
-	SchemaSampleSize int32
-	TransportMode    string // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort         string // HTTP server port (default: "8080")
-	HTTPHost         string // HTTP server host (default: "127.0.0.1")
+	URI                string
+	Username           string
+	Password           string
+	Database           string
+	ReadOnly           bool // If true, disables write tools
+	Telemetry          bool // If false, disables telemetry
+	LogLevel           string
+	LogFormat          string
+	SchemaSampleSize   int32
+	TransportMode      string // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort           string // HTTP server port (default: "8080")
+	HTTPHost           string // HTTP server host (default: "127.0.0.1")
+	HTTPAllowedOrigins string // Comma-separated list of allowed CORS origins (optional, "*" for all)
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -100,18 +101,19 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	}
 
 	cfg := &Config{
-		URI:              GetEnv("NEO4J_URI"),
-		Username:         GetEnv("NEO4J_USERNAME"),
-		Password:         GetEnv("NEO4J_PASSWORD"),
-		Database:         GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		ReadOnly:         ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
-		Telemetry:        ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
-		LogLevel:         logLevel,
-		LogFormat:        logFormat,
-		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
-		HTTPPort:         GetEnvWithDefault("NEO4J_MCP_HTTP_PORT", "8080"),
-		HTTPHost:         GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
+		URI:                GetEnv("NEO4J_URI"),
+		Username:           GetEnv("NEO4J_USERNAME"),
+		Password:           GetEnv("NEO4J_PASSWORD"),
+		Database:           GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		ReadOnly:           ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
+		Telemetry:          ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
+		LogLevel:           logLevel,
+		LogFormat:          logFormat,
+		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
+		TransportMode:      GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
+		HTTPPort:           GetEnvWithDefault("NEO4J_MCP_HTTP_PORT", "8080"),
+		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
+		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
 	}
 
 	// Apply CLI overrides if provided

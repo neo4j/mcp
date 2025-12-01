@@ -2,6 +2,7 @@ package tools
 
 import (
 	"github.com/neo4j/mcp/internal/analytics"
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 )
 
@@ -10,4 +11,5 @@ type ToolDependencies struct {
 	DBService        database.Service
 	AnalyticsService analytics.Service
 	SchemaSampleSize int
+	Config           *config.Config
 }

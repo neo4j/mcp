@@ -56,6 +56,21 @@ func (mr *MockServiceMockRecorder) ExecuteReadQuery(ctx, cypher, params any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteReadQuery", reflect.TypeOf((*MockService)(nil).ExecuteReadQuery), ctx, cypher, params)
 }
 
+// ExecuteReadQueryWithAuth mocks base method.
+func (m *MockService) ExecuteReadQueryWithAuth(ctx context.Context, username, password, cypher string, params map[string]any) ([]*neo4j.Record, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteReadQueryWithAuth", ctx, username, password, cypher, params)
+	ret0, _ := ret[0].([]*neo4j.Record)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecuteReadQueryWithAuth indicates an expected call of ExecuteReadQueryWithAuth.
+func (mr *MockServiceMockRecorder) ExecuteReadQueryWithAuth(ctx, username, password, cypher, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteReadQueryWithAuth", reflect.TypeOf((*MockService)(nil).ExecuteReadQueryWithAuth), ctx, username, password, cypher, params)
+}
+
 // ExecuteWriteQuery mocks base method.
 func (m *MockService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
 	m.ctrl.T.Helper()
