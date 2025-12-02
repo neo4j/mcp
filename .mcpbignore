@@ -1,17 +1,20 @@
-## Remove explicitly files to make the bundle slim
-**/*.mod
-**/*.sum
+# Remove explicitly files to make the bundle slim
+
+**/\*.mod
+**/_.sum
 /.changes
 /.github
-test/**/*
-cmd/**/*
-internal/**/*
+test/\*\*/_
+cmd/**/\*
+internal/**/\*
 
 # remove repository docker files
+
 .dockerignore
 DockerFile
 
 # remove repository yaml
+
 .changie.yaml
 .dockerignore
 .golangci.yaml
@@ -19,4 +22,5 @@ DockerFile
 Taskfile.yml
 
 # remove repository json
+
 renovate.json
