@@ -17,6 +17,9 @@ const (
 	TransportModeHTTP       string = "http"
 )
 
+// ValidTransportModes defines the allowed transport mode values
+var ValidTransportModes = []string{TransportModeStdio, TransportModeHTTP}
+
 // Config holds the application configuration
 type Config struct {
 	URI              string
@@ -54,14 +57,14 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// Validate transport mode
-	allowedTransportModes := []string{TransportModeStdio, TransportModeHTTP}
+	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 	if c.TransportMode == "" {
-		// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 		c.TransportMode = TransportModeStdio
 	}
-	if !slices.Contains(allowedTransportModes, c.TransportMode) {
-		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, allowedTransportModes)
+
+	// Validate transport mode
+	if !slices.Contains(ValidTransportModes, c.TransportMode) {
+		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
 	}
 
 	return nil
@@ -109,7 +112,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogLevel:         logLevel,
 		LogFormat:        logFormat,
 		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
+		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio),
 		HTTPPort:         GetEnvWithDefault("NEO4J_MCP_HTTP_PORT", "8080"),
 		HTTPHost:         GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 	}
