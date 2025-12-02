@@ -62,6 +62,8 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Return([]*neo4j.Record{
 				{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
 			}, nil)
+			// Mock for startup event (emitStartupEvent)
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Return([]*neo4j.Record{}, nil)
 
 			analyticsService := analytics.NewMockService(ctrl)
 			analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
@@ -131,6 +133,8 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Return([]*neo4j.Record{
 		{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
 	}, nil)
+	// Mock for startup event (emitStartupEvent)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Return([]*neo4j.Record{}, nil)
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
