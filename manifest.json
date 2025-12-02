@@ -1,5 +1,5 @@
 {
-  "manifest_version": "0.2",
+  "manifest_version": "0.3",
   "name": "neo4j-mcp",
   "version": "1.0.0",
   "description": "Official Model Context Protocol (MCP) server for Neo4j.",
@@ -30,7 +30,7 @@
       "title": "Neo4j password",
       "description": "Neo4j password",
       "required": true,
-      "sensitive": false
+      "sensitive": true
     },
     "NEO4J_DATABASE": {
       "type": "string",
@@ -77,10 +77,9 @@
   },
   "server": {
     "type": "binary",
-    "entry_point": "./bin/neo4j-mcp",
+    "entry_point": "neo4j-mcp",
     "mcp_config": {
-      "command": "${__dirname}/./bin/neo4j-mcp",
-      "args": [],
+      "command": "${__dirname}${/}bin/neo4j-mcp",
       "env": {
         "NEO4J_URI": "${user_config.NEO4J_URI}",
         "NEO4J_USERNAME": "${user_config.NEO4J_USERNAME}",

@@ -35,6 +35,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 The MCP server requires certain environment variables to connect to a Neo4j instance.
 
 **Required variables** (server will not start without these):
+
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
@@ -42,6 +43,7 @@ export NEO4J_PASSWORD="password"
 ```
 
 **Optional variables** (with defaults):
+
 ```bash
 export NEO4J_DATABASE="neo4j"          # Default: neo4j
 export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
@@ -213,6 +215,35 @@ When adding new database operations:
 - Mock generation fails → ensure `mockgen` on PATH.
 - Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
 - Dependency/build issues → `go mod tidy`.
+
+## Build MCPB Bundle (for Claude Desktop)
+
+You can package the MCP server into an `.mcpb` bundle for distribution with MCP clients (e.g., Anthropic/Claude).
+see more details here: https://github.com/modelcontextprotocol/mcpb/.
+
+```bash
+# Install MCPB CLI (once)
+npm install -g @anthropic-ai/mcpb
+
+# build binaries for your OS/Architecture
+go build -C cmd/neo4j-mcp -o ../../bin/
+
+# Build bundle from the repository root with a custom name
+mcpb pack . neo4j-official-mcp-1.0.0.mcpb
+```
+
+You can now go to your Claude Desktop and install the bundle just created.
+
+On Claude Desktop:
+
+- Open Settings page.
+- Under Desktop app, click on the Extensions.
+- Advanced settings.
+- You can now install the extension using the button: "Install Extension"
+
+Notes:
+
+A limitation is present where it's not possible to override the command depending on the current Architecture (Arm/AMD64), this makes building a general purpose bundle for all the supported Architectures/OS less doable.
 
 ### Getting Help
 

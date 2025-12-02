@@ -1,0 +1,22 @@
+## Remove explicitly files to make the bundle slim
+**/*.mod
+**/*.sum
+/.changes
+/.github
+test/**/*
+cmd/**/*
+internal/**/*
+
+# remove repository docker files
+.dockerignore
+DockerFile
+
+# remove repository yaml
+.changie.yaml
+.dockerignore
+.golangci.yaml
+.goreleaser.yaml
+Taskfile.yml
+
+# remove repository json
+renovate.json
