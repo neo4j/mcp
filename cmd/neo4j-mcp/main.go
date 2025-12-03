@@ -30,12 +30,15 @@ func main() {
 
 	// Load and validate configuration (env vars + CLI overrides)
 	cfg, err := config.LoadConfig(&config.CLIOverrides{
-		URI:       cliArgs.URI,
-		Username:  cliArgs.Username,
-		Password:  cliArgs.Password,
-		Database:  cliArgs.Database,
-		ReadOnly:  cliArgs.ReadOnly,
-		Telemetry: cliArgs.Telemetry,
+		URI:           cliArgs.URI,
+		Username:      cliArgs.Username,
+		Password:      cliArgs.Password,
+		Database:      cliArgs.Database,
+		ReadOnly:      cliArgs.ReadOnly,
+		Telemetry:     cliArgs.Telemetry,
+		TransportMode: cliArgs.TransportMode,
+		Port:          cliArgs.HTTPPort,
+		Host:          cliArgs.HTTPHost,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
@@ -83,17 +86,9 @@ func main() {
 	// Create and configure the MCP server
 	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService)
 
-	// Gracefully handle shutdown
-	defer func() {
-		if err := mcpServer.Stop(); err != nil {
-			slog.Error("Error stopping server", "error", err)
-		}
-	}()
-
-	// Start the server (this blocks until the server is stopped)
+	// Start the server - this blocks until shutdown for both stdio and HTTP modes
 	if err := mcpServer.Start(); err != nil {
 		slog.Error("Server error", "error", err)
-		return // so that defer can run
+		return
 	}
-
 }

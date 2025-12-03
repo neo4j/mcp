@@ -187,6 +187,26 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "--neo4j-schema-sample-size requires a value",
 		},
+		{
+			name:             "transport mode flag valid value",
+			args:             []string{testProgramName, "--neo4j-transport-mode", "http"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "transport mode flag missing value",
+			args:             []string{testProgramName, "--neo4j-transport-mode"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-transport-mode requires a value",
+		},
+		{
+			name:             "transport mode flag missing value followed by another flag",
+			args:             []string{testProgramName, "--neo4j-transport-mode", "--neo4j-uri", "bolt://localhost:7687"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-transport-mode requires a value (got flag --neo4j-uri instead)",
+		},
 	}
 
 	for _, tt := range tests {

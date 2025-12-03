@@ -10,6 +10,16 @@ import (
 	"github.com/neo4j/mcp/internal/logger"
 )
 
+const (
+	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
+	DefaultSchemaSampleSize int32  = 100
+	TransportModeStdio      string = "stdio"
+	TransportModeHTTP       string = "http"
+)
+
+// ValidTransportModes defines the allowed transport mode values
+var ValidTransportModes = []string{TransportModeStdio, TransportModeHTTP}
+
 // Config holds the application configuration
 type Config struct {
 	URI              string
@@ -21,6 +31,9 @@ type Config struct {
 	LogLevel         string
 	LogFormat        string
 	SchemaSampleSize int32
+	TransportMode    string // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort         string // HTTP server port (default: "8080")
+	HTTPHost         string // HTTP server host (default: "127.0.0.1")
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -44,17 +57,30 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
+	if c.TransportMode == "" {
+		c.TransportMode = TransportModeStdio
+	}
+
+	// Validate transport mode
+	if !slices.Contains(ValidTransportModes, c.TransportMode) {
+		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
+	}
+
 	return nil
 }
 
 // CLIOverrides holds optional configuration values from CLI flags
 type CLIOverrides struct {
-	URI       string
-	Username  string
-	Password  string
-	Database  string
-	ReadOnly  string
-	Telemetry string
+	URI           string
+	Username      string
+	Password      string
+	Database      string
+	ReadOnly      string
+	Telemetry     string
+	TransportMode string
+	Port          string
+	Host          string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -85,7 +111,10 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		Telemetry:        ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
 		LogLevel:         logLevel,
 		LogFormat:        logFormat,
-		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), 100),
+		SchemaSampleSize: ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
+		TransportMode:    GetEnvWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio),
+		HTTPPort:         GetEnvWithDefault("NEO4J_MCP_HTTP_PORT", "8080"),
+		HTTPHost:         GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 	}
 
 	// Apply CLI overrides if provided
@@ -107,6 +136,15 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.Telemetry != "" {
 			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
+		}
+		if cliOverrides.TransportMode != "" {
+			cfg.TransportMode = cliOverrides.TransportMode
+		}
+		if cliOverrides.Port != "" {
+			cfg.HTTPPort = cliOverrides.Port
+		}
+		if cliOverrides.Host != "" {
+			cfg.HTTPHost = cliOverrides.Host
 		}
 	}
 
