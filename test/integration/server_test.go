@@ -17,7 +17,7 @@ import (
 
 func TestServerLifecycle(t *testing.T) {
 	t.Parallel()
-	testCFG := dbs.GetDriverConf(config.TransportModeStdio)
+	testCFG := dbs.GetDriverConf()
 	testCases := []struct {
 		name        string
 		config      *config.Config

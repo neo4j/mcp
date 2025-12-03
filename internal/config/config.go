@@ -17,6 +17,9 @@ const (
 	TransportModeHTTP       string = "http"
 )
 
+// ValidTransportModes defines the allowed transport mode values
+var ValidTransportModes = []string{TransportModeStdio, TransportModeHTTP}
+
 // Config holds the application configuration
 type Config struct {
 	URI                string
@@ -55,14 +58,14 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// Validate transport mode
-	allowedTransportModes := []string{TransportModeStdio, TransportModeHTTP}
+	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 	if c.TransportMode == "" {
-		// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 		c.TransportMode = TransportModeStdio
 	}
-	if !slices.Contains(allowedTransportModes, c.TransportMode) {
-		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, allowedTransportModes)
+
+	// Validate transport mode
+	if !slices.Contains(ValidTransportModes, c.TransportMode) {
+		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
 	}
 
 	return nil

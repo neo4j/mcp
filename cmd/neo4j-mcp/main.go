@@ -6,9 +6,6 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/cli"
@@ -40,6 +37,8 @@ func main() {
 		ReadOnly:      cliArgs.ReadOnly,
 		Telemetry:     cliArgs.Telemetry,
 		TransportMode: cliArgs.TransportMode,
+		Port:          cliArgs.HTTPPort,
+		Host:          cliArgs.HTTPHost,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
@@ -87,33 +86,9 @@ func main() {
 	// Create and configure the MCP server
 	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService)
 
-	if cfg.TransportMode == config.TransportModeHTTP {
-		// Run Start in a goroutine so we can handle signals concurrently.
-		errChan := make(chan error, 1)
-		go func() {
-			errChan <- mcpServer.Start()
-		}()
-
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-		select {
-		case sig := <-sigChan:
-			slog.Info("Shutdown signal received", "signal", sig.String())
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if err := mcpServer.Stop(shutdownCtx); err != nil {
-				slog.Error("Error stopping server", "error", err)
-			}
-		case err := <-errChan:
-			if err != nil {
-				slog.Error("Server error", "error", err)
-			}
-		}
-	} else {
-		// stdio mode blocks; when it returns we simply exit.
-		if err := mcpServer.Start(); err != nil {
-			slog.Error("Server error", "error", err)
-		}
+	// Start the server - this blocks until shutdown for both stdio and HTTP modes
+	if err := mcpServer.Start(); err != nil {
+		slog.Error("Server error", "error", err)
+		return
 	}
 }
