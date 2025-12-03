@@ -37,6 +37,8 @@ func main() {
 		ReadOnly:      cliArgs.ReadOnly,
 		Telemetry:     cliArgs.Telemetry,
 		TransportMode: cliArgs.TransportMode,
+		Port:          cliArgs.HTTPPort,
+		Host:          cliArgs.HTTPHost,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
