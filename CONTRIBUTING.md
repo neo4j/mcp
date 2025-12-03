@@ -216,34 +216,11 @@ When adding new database operations:
 - Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
 - Dependency/build issues → `go mod tidy`.
 
-## Build MCPB Bundle (for Claude Desktop)
+## Update MCPB Bundle (for Claude Desktop)
 
-You can package the MCP server into an `.mcpb` bundle for distribution with MCP clients (e.g., Anthropic/Claude).
-see more details here: https://github.com/modelcontextprotocol/mcpb/.
+If your changes impact the end-user configuration (e.g., adding new environment variables or modifying tool definitions), you must update the `manifest.json` file. This ensures that integrations like Claude Desktop are aware of the new server configuration.
 
-```bash
-# Install MCPB CLI (once)
-npm install -g @anthropic-ai/mcpb
-
-# build binaries for your OS/Architecture
-go build -C cmd/neo4j-mcp -o ../../bin/
-
-# Build bundle from the repository root with a custom name
-mcpb pack . neo4j-official-mcp-1.0.0.mcpb
-```
-
-You can now go to your Claude Desktop and install the bundle just created.
-
-On Claude Desktop:
-
-- Open Settings page.
-- Under Desktop app, click on the Extensions.
-- Advanced settings.
-- You can now install the extension using the button: "Install Extension"
-
-Notes:
-
-A limitation is present where it's not possible to override the command depending on the current Architecture (Arm/AMD64), this makes building a general purpose bundle for all the supported Architectures/OS less doable.
+For more information refer to the dedicated guide: [the MCPB build documentation](docs/BUILD_MCPB.md).
 
 ### Getting Help
 
