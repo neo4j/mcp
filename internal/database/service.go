@@ -81,53 +81,6 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 	return res.Records, nil
 }
 
-// ExecuteReadQueryWithAuth validates the query is read-only, then executes it using per-request credentials via impersonation.
-// Uses Neo4j's impersonation feature to execute queries with different credentials without creating new drivers.
-// Returns an error if the query is not read-only.
-func (s *Neo4jService) ExecuteReadQueryWithAuth(ctx context.Context, username, password, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	// Create auth token for impersonation
-	queryAuth := neo4j.BasicAuth(username, password, "")
-
-	// First, validate query type using EXPLAIN with the provided credentials
-	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
-	explainRes, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params,
-		neo4j.EagerResultTransformer,
-		neo4j.ExecuteQueryWithDatabase(s.database),
-		neo4j.ExecuteQueryWithAuthToken(queryAuth))
-	if err != nil {
-		wrappedErr := fmt.Errorf("failed to validate query type with per-request auth: %w", err)
-		slog.Error("Error validating query type in ExecuteReadQueryWithAuth", "error", wrappedErr, "username", username)
-		return nil, wrappedErr
-	}
-
-	if explainRes.Summary == nil {
-		err := fmt.Errorf("no summary returned for explained query")
-		slog.Error("Error in ExecuteReadQueryWithAuth", "error", err, "username", username)
-		return nil, err
-	}
-
-	queryType := explainRes.Summary.StatementType()
-	if queryType != neo4j.StatementTypeReadOnly {
-		wrappedErr := fmt.Errorf("query is not read-only (type: %v)", queryType)
-		slog.Error("Rejected non-read query in ExecuteReadQueryWithAuth", "error", wrappedErr, "username", username, "queryType", queryType)
-		return nil, wrappedErr
-	}
-
-	// Query is validated as read-only, now execute it using impersonation
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params,
-		neo4j.EagerResultTransformer,
-		neo4j.ExecuteQueryWithDatabase(s.database),
-		neo4j.ExecuteQueryWithReadersRouting(),
-		neo4j.ExecuteQueryWithAuthToken(queryAuth))
-	if err != nil {
-		wrappedErr := fmt.Errorf("failed to execute read query with per-request auth: %w", err)
-		slog.Error("Error executing query in ExecuteReadQueryWithAuth", "error", wrappedErr, "username", username)
-		return nil, wrappedErr
-	}
-
-	return res.Records, nil
-}
-
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
 	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithWritersRouting())
