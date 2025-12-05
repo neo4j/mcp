@@ -11,12 +11,8 @@ import (
 // QueryExecutor defines the interface for executing Neo4j queries
 type QueryExecutor interface {
 	// ExecuteReadQuery executes a read-only Cypher query and returns raw records
-	ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error)
-
-	// ExecuteReadQueryWithAuth validates the query is read-only, then executes it using per-request credentials via impersonation.
-	// Uses Neo4j's impersonation feature to execute queries with different credentials without creating new drivers.
 	// Returns an error if the query is not read-only.
-	ExecuteReadQueryWithAuth(ctx context.Context, username, password, cypher string, params map[string]any) ([]*neo4j.Record, error)
+	ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error)
 
 	// ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 	ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error)
