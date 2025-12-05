@@ -52,7 +52,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:  "neo4j",
 			},
 			wantErr: true,
-			errMsg:  "Neo4j username is required but was empty",
+			errMsg:  "Neo4j username is required for STDIO mode",
 		},
 		{
 			name: "empty password",
@@ -64,7 +64,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:  "neo4j",
 			},
 			wantErr: true,
-			errMsg:  "Neo4j password is required but was empty",
+			errMsg:  "Neo4j password is required for STDIO mode",
 		},
 		{
 			name: "empty database should not raise error",

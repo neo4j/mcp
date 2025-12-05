@@ -34,6 +34,7 @@ func TestToolRegister(t *testing.T) {
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// Current tools: get-schema, read-cypher, write-cypher, list-gds-procedures
 		expectedTotalToolsCount := 4
 
 		// Start server and register tools
@@ -63,6 +64,7 @@ func TestToolRegister(t *testing.T) {
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// Readonly tools: get-schema, read-cypher, list-gds-procedures
 		expectedTotalToolsCount := 3
 
 		// Start server and register tools
@@ -91,6 +93,7 @@ func TestToolRegister(t *testing.T) {
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// All tools: get-schema, read-cypher, write-cypher, list-gds-procedures
 		expectedTotalToolsCount := 4
 
 		// Start server and register tools
@@ -120,6 +123,7 @@ func TestToolRegister(t *testing.T) {
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// Non-GDS tools: get-schema, read-cypher, write-cypher
 		expectedTotalToolsCount := 3
 
 		// Start server and register tools

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/gds"
@@ -33,6 +34,9 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config: &config.Config{
+				TransportMode: config.TransportModeStdio,
+			},
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -52,6 +56,9 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        nil,
 			AnalyticsService: analyticsService,
+			Config: &config.Config{
+				TransportMode: config.TransportModeStdio,
+			},
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -71,6 +78,9 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
+			Config: &config.Config{
+				TransportMode: config.TransportModeStdio,
+			},
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -93,6 +103,9 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config: &config.Config{
+				TransportMode: config.TransportModeStdio,
+			},
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -121,6 +134,9 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config: &config.Config{
+				TransportMode: config.TransportModeStdio,
+			},
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)

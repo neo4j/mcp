@@ -7,12 +7,20 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
+
+// getTestConfig returns a test config with stdio transport mode
+func getTestConfig() *config.Config {
+	return &config.Config{
+		TransportMode: config.TransportModeStdio,
+	}
+}
 
 func TestReadCypherHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -36,6 +44,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -73,6 +82,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -100,6 +110,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -128,6 +139,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -158,6 +170,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -184,6 +197,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        nil,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -209,6 +223,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: nil,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -234,6 +249,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -270,6 +286,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -300,6 +317,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -329,6 +347,7 @@ func TestReadCypherHandler(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticsService,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -373,6 +392,7 @@ func TestReadCypherHandlerEvents(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticServiceExplicitMock,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
@@ -409,6 +429,7 @@ func TestReadCypherHandlerEvents(t *testing.T) {
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
 			AnalyticsService: analyticServiceExplicitMock,
+			Config:           getTestConfig(),
 		}
 
 		handler := cypher.ReadCypherHandler(deps)
