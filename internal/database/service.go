@@ -98,12 +98,6 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
-	if s.driver == nil {
-		err := fmt.Errorf("neo4j driver is not initialized")
-		slog.Error("Error in GetQueryType", "error", err)
-		return neo4j.StatementTypeUnknown, err
-	}
-
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 
 	queryOptions := s.buildQueryOptions(ctx)
