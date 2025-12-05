@@ -59,7 +59,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		cancel()     // Release context resources immediately
 	})
 
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j", "bolt://localhost:7687")
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j")
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}

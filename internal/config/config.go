@@ -43,19 +43,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("configuration is required but was nil")
 	}
 
-	validations := []struct {
-		value string
-		name  string
-	}{
-		{c.URI, "Neo4j URI"},
-		{c.Username, "Neo4j username"},
-		{c.Password, "Neo4j password"},
-	}
-
-	for _, v := range validations {
-		if v.value == "" {
-			return fmt.Errorf("%s is required but was empty", v.name)
-		}
+	// URI is always required
+	if c.URI == "" {
+		return fmt.Errorf("Neo4j URI is required but was empty")
 	}
 
 	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
@@ -66,6 +56,17 @@ func (c *Config) Validate() error {
 	// Validate transport mode
 	if !slices.Contains(ValidTransportModes, c.TransportMode) {
 		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
+	}
+
+	// For STDIO mode, require username and password from environment
+	// For HTTP mode, credentials come from per-request Basic Auth headers
+	if c.TransportMode == TransportModeStdio {
+		if c.Username == "" {
+			return fmt.Errorf("Neo4j username is required for STDIO mode")
+		}
+		if c.Password == "" {
+			return fmt.Errorf("Neo4j password is required for STDIO mode")
+		}
 	}
 
 	return nil

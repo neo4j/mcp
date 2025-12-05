@@ -50,7 +50,23 @@ func main() {
 	logger.Init(cfg.LogLevel, cfg.LogFormat, os.Stderr)
 
 	// Initialize Neo4j driver
-	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
+	// For STDIO mode: use environment credentials
+	// For HTTP mode: use environment credentials for initial driver (can be a service account)
+	//                per-request credentials will be used via impersonation
+	var authToken neo4j.AuthToken
+	if cfg.TransportMode == config.TransportModeStdio {
+		authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
+	} else {
+		// HTTP mode: create driver with minimal/no auth or service account
+		// If no env credentials provided, create driver without auth (server may reject)
+		if cfg.Username != "" && cfg.Password != "" {
+			authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
+		} else {
+			authToken = neo4j.NoAuth()
+		}
+	}
+
+	driver, err := neo4j.NewDriverWithContext(cfg.URI, authToken)
 	if err != nil {
 		slog.Error("Failed to create Neo4j driver", "error", err)
 		os.Exit(1)
@@ -65,7 +81,7 @@ func main() {
 	}()
 
 	// Create database service
-	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.URI)
+	dbService, err := database.NewNeo4jService(driver, cfg.Database)
 	if err != nil {
 		slog.Error("Failed to create database service", "error", err)
 		return
