@@ -12,8 +12,8 @@ const (
 	maxAgeSeconds = "86400" // 24 hours
 )
 
-// addMiddleware chains together all HTTP middleware
-func addMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+// chainMiddleware chains together all HTTP middleware
+func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	// Chain middleware in reverse order (last to first)
 	// Order: CORS -> BasicAuth -> Logging -> Handler
 

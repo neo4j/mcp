@@ -269,7 +269,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 func TestAddMiddleware_FullChain(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := addMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
+	handler := chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -290,7 +290,7 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 
 func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := addMiddleware(allowedOrigins, mockHandler())
+	handler := chainMiddleware(allowedOrigins, mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
