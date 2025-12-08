@@ -67,6 +67,8 @@ func (c *Config) Validate() error {
 		if c.Password == "" {
 			return fmt.Errorf("Neo4j password is required for STDIO mode")
 		}
+	} else if c.Username != "" || c.Password != "" {
+		return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers")
 	}
 
 	return nil
