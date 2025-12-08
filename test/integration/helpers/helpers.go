@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -68,9 +67,6 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 	deps := &tools.ToolDependencies{
 		DBService:        databaseService,
 		AnalyticsService: analyticsService,
-		Config: &config.Config{
-			TransportMode: config.TransportModeStdio,
-		},
 	}
 
 	tc.AnalyticsService = analyticsService
