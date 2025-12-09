@@ -2,6 +2,11 @@
 
 Official Model Context Protocol (MCP) server for Neo4j.
 
+## Links
+
+* [Documentation](https://neo4j.com/docs/mcp/current/)
+* [Discord](https://discord.gg/neo4j)
+
 ## Prerequisites
 
 - A running Neo4j database instance; options include [Aura](https://neo4j.com/product/auradb/), [neo4j–desktop](https://neo4j.com/download/) or [self-managed](https://neo4j.com/deployment-center/#gdb-tab).
