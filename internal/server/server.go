@@ -21,14 +21,15 @@ import (
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer    *server.MCPServer
-	httpServer   *http.Server
-	shutdownChan chan struct{}
-	config       *config.Config
-	dbService    database.Service
-	version      string
-	anService    analytics.Service
-	gdsInstalled bool
+	MCPServer       *server.MCPServer
+	httpServer      *http.Server
+	httpServerReady chan struct{}
+	shutdownChan    chan struct{}
+	config          *config.Config
+	dbService       database.Service
+	version         string
+	anService       analytics.Service
+	gdsInstalled    bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -43,13 +44,14 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return &Neo4jMCPServer{
-		MCPServer:    mcpServer,
-		shutdownChan: make(chan struct{}),
-		config:       cfg,
-		dbService:    dbService,
-		version:      version,
-		anService:    anService,
-		gdsInstalled: false,
+		MCPServer:       mcpServer,
+		httpServerReady: make(chan struct{}),
+		shutdownChan:    make(chan struct{}),
+		config:          cfg,
+		dbService:       dbService,
+		version:         version,
+		anService:       anService,
+		gdsInstalled:    false,
 	}
 }
 
@@ -268,6 +270,9 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		IdleTimeout:       60 * time.Second, // Connection reuse window for HTTP clients
 		ReadHeaderTimeout: 5 * time.Second,  // Time to read headers (prevents slow header attacks)
 	}
+
+	// Signal that httpServer is ready for reading
+	close(s.httpServerReady)
 
 	// Channel to receive server errors
 	errChan := make(chan error, 1)

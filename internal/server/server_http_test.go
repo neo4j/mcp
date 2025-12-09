@@ -80,8 +80,8 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 				errChan <- srv.Start()
 			}()
 
-			// Wait for server initialization
-			time.Sleep(100 * time.Millisecond)
+			// Wait for server to signal that httpServer is initialized
+			<-srv.httpServerReady
 
 			// Verify the HTTP server is configured with the expected address
 			if srv.httpServer == nil {
@@ -148,11 +148,10 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		errChan <- srv.Start()
 	}()
 
-	// Wait briefly for server to initialize (httpServer is set before ListenAndServe blocks)
-	// Relying on timing here is not ideal, we should consider adding a ready channel in the server in the future or moving this to an integration test.
-	time.Sleep(100 * time.Millisecond)
+	// Wait for server to signal that httpServer is initialized
+	<-srv.httpServerReady
 
-	// Now we can access the private httpServer field since we're in package server
+	// Now we can safely access the httpServer field since we're in package server
 	if srv.httpServer == nil {
 		t.Fatal("httpServer should be initialized")
 	}
