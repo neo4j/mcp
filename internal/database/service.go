@@ -7,25 +7,54 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver   neo4j.DriverWithContext
-	database string
+	driver        neo4j.DriverWithContext
+	database      string
+	transportMode string // Transport mode (stdio or http)
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.DriverWithContext, database string) (*Neo4jService, error) {
+func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportMode string) (*Neo4jService, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
 
 	return &Neo4jService{
-		driver:   driver,
-		database: database,
+		driver:        driver,
+		database:      database,
+		transportMode: transportMode,
 	}, nil
+}
+
+// buildQueryOptions builds Neo4j query options based on transport mode.
+// For HTTP mode: extracts credentials from context and uses impersonation.
+// For STDIO mode: uses driver's built-in credentials (no auth token added).
+// The baseOptions parameter allows adding routing-specific options (readers/writers).
+func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
+	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
+		neo4j.ExecuteQueryWithDatabase(s.database),
+	}
+
+	// Add any base options (routing, etc.)
+	queryOptions = append(queryOptions, baseOptions...)
+
+	// For HTTP mode, extract credentials from context and use impersonation
+	if s.transportMode == config.TransportModeHTTP {
+		username, password, hasAuth := auth.GetBasicAuthCredentials(ctx)
+		if hasAuth {
+			authToken := neo4j.BasicAuth(username, password, "")
+			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
+		}
+	}
+	// For STDIO mode, driver's built-in credentials are used automatically (no auth token needed)
+
+	return queryOptions
 }
 
 // VerifyConnectivity checks the driver can establish a valid connection with a Neo4j instance;
@@ -40,7 +69,9 @@ func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
 
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithReadersRouting())
+	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
+
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
 		slog.Error("Error in ExecuteReadQuery", "error", wrappedErr)
@@ -52,7 +83,9 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database), neo4j.ExecuteQueryWithWritersRouting())
+	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithWritersRouting())
+
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
 		slog.Error("Error in ExecuteWriteQuery", "error", wrappedErr)
@@ -65,14 +98,11 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
-	if s.driver == nil {
-		err := fmt.Errorf("neo4j driver is not initialized")
-		slog.Error("Error in GetQueryType", "error", err)
-		return neo4j.StatementTypeUnknown, err
-	}
-
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
-	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, neo4j.ExecuteQueryWithDatabase(s.database))
+
+	queryOptions := s.buildQueryOptions(ctx)
+
+	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
 		slog.Error("Error during GetQueryType", "error", wrappedErr)

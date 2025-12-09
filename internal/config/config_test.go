@@ -52,7 +52,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:  "neo4j",
 			},
 			wantErr: true,
-			errMsg:  "Neo4j username is required but was empty",
+			errMsg:  "Neo4j username is required for STDIO mode",
 		},
 		{
 			name: "empty password",
@@ -64,7 +64,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:  "neo4j",
 			},
 			wantErr: true,
-			errMsg:  "Neo4j password is required but was empty",
+			errMsg:  "Neo4j password is required for STDIO mode",
 		},
 		{
 			name: "empty database should not raise error",
@@ -77,6 +77,19 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: false,
 			errMsg:  "",
+		},
+		{
+			name: "credentials set for HTTP mode should raise error",
+			cfg: &Config{
+				Telemetry:     true,
+				URI:           "bolt://localhost:7687",
+				Username:      "neo4j",
+				Password:      "password",
+				Database:      "neo4j",
+				TransportMode: TransportModeHTTP,
+			},
+			wantErr: true,
+			errMsg:  "Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers",
 		},
 	}
 

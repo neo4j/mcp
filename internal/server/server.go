@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -75,6 +76,25 @@ func (s *Neo4jMCPServer) Start() error {
 	default:
 		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
 	}
+}
+
+// parseAllowedOrigins parses the allowed origins string into a slice of strings
+func parseAllowedOrigins(allowedOriginsStr string) []string {
+	if allowedOriginsStr == "" {
+		return []string{}
+	}
+
+	if allowedOriginsStr == "*" {
+		return []string{"*"}
+	}
+	allowedOrigins := make([]string, 0)
+	origins := strings.Split(allowedOriginsStr, ",")
+
+	for _, origin := range origins {
+		allowedOrigins = append(allowedOrigins, strings.TrimSpace(origin))
+	}
+
+	return allowedOrigins
 }
 
 // verifyRequirements check the Neo4j requirements:
@@ -237,10 +257,11 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		server.WithStateLess(true),
 	)
 
+	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
 	// Wrap handler with middleware and create HTTP server
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: addMiddleware(mcpServerHTTP),
+		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       10 * time.Second, // Time to read request body (handles slow uploads)
 		WriteTimeout:      30 * time.Second, // Time to write complete response (allows complex queries)
@@ -279,20 +300,4 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		// Server was stopped via Stop() method
 		return nil
 	}
-}
-
-// addMiddleware adds request logging
-func addMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Debug("HTTP Request",
-			"method", r.Method,
-			"url", r.URL.Path,
-			"remote_addr", r.RemoteAddr,
-			"user_agent", r.UserAgent(),
-			"content_length", r.ContentLength,
-			"host", r.Host,
-			"query", r.URL.RawQuery,
-		)
-		next.ServeHTTP(w, r)
-	})
 }
