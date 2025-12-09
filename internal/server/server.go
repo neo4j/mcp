@@ -87,8 +87,8 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 	if allowedOriginsStr == "*" {
 		return []string{"*"}
 	}
-	allowedOrigins := make([]string, 0)
 	origins := strings.Split(allowedOriginsStr, ",")
+	allowedOrigins := make([]string, 0, len(origins))
 
 	for _, origin := range origins {
 		allowedOrigins = append(allowedOrigins, strings.TrimSpace(origin))
