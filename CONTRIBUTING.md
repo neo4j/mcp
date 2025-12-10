@@ -32,9 +32,11 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 
 ## Environment Variables
 
-The MCP server requires certain environment variables to connect to a Neo4j instance.
+The MCP server supports two transport modes: **STDIO** (default) and **HTTP**. Required environment variables differ based on the mode.
 
-**Required variables** (server will not start without these):
+### STDIO Mode (Default)
+
+**Required variables:**
 
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
@@ -42,12 +44,31 @@ export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
 ```
 
-**Optional variables** (with defaults):
+### HTTP Mode
+
+**Required variables:**
+
+```bash
+export NEO4J_URI="bolt://localhost:7687"
+export NEO4J_MCP_TRANSPORT="http"
+```
+
+**Note:** In HTTP mode, do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD`. Credentials come from per-request Basic Auth headers.
+
+### Optional Variables (Both Modes)
 
 ```bash
 export NEO4J_DATABASE="neo4j"          # Default: neo4j
 export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
 export NEO4J_TELEMETRY="true"          # Default: true
+export NEO4J_LOG_LEVEL="info"          # Default: info (debug, info, notice, warning, error, critical, alert, emergency)
+export NEO4J_LOG_FORMAT="text"         # Default: text (text or json)
+export NEO4J_SCHEMA_SAMPLE_SIZE="100"  # Default: 100 (number of nodes to sample for schema inference)
+
+# HTTP mode specific (ignored in STDIO mode)
+export NEO4J_MCP_HTTP_HOST="127.0.0.1" # Default: 127.0.0.1
+export NEO4J_MCP_HTTP_PORT="8080"      # Default: 8080
+export NEO4J_MCP_HTTP_ALLOWED_ORIGINS="*" # Default: empty (no CORS)
 ```
 
 **Note:** Make sure your local Neo4j instance is running with the correct credentials before testing.
@@ -105,6 +126,84 @@ The Neo4j MCP capabilities can be tested using the `@modelcontextprotocol/inspec
 
 ```bash
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
+```
+
+## Testing HTTP Mode
+
+### Unit Tests
+
+HTTP mode has comprehensive unit tests:
+
+```bash
+# Test middleware (CORS, Basic Auth, logging)
+go test ./internal/server -v -run ".*Middleware.*"
+
+# Test HTTP server configuration
+go test ./internal/server -v -run ".*HTTP.*"
+
+# Test database service with transport modes
+go test ./internal/database -v
+
+# Run all tests with coverage
+go test ./... -cover
+```
+
+### Manual Testing
+
+Start the server in HTTP mode:
+
+```bash
+# Set up environment
+export NEO4J_URI="bolt://localhost:7687"
+export NEO4J_MCP_TRANSPORT="http"
+
+# Run server
+go run ./cmd/neo4j-mcp
+```
+
+Test with curl:
+
+```bash
+# List available tools
+curl -X POST http://localhost:8080/mcp \
+  -u "neo4j:password" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+# Get Neo4j schema
+curl -X POST http://localhost:8080/mcp \
+  -u "neo4j:password" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "get-schema",
+      "arguments": {}
+    }
+  }'
+
+# Test authentication (should return 401)
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/list"}'
+
+# Test CORS (if configured)
+curl -X OPTIONS http://localhost:8080/mcp \
+  -H "Origin: http://localhost:3000" \
+  -H "Access-Control-Request-Method: POST"
+
+# Test multi-user/multi-tenant (different credentials per request)
+curl -X POST http://localhost:8080/mcp \
+  -u "userA:passwordA" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}'
+
+curl -X POST http://localhost:8080/mcp \
+  -u "userB:passwordB" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}'
 ```
 
 ## MCP Error Handling

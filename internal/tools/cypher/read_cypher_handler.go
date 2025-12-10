@@ -78,6 +78,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
+	// Format records to JSON
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
 		slog.Error("error formatting query results", "error", err)

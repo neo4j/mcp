@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -25,6 +26,9 @@ Options:
   --neo4j-read-only <BOOLEAN>         Enable read-only mode: true or false (overrides environment variable NEO4J_READ_ONLY)
   --neo4j-telemetry <BOOLEAN>         Enable telemetry: true or false (overrides environment variable NEO4J_TELEMETRY)
   --neo4j-schema-sample-size <INT>    Number of nodes to sample for schema inference (overrides environment variable NEO4J_SCHEMA_SAMPLE_SIZE)
+  --neo4j-transport-mode <MODE>       MCP Transport mode (e.g., 'stdio', 'http') (overrides environment variable NEO4J_MCP_TRANSPORT)
+  --neo4j-http-port <PORT>            HTTP server port (overrides environment variable NEO4J_MCP_HTTP_PORT)
+  --neo4j-http-host <HOST>            HTTP server host (overrides environment variable NEO4J_MCP_HTTP_HOST)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -36,6 +40,9 @@ Optional Environment Variables:
   NEO4J_TELEMETRY Enable/disable telemetry (default: true)
   NEO4J_READ_ONLY Enable read-only mode (default: false)
   NEO4J_SCHEMA_SAMPLE_SIZE Number of nodes to sample for schema inference (default: 100)
+  NEO4J_MCP_TRANSPORT MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
+  NEO4J_MCP_HTTP_PORT HTTP server port (default: 8080)
+  NEO4J_MCP_HTTP_HOST HTTP server host (default: 127.0.0.1)
 
 Examples:
   # Using environment variables
@@ -56,6 +63,24 @@ type Args struct {
 	ReadOnly         string
 	Telemetry        string
 	SchemaSampleSize string
+	TransportMode    string
+	HTTPPort         string
+	HTTPHost         string
+}
+
+// this is a list of known configuration flags to be skipped in HandleArgs
+// add new config flags here as needed
+var argsSlice = []string{
+	"--neo4j-uri",
+	"--neo4j-username",
+	"--neo4j-password",
+	"--neo4j-database",
+	"--neo4j-read-only",
+	"--neo4j-telemetry",
+	"--neo4j-schema-sample-size",
+	"--neo4j-transport-mode",
+	"--neo4j-http-port",
+	"--neo4j-http-host",
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
@@ -68,6 +93,9 @@ func ParseConfigFlags() *Args {
 	neo4jReadOnly := flag.String("neo4j-read-only", "", "Enable read-only mode: true or false (overrides NEO4J_READ_ONLY env var)")
 	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Enable telemetry: true or false (overrides NEO4J_TELEMETRY env var)")
 	neo4jSchemaSampleSize := flag.String("neo4j-schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_SCHEMA_SAMPLE_SIZE env var)")
+	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "MCP Transport mode (e.g., 'stdio', 'http') (overrides NEO4J_MCP_TRANSPORT env var)")
+	neo4jHTTPPort := flag.String("neo4j-http-port", "", "HTTP server port (overrides NEO4J_MCP_HTTP_PORT env var)")
+	neo4jHTTPHost := flag.String("neo4j-http-host", "", "HTTP server host (overrides NEO4J_MCP_HTTP_HOST env var)")
 
 	flag.Parse()
 
@@ -79,6 +107,9 @@ func ParseConfigFlags() *Args {
 		ReadOnly:         *neo4jReadOnly,
 		Telemetry:        *neo4jTelemetry,
 		SchemaSampleSize: *neo4jSchemaSampleSize,
+		TransportMode:    *neo4jTransportMode,
+		HTTPPort:         *neo4jHTTPPort,
+		HTTPHost:         *neo4jHTTPHost,
 	}
 }
 
@@ -97,21 +128,15 @@ func HandleArgs(version string) {
 
 	for i < len(os.Args) {
 		arg := os.Args[i]
-		switch arg {
-		case "-h", "--help":
-			flags["help"] = true
-			i++
-		case "-v", "--version":
-			flags["version"] = true
-			i++
+
 		// Allow configuration flags to be parsed by the flag package
-		case "--neo4j-uri", "--neo4j-username", "--neo4j-password", "--neo4j-database", "--neo4j-read-only", "--neo4j-telemetry", "--neo4j-schema-sample-size":
+		if slices.Contains(argsSlice, arg) {
 			// Check if there's a value following the flag
 			if i+1 >= len(os.Args) {
 				err = fmt.Errorf("%s requires a value", arg)
 				break
 			}
-			// Check if next argument is another flag (starts with --)
+			// Check if next argument is another flag (starts with -)
 			nextArg := os.Args[i+1]
 			if strings.HasPrefix(nextArg, "-") {
 				err = fmt.Errorf("%s requires a value (got flag %s instead)", arg, nextArg)
@@ -119,6 +144,16 @@ func HandleArgs(version string) {
 			}
 			// Safe to skip flag and value - let flag package handle them
 			i += 2
+			continue
+		}
+
+		switch arg {
+		case "-h", "--help":
+			flags["help"] = true
+			i++
+		case "-v", "--version":
+			flags["version"] = true
+			i++
 		default:
 			if arg == "--" {
 				// Stop processing our flags, let flag package handle the rest

@@ -24,27 +24,35 @@ func TestServerLifecycle(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "Neo4jMCPServer should correctly start",
-			config:      testCFG,
+			name: "Neo4jMCPServer should correctly start",
+			config: &config.Config{
+				URI:           testCFG.URI,
+				Username:      testCFG.Username,
+				Password:      testCFG.Password,
+				Database:      testCFG.Database,
+				TransportMode: config.TransportModeStdio,
+			},
 			expectError: false,
 		},
 		{
 			name: "Neo4jMCPServer should fail to start: invalid host",
 			config: &config.Config{
-				URI:      "bolt://not-a-valid-host:7687",
-				Username: testCFG.Username,
-				Password: testCFG.Password,
-				Database: testCFG.Database,
+				URI:           "bolt://not-a-valid-host:7687",
+				Username:      testCFG.Username,
+				Password:      testCFG.Password,
+				Database:      testCFG.Database,
+				TransportMode: config.TransportModeStdio,
 			},
 			expectError: true,
 		},
 		{
 			name: "Neo4jMCPServer should fail to start: invalid database name",
 			config: &config.Config{
-				URI:      testCFG.URI,
-				Username: testCFG.Username,
-				Password: testCFG.Password,
-				Database: "not-a-valid-db-name",
+				URI:           testCFG.URI,
+				Username:      testCFG.Username,
+				Password:      testCFG.Password,
+				Database:      "not-a-valid-db-name",
+				TransportMode: config.TransportModeStdio,
 			},
 			expectError: true,
 		},
@@ -66,7 +74,7 @@ func TestServerLifecycle(t *testing.T) {
 				}
 			}()
 
-			dbService, err := database.NewNeo4jService(driver, tc.config.Database)
+			dbService, err := database.NewNeo4jService(driver, tc.config.Database, tc.config.TransportMode)
 			if err != nil {
 				t.Fatalf("failed to create database service: %v", err)
 				return
@@ -123,12 +131,19 @@ func TestServerLifecycle(t *testing.T) {
 			}
 		}()
 
-		dbService, err := database.NewNeo4jService(driver, testCFG.Database)
+		dbService, err := database.NewNeo4jService(driver, testCFG.Database, testCFG.TransportMode)
 		if err != nil {
 			t.Fatalf("failed to create database service: %v", err)
 		}
 
-		s := server.NewNeo4jMCPServer("test-version", testCFG, dbService, testContext.AnalyticsService)
+		testCFGWithTransport := &config.Config{
+			URI:           testCFG.URI,
+			Username:      testCFG.Username,
+			Password:      testCFG.Password,
+			Database:      testCFG.Database,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", testCFGWithTransport, dbService, testContext.AnalyticsService)
 		if s == nil {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}
@@ -148,7 +163,9 @@ func TestServerLifecycle(t *testing.T) {
 		if startErr != nil {
 			t.Fatalf("Start() returned an unexpected error after stop: %v", startErr)
 		}
-		if err := s.Stop(); err != nil {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.Stop(stopCtx); err != nil {
 			t.Fatalf("Stop() returned an unexpected error: %v", err)
 		}
 	})

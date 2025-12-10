@@ -68,9 +68,10 @@ func (dbs *dbService) GetDriverConf() *config.Config {
 	}
 
 	cfg := &config.Config{
-		URI:      config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		URI:           config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		TransportMode: config.GetEnvWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio),
 	}
 
 	return cfg
