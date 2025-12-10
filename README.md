@@ -62,7 +62,7 @@ The Neo4j MCP server supports two transport modes:
 - **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients (Claude Desktop, VSCode)
 - **HTTP**: RESTful HTTP server with per-request Basic Authentication for web-based clients and multi-tenant scenarios
 
-For STDIO mode, follow the configuration examples below.
+See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
 ## Configuration Options
 
@@ -70,7 +70,7 @@ The `neo4j-mcp` server can be configured using environment variables or CLI flag
 
 ### Environment Variables
 
-See the configuration examples below for VSCode and Claude Desktop (STDIO mode).
+See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration examples.
 
 ### CLI Flags
 
@@ -100,78 +100,11 @@ Available flags:
 
 Use `neo4j-mcp --help` to see all available options.
 
-## Configure VSCode (MCP)
+## Client Configuration
 
-Create / edit `mcp.json` (docs: https://code.visualstudio.com/docs/copilot/customization/mcp-servers):
+To configure MCP clients (VSCode, Claude Desktop, etc.) to use the Neo4j MCP server, see:
 
-```json
-{
-  "servers": {
-    "neo4j": {
-      "type": "stdio",
-      "command": "neo4j-mcp",
-      "env": {
-        "NEO4J_URI": "bolt://localhost:7687", // Required: Neo4j connection URI
-        "NEO4J_USERNAME": "neo4j", // Required: Database username
-        "NEO4J_PASSWORD": "password", // Required: Database password
-        "NEO4J_DATABASE": "neo4j", // Optional: Database name (default: neo4j)
-        "NEO4J_READ_ONLY": "true", // Optional: Disables write tools (default: false)
-        "NEO4J_TELEMETRY": "false", // Optional: Disables telemetry (default: true)
-        "NEO4J_LOG_LEVEL": "info", // Optional: Log level (default: info)
-        "NEO4J_LOG_FORMAT": "text", // Optional: Log format (default: text)
-        "NEO4J_SCHEMA_SAMPLE_SIZE": "100" // Optional: Number of nodes to sample for schema inference (default: 100)
-      }
-    }
-  }
-}
-```
-
-**Note:** The first three environment variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) are **required**. The server will fail to start if any of these are missing.
-
-Restart VSCode; open Copilot Chat and ask: "List Neo4j MCP tools" to confirm.
-
-## Configure Claude Desktop
-
-First, make sure you have Claude for Desktop installed. [You can install the latest version here](https://claude.ai/download).
-
-We'll need to configure Claude for Desktop for whichever MCP servers you want to use. To do this, open your Claude for Desktop App configuration at:
-
-- (MacOS/Linux) `~/Library/Application Support/Claude/claude_desktop_config.json`
-- (Windows) `$env:AppData\Claude\claude_desktop_config.json`
-
-in a text editor. Make sure to create the file if it doesn’t exist.
-
-You'll then add the `neo4j-mcp` MCP in the mcpServers key:
-
-```json
-{
-  "mcpServers": {
-    "neo4j-mcp": {
-      "type": "stdio",
-      "command": "neo4j-mcp",
-      "args": [],
-      "env": {
-        "NEO4J_URI": "bolt://localhost:7687", // Required: Neo4j connection URI
-        "NEO4J_USERNAME": "neo4j", // Required: Database username
-        "NEO4J_PASSWORD": "password", // Required: Database password
-        "NEO4J_DATABASE": "neo4j", // Optional: Database name (default: neo4j)
-        "NEO4J_READ_ONLY": "true", // Optional: Disables write tools (default: false)
-        "NEO4J_TELEMETRY": "false", // Optional: Disables telemetry (default: true)
-        "NEO4J_LOG_LEVEL": "info", // Optional: Log level (default: info)
-        "NEO4J_LOG_FORMAT": "text", // Optional: Log format (default: text)
-        "NEO4J_SCHEMA_SAMPLE_SIZE": "100" // Optional: Number of nodes to sample for schema inference (default: 100)
-      }
-    }
-  }
-}
-```
-
-**Important Notes:**
-
-- The first three environment variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) are **required**. The server will fail to start if any are missing.
-- Neo4j Desktop default URI: `bolt://localhost:7687`
-- Aura: use the connection string from the Aura console
-- See the [Readonly Mode](#readonly-mode-flag), [Logging](#logging), and [Telemetry](#telemetry) sections below for more details on optional configuration.
+📘 **[Client Setup Guide](docs/CLIENT_SETUP.md)** – Complete configuration for STDIO and HTTP modes
 
 ## Tools & Usage
 
@@ -249,6 +182,7 @@ You can also use the `--neo4j-telemetry` CLI flag to override this setting.
 
 ## Documentation
 
-📚 **[Contributing Guide](CONTRIBUTING.md)** – Contribution workflow, development environment, mocks & testing.
+📘 **[Client Setup Guide](docs/CLIENT_SETUP.md)** – Configure VSCode, Claude Desktop, and other MCP clients (STDIO and HTTP modes)
+📚 **[Contributing Guide](CONTRIBUTING.md)** – Contribution workflow, development environment, mocks & testing
 
 Issues / feedback: open a GitHub issue with reproduction details (omit sensitive data).

@@ -193,6 +193,17 @@ curl -X POST http://localhost:8080/mcp \
 curl -X OPTIONS http://localhost:8080/mcp \
   -H "Origin: http://localhost:3000" \
   -H "Access-Control-Request-Method: POST"
+
+# Test multi-user/multi-tenant (different credentials per request)
+curl -X POST http://localhost:8080/mcp \
+  -u "userA:passwordA" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}'
+
+curl -X POST http://localhost:8080/mcp \
+  -u "userB:passwordB" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}'
 ```
 
 ## MCP Error Handling
