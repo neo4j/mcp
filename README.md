@@ -4,8 +4,8 @@ Official Model Context Protocol (MCP) server for Neo4j.
 
 ## Links
 
-* [Documentation](https://neo4j.com/docs/mcp/current/)
-* [Discord](https://discord.gg/neo4j)
+- [Documentation](https://neo4j.com/docs/mcp/current/)
+- [Discord](https://discord.gg/neo4j)
 
 ## Prerequisites
 
@@ -55,13 +55,22 @@ neo4j-mcp -v
 
 Should print the installed version.
 
+## Transport Modes
+
+The Neo4j MCP server supports two transport modes:
+
+- **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients (Claude Desktop, VSCode)
+- **HTTP**: RESTful HTTP server with per-request Basic Authentication for web-based clients and multi-tenant scenarios
+
+For STDIO mode, follow the configuration examples below.
+
 ## Configuration Options
 
 The `neo4j-mcp` server can be configured using environment variables or CLI flags. CLI flags take precedence over environment variables.
 
 ### Environment Variables
 
-See the configuration examples below for VSCode and Claude Desktop.
+See the configuration examples below for VSCode and Claude Desktop (STDIO mode).
 
 ### CLI Flags
 
@@ -85,6 +94,9 @@ Available flags:
 - `--neo4j-read-only` - Enable read-only mode: `true` or `false` (overrides NEO4J_READ_ONLY)
 - `--neo4j-telemetry` - Enable telemetry: `true` or `false` (overrides NEO4J_TELEMETRY)
 - `--neo4j-schema-sample-size` - Modify the sample size used to infer the Neo4j schema
+- `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_MCP_TRANSPORT)
+- `--neo4j-http-host` - HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
+- `--neo4j-http-port` - HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
 
 Use `neo4j-mcp --help` to see all available options.
 
@@ -122,7 +134,7 @@ Restart VSCode; open Copilot Chat and ask: "List Neo4j MCP tools" to confirm.
 
 First, make sure you have Claude for Desktop installed. [You can install the latest version here](https://claude.ai/download).
 
-We’ll need to configure Claude for Desktop for whichever MCP servers you want to use. To do this, open your Claude for Desktop App configuration at:
+We'll need to configure Claude for Desktop for whichever MCP servers you want to use. To do this, open your Claude for Desktop App configuration at:
 
 - (MacOS/Linux) `~/Library/Application Support/Claude/claude_desktop_config.json`
 - (Windows) `$env:AppData\Claude\claude_desktop_config.json`
