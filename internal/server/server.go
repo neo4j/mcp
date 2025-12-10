@@ -104,7 +104,14 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
 // - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
+// Note: In HTTP mode, these checks are skipped at startup since credentials come from per-request Basic Auth headers.
 func (s *Neo4jMCPServer) verifyRequirements() error {
+	// Skip verification in HTTP mode - credentials come from per-request Basic Auth headers
+	if s.config.TransportMode == config.TransportModeHTTP {
+		slog.Info("Skipping startup verification in HTTP mode (credentials required per-request)")
+		return nil
+	}
+
 	err := s.dbService.VerifyConnectivity(context.Background())
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
@@ -156,15 +163,27 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 }
 
 func (s *Neo4jMCPServer) emitStartupEvent() {
-	// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
-	records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+	var startupInfo analytics.StartupEventInfo
 
-	if err != nil {
-		slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
-		return
+	// In HTTP mode, skip database query since credentials come from per-request Basic Auth headers
+	if s.config.TransportMode == config.TransportModeHTTP {
+		startupInfo = analytics.StartupEventInfo{
+			Neo4jVersion:  "unknown-http-mode",
+			Edition:       "unknown-http-mode",
+			CypherVersion: []string{"unknown-http-mode"},
+			McpVersion:    s.version,
+		}
+	} else {
+		// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
+		records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+
+		if err != nil {
+			slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
+			return
+		}
+
+		startupInfo = recordsToStartupEventInfo(records, s.version)
 	}
-
-	startupInfo := recordsToStartupEventInfo(records, s.version)
 
 	// track startup event
 	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
