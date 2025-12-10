@@ -129,7 +129,7 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		t.Fatal("httpServer should be initialized")
 	}
 
-	// Verify timeout values match what's in server.go:192-195
+	// Verify timeout values match the constants in server.go
 	expectedTimeouts := struct {
 		Read       time.Duration
 		Write      time.Duration
@@ -137,7 +137,7 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		ReadHeader time.Duration
 	}{
 		Read:       10 * time.Second,
-		Write:      30 * time.Second,
+		Write:      60 * time.Second,
 		Idle:       60 * time.Second,
 		ReadHeader: 5 * time.Second,
 	}

@@ -19,6 +19,14 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+const (
+	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
+	serverHTTPReadTimeout       = 10 * time.Second // Time to read request body (handles slow uploads)
+	serverHTTPWriteTimeout      = 60 * time.Second // Time to write complete response (allows complex queries and large result sets)
+	serverHTTPIdleTimeout       = 60 * time.Second // Connection reuse window for HTTP clients
+	serverHTTPReadHeaderTimeout = 5 * time.Second  // Time to read headers (prevents slow header attacks)
+)
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	MCPServer       *server.MCPServer
@@ -284,10 +292,10 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		Addr:    addr,
 		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
-		ReadTimeout:       10 * time.Second, // Time to read request body (handles slow uploads)
-		WriteTimeout:      30 * time.Second, // Time to write complete response (allows complex queries)
-		IdleTimeout:       60 * time.Second, // Connection reuse window for HTTP clients
-		ReadHeaderTimeout: 5 * time.Second,  // Time to read headers (prevents slow header attacks)
+		ReadTimeout:       serverHTTPReadTimeout,
+		WriteTimeout:      serverHTTPWriteTimeout,
+		IdleTimeout:       serverHTTPIdleTimeout,
+		ReadHeaderTimeout: serverHTTPReadHeaderTimeout,
 	}
 
 	// Signal that httpServer is ready for reading
@@ -309,7 +317,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	select {
 	case sig := <-sigChan:
 		slog.Info("Shutdown signal received", "signal", sig.String())
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), serverHTTPShutdownTimeout)
 		defer cancel()
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("Error during server shutdown", "error", err)
