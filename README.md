@@ -64,6 +64,37 @@ The Neo4j MCP server supports two transport modes:
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
+## TLS/HTTPS Configuration
+
+When using HTTP transport mode, you can enable TLS/HTTPS for secure communication:
+
+### Environment Variables
+
+- `NEO4J_MCP_HTTP_TLS_ENABLED` - Enable TLS/HTTPS: `true` or `false` (default: `false`)
+- `NEO4J_MCP_HTTP_TLS_CERT_FILE` - Path to TLS certificate file (required when TLS is enabled)
+- `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
+
+### Security Configuration
+
+- **Minimum TLS Version**: Hardcoded to TLS 1.2 (allows TLS 1.3 negotiation)
+- **Cipher Suites**: Uses Go's secure default cipher suites
+- **Certificate Types**: Compatible with self-signed and enterprise certificates
+
+### Example Configuration
+
+```bash
+export NEO4J_URI="bolt://localhost:7687"
+export NEO4J_MCP_TRANSPORT="http"
+export NEO4J_MCP_HTTP_PORT="8443"
+export NEO4J_MCP_HTTP_TLS_ENABLED="true"
+export NEO4J_MCP_HTTP_TLS_CERT_FILE="/path/to/cert.pem"
+export NEO4J_MCP_HTTP_TLS_KEY_FILE="/path/to/key.pem"
+
+neo4j-mcp
+```
+
+**Production Usage**: Use certificates from a trusted Certificate Authority (e.g., Let's Encrypt, or your organisation) for production deployments.
+
 ## Configuration Options
 
 The `neo4j-mcp` server can be configured using environment variables or CLI flags. CLI flags take precedence over environment variables.
@@ -97,6 +128,9 @@ Available flags:
 - `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_MCP_TRANSPORT)
 - `--neo4j-http-host` - HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
 - `--neo4j-http-port` - HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
+- `--neo4j-http-tls-enabled` - Enable TLS/HTTPS: `true` or `false` (overrides NEO4J_MCP_HTTP_TLS_ENABLED)
+
+**Note**: TLS certificate and key file paths (`NEO4J_MCP_HTTP_TLS_CERT_FILE`, `NEO4J_MCP_HTTP_TLS_KEY_FILE`) are configured via environment variables only.
 
 Use `neo4j-mcp --help` to see all available options.
 
