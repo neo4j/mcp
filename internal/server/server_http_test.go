@@ -10,7 +10,6 @@ import (
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -49,21 +48,8 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 			}
 
 			// Setup mocks for server initialization
+			// Note: In HTTP mode, verification is skipped (no DB queries at startup)
 			mockDB := db.NewMockService(ctrl)
-			mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Return(nil)
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Return([]*neo4j.Record{
-				{Keys: []string{"first"}, Values: []any{int64(1)}},
-			}, nil)
-			checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Return([]*neo4j.Record{
-				{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{true}},
-			}, nil)
-			gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Return([]*neo4j.Record{
-				{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
-			}, nil)
-
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Return([]*neo4j.Record{}, nil)
 
 			analyticsService := analytics.NewMockService(ctrl)
 			analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
@@ -80,8 +66,8 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 				errChan <- srv.Start()
 			}()
 
-			// Wait for server initialization
-			time.Sleep(100 * time.Millisecond)
+			// Wait for server to signal that httpServer is initialized
+			<-srv.httpServerReady
 
 			// Verify the HTTP server is configured with the expected address
 			if srv.httpServer == nil {
@@ -229,21 +215,8 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 	}
 
 	// Setup mocks for server initialization
+	// Note: In HTTP mode, verification is skipped (no DB queries at startup)
 	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Return(nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Return([]*neo4j.Record{
-		{Keys: []string{"first"}, Values: []any{int64(1)}},
-	}, nil)
-	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Return([]*neo4j.Record{
-		{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{true}},
-	}, nil)
-	gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Return([]*neo4j.Record{
-		{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
-	}, nil)
-
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Return([]*neo4j.Record{}, nil)
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
@@ -257,16 +230,15 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		errChan <- srv.Start()
 	}()
 
-	// Wait briefly for server to initialize (httpServer is set before ListenAndServe blocks)
-	// Relying on timing here is not ideal, we should consider adding a ready channel in the server in the future or moving this to an integration test.
-	time.Sleep(100 * time.Millisecond)
+	// Wait for server to signal that httpServer is initialized
+	<-srv.httpServerReady
 
-	// Now we can access the private httpServer field since we're in package server
+	// Now we can safely access the httpServer field since we're in package server
 	if srv.httpServer == nil {
 		t.Fatal("httpServer should be initialized")
 	}
 
-	// Verify timeout values match what's in server.go:192-195
+	// Verify timeout values match the constants in server.go
 	expectedTimeouts := struct {
 		Read       time.Duration
 		Write      time.Duration
@@ -274,7 +246,7 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		ReadHeader time.Duration
 	}{
 		Read:       10 * time.Second,
-		Write:      30 * time.Second,
+		Write:      60 * time.Second,
 		Idle:       60 * time.Second,
 		ReadHeader: 5 * time.Second,
 	}

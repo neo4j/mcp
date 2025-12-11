@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -58,7 +59,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		cancel()     // Release context resources immediately
 	})
 
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j", "stdio")
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j", config.TransportModeStdio)
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}

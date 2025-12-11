@@ -22,18 +22,24 @@ import (
 const (
 	protocolHTTP  = "http"
 	protocolHTTPS = "https"
+	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
+	serverHTTPReadTimeout       = 10 * time.Second // Time to read request body (handles slow uploads)
+	serverHTTPWriteTimeout      = 60 * time.Second // Time to write complete response (allows complex queries and large result sets)
+	serverHTTPIdleTimeout       = 60 * time.Second // Connection reuse window for HTTP clients
+	serverHTTPReadHeaderTimeout = 5 * time.Second  // Time to read headers (prevents slow header attacks)
 )
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer    *server.MCPServer
-	httpServer   *http.Server
-	shutdownChan chan struct{}
-	config       *config.Config
-	dbService    database.Service
-	version      string
-	anService    analytics.Service
-	gdsInstalled bool
+	MCPServer       *server.MCPServer
+	httpServer      *http.Server
+	httpServerReady chan struct{}
+	shutdownChan    chan struct{}
+	config          *config.Config
+	dbService       database.Service
+	version         string
+	anService       analytics.Service
+	gdsInstalled    bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -48,13 +54,14 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return &Neo4jMCPServer{
-		MCPServer:    mcpServer,
-		shutdownChan: make(chan struct{}),
-		config:       cfg,
-		dbService:    dbService,
-		version:      version,
-		anService:    anService,
-		gdsInstalled: false,
+		MCPServer:       mcpServer,
+		httpServerReady: make(chan struct{}),
+		shutdownChan:    make(chan struct{}),
+		config:          cfg,
+		dbService:       dbService,
+		version:         version,
+		anService:       anService,
+		gdsInstalled:    false,
 	}
 }
 
@@ -92,8 +99,8 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 	if allowedOriginsStr == "*" {
 		return []string{"*"}
 	}
-	allowedOrigins := make([]string, 0)
 	origins := strings.Split(allowedOriginsStr, ",")
+	allowedOrigins := make([]string, 0, len(origins))
 
 	for _, origin := range origins {
 		allowedOrigins = append(allowedOrigins, strings.TrimSpace(origin))
@@ -107,7 +114,14 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
 // - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
+// Note: In HTTP mode, these checks are skipped at startup since credentials come from per-request Basic Auth headers.
 func (s *Neo4jMCPServer) verifyRequirements() error {
+	// Skip verification in HTTP mode - credentials come from per-request Basic Auth headers
+	if s.config.TransportMode == config.TransportModeHTTP {
+		slog.Info("Skipping startup verification in HTTP mode (credentials required per-request)")
+		return nil
+	}
+
 	err := s.dbService.VerifyConnectivity(context.Background())
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
@@ -159,15 +173,27 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 }
 
 func (s *Neo4jMCPServer) emitStartupEvent() {
-	// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
-	records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+	var startupInfo analytics.StartupEventInfo
 
-	if err != nil {
-		slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
-		return
+	// In HTTP mode, skip database query since credentials come from per-request Basic Auth headers
+	if s.config.TransportMode == config.TransportModeHTTP {
+		startupInfo = analytics.StartupEventInfo{
+			Neo4jVersion:  "unknown-http-mode",
+			Edition:       "unknown-http-mode",
+			CypherVersion: []string{"unknown-http-mode"},
+			McpVersion:    s.version,
+		}
+	} else {
+		// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
+		records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+
+		if err != nil {
+			slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
+			return
+		}
+
+		startupInfo = recordsToStartupEventInfo(records, s.version)
 	}
-
-	startupInfo := recordsToStartupEventInfo(records, s.version)
 
 	// track startup event
 	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
@@ -272,11 +298,14 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		Addr:    addr,
 		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
-		ReadTimeout:       10 * time.Second, // Time to read request body (handles slow uploads)
-		WriteTimeout:      30 * time.Second, // Time to write complete response (allows complex queries)
-		IdleTimeout:       60 * time.Second, // Connection reuse window for HTTP clients
-		ReadHeaderTimeout: 5 * time.Second,  // Time to read headers (prevents slow header attacks)
+		ReadTimeout:       serverHTTPReadTimeout,
+		WriteTimeout:      serverHTTPWriteTimeout,
+		IdleTimeout:       serverHTTPIdleTimeout,
+		ReadHeaderTimeout: serverHTTPReadHeaderTimeout,
 	}
+
+	// Signal that httpServer is ready for reading
+	close(s.httpServerReady)
 
 	// Channel to receive server errors
 	errChan := make(chan error, 1)
@@ -300,7 +329,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	select {
 	case sig := <-sigChan:
 		slog.Info("Shutdown signal received", "signal", sig.String())
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), serverHTTPShutdownTimeout)
 		defer cancel()
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("Error during server shutdown", "error", err)

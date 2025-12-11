@@ -28,7 +28,7 @@ func TestToolRegister(t *testing.T) {
 			Username:      "neo4j",
 			Password:      "password",
 			Database:      "neo4j",
-			TransportMode: "stdio",
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -58,7 +58,7 @@ func TestToolRegister(t *testing.T) {
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      true,
-			TransportMode: "stdio",
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -87,7 +87,7 @@ func TestToolRegister(t *testing.T) {
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      false,
-			TransportMode: "stdio",
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
@@ -117,7 +117,7 @@ func TestToolRegister(t *testing.T) {
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      false,
-			TransportMode: "stdio",
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 

@@ -22,7 +22,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Username:      "neo4j",
 		Password:      "password",
 		Database:      "neo4j",
-		TransportMode: "stdio",
+		TransportMode: config.TransportModeStdio,
 	}
 
 	analyticsService := analytics.NewMockService(ctrl)
@@ -247,7 +247,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		Username:      "neo4j",
 		Password:      "password",
 		Database:      "neo4j",
-		TransportMode: "stdio",
+		TransportMode: config.TransportModeStdio,
 	}
 
 	mockDB := db.NewMockService(ctrl)
