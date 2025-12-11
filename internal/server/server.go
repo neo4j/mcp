@@ -19,6 +19,11 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+const (
+	protocolHTTP  = "http"
+	protocolHTTPS = "https"
+)
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
 	MCPServer    *server.MCPServer
@@ -249,7 +254,11 @@ func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 
 func (s *Neo4jMCPServer) StartHTTPServer() error {
 	addr := fmt.Sprintf("%s:%s", s.config.HTTPHost, s.config.HTTPPort)
-	slog.Info("Starting HTTP server", "address", addr, "url", fmt.Sprintf("http://%s", addr))
+	protocol := protocolHTTP
+	if s.config.HTTPTLSEnabled {
+		protocol = protocolHTTPS
+	}
+	slog.Info("Starting HTTP server", "address", addr, "url", fmt.Sprintf("%s://%s", protocol, addr), "tls", s.config.HTTPTLSEnabled)
 
 	// Create the StreamableHTTPServer - it serves on /mcp path by default
 	mcpServerHTTP := server.NewStreamableHTTPServer(
@@ -272,7 +281,13 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Channel to receive server errors
 	errChan := make(chan error, 1)
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var err error
+		if s.config.HTTPTLSEnabled {
+			err = s.httpServer.ListenAndServeTLS(s.config.HTTPTLSCertFile, s.config.HTTPTLSKeyFile)
+		} else {
+			err = s.httpServer.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			errChan <- fmt.Errorf("HTTP server failed: %w", err)
 		}
 	}()

@@ -103,6 +103,115 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 	}
 }
 
+// TestHTTPServerTLSConfiguration verifies that the HTTP server correctly uses TLS settings
+func TestHTTPServerTLSConfiguration(t *testing.T) {
+	tests := []struct {
+		name           string
+		tlsEnabled     bool
+		tlsCertFile    string
+		tlsKeyFile     string
+		expectTLSSetup bool
+	}{
+		{
+			name:           "TLS enabled with cert and key",
+			tlsEnabled:     true,
+			tlsCertFile:    "../../test/tls/cert.pem",
+			tlsKeyFile:     "../../test/tls/key.pem",
+			expectTLSSetup: true,
+		},
+		{
+			name:           "TLS disabled",
+			tlsEnabled:     false,
+			tlsCertFile:    "",
+			tlsKeyFile:     "",
+			expectTLSSetup: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			cfg := &config.Config{
+				URI:             "bolt://test-host:7687",
+				Username:        "test-username",
+				Password:        "test-password",
+				Database:        "neo4j",
+				TransportMode:   config.TransportModeHTTP,
+				HTTPHost:        "127.0.0.1",
+				HTTPPort:        "0", // Use port 0 to get a random available port
+				HTTPTLSEnabled:  tt.tlsEnabled,
+				HTTPTLSCertFile: tt.tlsCertFile,
+				HTTPTLSKeyFile:  tt.tlsKeyFile,
+			}
+
+			// Setup mocks for server initialization
+			mockDB := db.NewMockService(ctrl)
+			mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Return(nil)
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Return([]*neo4j.Record{
+				{Keys: []string{"first"}, Values: []any{int64(1)}},
+			}, nil)
+			checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Return([]*neo4j.Record{
+				{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{true}},
+			}, nil)
+			gdsVersionQuery := "RETURN gds.version() as gdsVersion"
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Return([]*neo4j.Record{
+				{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
+			}, nil)
+
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Return([]*neo4j.Record{}, nil)
+
+			analyticsService := analytics.NewMockService(ctrl)
+			analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
+			analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+
+			srv := NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
+			if srv == nil {
+				t.Fatal("Expected non-nil server")
+			}
+
+			// Verify config is stored correctly
+			if srv.config.HTTPTLSEnabled != tt.tlsEnabled {
+				t.Errorf("Expected HTTPTLSEnabled %v, got %v", tt.tlsEnabled, srv.config.HTTPTLSEnabled)
+			}
+
+			// Start server briefly to initialize httpServer
+			errChan := make(chan error, 1)
+			go func() {
+				errChan <- srv.Start()
+			}()
+
+			// Wait for server initialization
+			time.Sleep(100 * time.Millisecond)
+
+			// Verify the HTTP server is initialized
+			if srv.httpServer == nil {
+				t.Fatal("httpServer should be initialized")
+			}
+
+			// Cleanup
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if err := srv.Stop(ctx); err != nil {
+				t.Errorf("Failed to stop server: %v", err)
+			}
+
+			// Verify server stopped
+			select {
+			case err := <-errChan:
+				// Server stopped, error should be about http.ErrServerClosed or nil
+				if err != nil {
+					t.Logf("Server stopped with: %v", err)
+				}
+			case <-time.After(3 * time.Second):
+				t.Error("Server did not stop within timeout")
+			}
+		})
+	}
+}
+
 // TestHTTPServerTimeoutValues verifies the actual http.Server timeout configuration
 func TestHTTPServerTimeoutValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
