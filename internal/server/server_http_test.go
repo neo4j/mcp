@@ -10,7 +10,6 @@ import (
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -134,21 +133,8 @@ func TestHTTPServerTLSConfiguration(t *testing.T) {
 			}
 
 			// Setup mocks for server initialization
+			// Note: In HTTP mode, verification is skipped (no DB queries at startup)
 			mockDB := db.NewMockService(ctrl)
-			mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Return(nil)
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Return([]*neo4j.Record{
-				{Keys: []string{"first"}, Values: []any{int64(1)}},
-			}, nil)
-			checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Return([]*neo4j.Record{
-				{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{true}},
-			}, nil)
-			gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Return([]*neo4j.Record{
-				{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
-			}, nil)
-
-			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Return([]*neo4j.Record{}, nil)
 
 			analyticsService := analytics.NewMockService(ctrl)
 			analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
