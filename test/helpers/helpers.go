@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || e2e
 
 package helpers
 
@@ -63,7 +63,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 		t.Fatalf("failed to create Neo4j service: %v", err)
 	}
 
-	analyticsService := getAnalyticsMock(t)
+	analyticsService := GetAnalyticsMock(t)
 	deps := &tools.ToolDependencies{
 		DBService:        databaseService,
 		AnalyticsService: analyticsService,
@@ -77,7 +77,7 @@ func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext 
 }
 
 // getAnalyticsMock is used to mock the analytics service, for integration test purpose.
-func getAnalyticsMock(t *testing.T) *analytics.MockService {
+func GetAnalyticsMock(t *testing.T) *analytics.MockService {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	analyticsService := analytics.NewMockService(ctrl)

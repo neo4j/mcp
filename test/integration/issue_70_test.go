@@ -10,7 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
-	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/helpers"
 )
 
 // https://github.com/neo4j/mcp/issues/70

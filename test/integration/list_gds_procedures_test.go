@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/gds"
-	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/helpers"
 )
 
 func TestListGdsProcedures(t *testing.T) {

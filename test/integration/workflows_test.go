@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
-	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/helpers"
 )
 
 func TestWriteThenRead(t *testing.T) {

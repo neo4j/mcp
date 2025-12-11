@@ -1,6 +1,4 @@
-//go:build integration
-
-package integration
+package e2e
 
 import (
 	"context"
@@ -14,7 +12,7 @@ var dbs = dbservice.NewDBService()
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	
+
 	dbs.Start(ctx)
 
 	code := m.Run()

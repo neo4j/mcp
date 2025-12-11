@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || e2e
 
 package containerrunner
 
