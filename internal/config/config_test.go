@@ -337,6 +337,9 @@ func TestLoadConfig_ValidIntValue(t *testing.T) {
 }
 
 func TestConfig_Validate_TLS(t *testing.T) {
+	// Generate test certificates once for all test cases
+	certPath, keyPath := GenerateTestTLSCertificate(t)
+
 	tests := []struct {
 		name    string
 		cfg     *Config
@@ -346,22 +349,22 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled and both cert files provided",
 			cfg: &Config{
-				URI:                "bolt://localhost:7687",
-				TransportMode:      TransportModeHTTP,
-				HTTPTLSEnabled:     true,
-				HTTPTLSCertFile:    "/path/to/cert.pem",
-				HTTPTLSKeyFile:     "/path/to/key.pem",
+				URI:             "bolt://localhost:7687",
+				TransportMode:   TransportModeHTTP,
+				HTTPTLSEnabled:  true,
+				HTTPTLSCertFile: certPath,
+				HTTPTLSKeyFile:  keyPath,
 			},
 			wantErr: false,
 		},
 		{
 			name: "HTTP mode with TLS enabled but missing cert file",
 			cfg: &Config{
-				URI:                "bolt://localhost:7687",
-				TransportMode:      TransportModeHTTP,
-				HTTPTLSEnabled:     true,
-				HTTPTLSCertFile:    "",
-				HTTPTLSKeyFile:     "/path/to/key.pem",
+				URI:             "bolt://localhost:7687",
+				TransportMode:   TransportModeHTTP,
+				HTTPTLSEnabled:  true,
+				HTTPTLSCertFile: "",
+				HTTPTLSKeyFile:  "/path/to/key.pem",
 			},
 			wantErr: true,
 			errMsg:  "TLS certificate file is required when TLS is enabled",
@@ -369,11 +372,11 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled but missing key file",
 			cfg: &Config{
-				URI:                "bolt://localhost:7687",
-				TransportMode:      TransportModeHTTP,
-				HTTPTLSEnabled:     true,
-				HTTPTLSCertFile:    "/path/to/cert.pem",
-				HTTPTLSKeyFile:     "",
+				URI:             "bolt://localhost:7687",
+				TransportMode:   TransportModeHTTP,
+				HTTPTLSEnabled:  true,
+				HTTPTLSCertFile: "/path/to/cert.pem",
+				HTTPTLSKeyFile:  "",
 			},
 			wantErr: true,
 			errMsg:  "TLS key file is required when TLS is enabled",
@@ -381,24 +384,24 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS disabled and no cert files",
 			cfg: &Config{
-				URI:                "bolt://localhost:7687",
-				TransportMode:      TransportModeHTTP,
-				HTTPTLSEnabled:     false,
-				HTTPTLSCertFile:    "",
-				HTTPTLSKeyFile:     "",
+				URI:             "bolt://localhost:7687",
+				TransportMode:   TransportModeHTTP,
+				HTTPTLSEnabled:  false,
+				HTTPTLSCertFile: "",
+				HTTPTLSKeyFile:  "",
 			},
 			wantErr: false,
 		},
 		{
 			name: "STDIO mode with TLS enabled (should be ignored)",
 			cfg: &Config{
-				URI:                "bolt://localhost:7687",
-				Username:           "neo4j",
-				Password:           "password",
-				TransportMode:      TransportModeStdio,
-				HTTPTLSEnabled:     true,
-				HTTPTLSCertFile:    "",
-				HTTPTLSKeyFile:     "",
+				URI:             "bolt://localhost:7687",
+				Username:        "neo4j",
+				Password:        "password",
+				TransportMode:   TransportModeStdio,
+				HTTPTLSEnabled:  true,
+				HTTPTLSCertFile: "",
+				HTTPTLSKeyFile:  "",
 			},
 			wantErr: false, // TLS validation only applies to HTTP mode
 		},
@@ -428,11 +431,14 @@ func TestConfig_Validate_TLS(t *testing.T) {
 
 func TestLoadConfig_TLS(t *testing.T) {
 	t.Run("TLS enabled via environment variables", func(t *testing.T) {
+		// Generate test certificates dynamically
+		certPath, keyPath := GenerateTestTLSCertificate(t)
+
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
-		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", "/path/to/cert.pem")
-		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/path/to/key.pem")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
 
 		cfg, err := LoadConfig(nil)
 		if err != nil {
@@ -442,11 +448,11 @@ func TestLoadConfig_TLS(t *testing.T) {
 		if !cfg.HTTPTLSEnabled {
 			t.Errorf("LoadConfig() HTTPTLSEnabled = %v, want true", cfg.HTTPTLSEnabled)
 		}
-		if cfg.HTTPTLSCertFile != "/path/to/cert.pem" {
-			t.Errorf("LoadConfig() HTTPTLSCertFile = %v, want /path/to/cert.pem", cfg.HTTPTLSCertFile)
+		if cfg.HTTPTLSCertFile != certPath {
+			t.Errorf("LoadConfig() HTTPTLSCertFile = %v, want %v", cfg.HTTPTLSCertFile, certPath)
 		}
-		if cfg.HTTPTLSKeyFile != "/path/to/key.pem" {
-			t.Errorf("LoadConfig() HTTPTLSKeyFile = %v, want /path/to/key.pem", cfg.HTTPTLSKeyFile)
+		if cfg.HTTPTLSKeyFile != keyPath {
+			t.Errorf("LoadConfig() HTTPTLSKeyFile = %v, want %v", cfg.HTTPTLSKeyFile, keyPath)
 		}
 	})
 
@@ -466,16 +472,17 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 
 	t.Run("TLS CLI overrides environment", func(t *testing.T) {
+		// Generate test certificates dynamically
+		certPath, keyPath := GenerateTestTLSCertificate(t)
+
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
-		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", "/env/cert.pem")
-		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/env/key.pem")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
 
 		overrides := &CLIOverrides{
-			TLSEnabled:  "true",
-			TLSCertFile: "/cli/cert.pem",
-			TLSKeyFile:  "/cli/key.pem",
+			TLSEnabled: "true",
 		}
 
 		cfg, err := LoadConfig(overrides)
@@ -486,11 +493,11 @@ func TestLoadConfig_TLS(t *testing.T) {
 		if !cfg.HTTPTLSEnabled {
 			t.Errorf("LoadConfig() HTTPTLSEnabled = %v, want true (from CLI)", cfg.HTTPTLSEnabled)
 		}
-		if cfg.HTTPTLSCertFile != "/cli/cert.pem" {
-			t.Errorf("LoadConfig() HTTPTLSCertFile = %v, want /cli/cert.pem (from CLI)", cfg.HTTPTLSCertFile)
+		if cfg.HTTPTLSCertFile != certPath {
+			t.Errorf("LoadConfig() HTTPTLSCertFile = %v, want %v (from env)", cfg.HTTPTLSCertFile, certPath)
 		}
-		if cfg.HTTPTLSKeyFile != "/cli/key.pem" {
-			t.Errorf("LoadConfig() HTTPTLSKeyFile = %v, want /cli/key.pem (from CLI)", cfg.HTTPTLSKeyFile)
+		if cfg.HTTPTLSKeyFile != keyPath {
+			t.Errorf("LoadConfig() HTTPTLSKeyFile = %v, want %v (from env)", cfg.HTTPTLSKeyFile, keyPath)
 		}
 	})
 
@@ -512,4 +519,25 @@ func TestLoadConfig_TLS(t *testing.T) {
 			t.Errorf("LoadConfig() error = %v, want error containing 'TLS certificate file is required'", err)
 		}
 	})
+
+	t.Run("TLS validation error with invalid cert/key files", func(t *testing.T) {
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", "/nonexistent/cert.pem")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/nonexistent/key.pem")
+
+		cfg, err := LoadConfig(nil)
+		if err == nil {
+			t.Error("LoadConfig() expected error with nonexistent cert/key files, got nil")
+			return
+		}
+		if cfg != nil {
+			t.Error("LoadConfig() expected nil config when validation fails, got config")
+		}
+		if !strings.Contains(err.Error(), "failed to load TLS certificate and key") {
+			t.Errorf("LoadConfig() error = %v, want error containing 'failed to load TLS certificate and key'", err)
+		}
+	})
 }
+

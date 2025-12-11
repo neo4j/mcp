@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
@@ -82,6 +83,12 @@ func (c *Config) Validate() error {
 		if c.HTTPTLSKeyFile == "" {
 			return fmt.Errorf("TLS key file is required when TLS is enabled (set NEO4J_MCP_HTTP_TLS_KEY_FILE)")
 		}
+
+		// Validate that certificate and key files exist and are valid
+		// This provides early, clear error messages before attempting to start the server
+		if _, err := tls.LoadX509KeyPair(c.HTTPTLSCertFile, c.HTTPTLSKeyFile); err != nil {
+			return fmt.Errorf("failed to load TLS certificate and key: %w", err)
+		}
 	}
 
 	return nil
@@ -99,8 +106,6 @@ type CLIOverrides struct {
 	Port          string
 	Host          string
 	TLSEnabled    string
-	TLSCertFile   string
-	TLSKeyFile    string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -172,12 +177,6 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.TLSEnabled != "" {
 			cfg.HTTPTLSEnabled = ParseBool(cliOverrides.TLSEnabled, false)
-		}
-		if cliOverrides.TLSCertFile != "" {
-			cfg.HTTPTLSCertFile = cliOverrides.TLSCertFile
-		}
-		if cliOverrides.TLSKeyFile != "" {
-			cfg.HTTPTLSKeyFile = cliOverrides.TLSKeyFile
 		}
 	}
 

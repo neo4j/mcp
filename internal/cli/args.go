@@ -30,8 +30,6 @@ Options:
   --neo4j-http-port <PORT>            HTTP server port (overrides environment variable NEO4J_MCP_HTTP_PORT)
   --neo4j-http-host <HOST>            HTTP server host (overrides environment variable NEO4J_MCP_HTTP_HOST)
   --neo4j-http-tls-enabled <BOOLEAN>  Enable TLS/HTTPS for HTTP server: true or false (overrides environment variable NEO4J_MCP_HTTP_TLS_ENABLED)
-  --neo4j-http-tls-cert-file <PATH>   Path to TLS certificate file (overrides environment variable NEO4J_MCP_HTTP_TLS_CERT_FILE)
-  --neo4j-http-tls-key-file <PATH>    Path to TLS private key file (overrides environment variable NEO4J_MCP_HTTP_TLS_KEY_FILE)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -73,8 +71,6 @@ type Args struct {
 	HTTPPort         string
 	HTTPHost         string
 	HTTPTLSEnabled   string
-	HTTPTLSCertFile  string
-	HTTPTLSKeyFile   string
 }
 
 // this is a list of known configuration flags to be skipped in HandleArgs
@@ -91,8 +87,6 @@ var argsSlice = []string{
 	"--neo4j-http-port",
 	"--neo4j-http-host",
 	"--neo4j-http-tls-enabled",
-	"--neo4j-http-tls-cert-file",
-	"--neo4j-http-tls-key-file",
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
@@ -109,8 +103,6 @@ func ParseConfigFlags() *Args {
 	neo4jHTTPPort := flag.String("neo4j-http-port", "", "HTTP server port (overrides NEO4J_MCP_HTTP_PORT env var)")
 	neo4jHTTPHost := flag.String("neo4j-http-host", "", "HTTP server host (overrides NEO4J_MCP_HTTP_HOST env var)")
 	neo4jHTTPTLSEnabled := flag.String("neo4j-http-tls-enabled", "", "Enable TLS/HTTPS for HTTP server: true or false (overrides NEO4J_MCP_HTTP_TLS_ENABLED env var)")
-	neo4jHTTPTLSCertFile := flag.String("neo4j-http-tls-cert-file", "", "Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE env var)")
-	neo4jHTTPTLSKeyFile := flag.String("neo4j-http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
 
 	flag.Parse()
 
@@ -126,8 +118,6 @@ func ParseConfigFlags() *Args {
 		HTTPPort:         *neo4jHTTPPort,
 		HTTPHost:         *neo4jHTTPHost,
 		HTTPTLSEnabled:   *neo4jHTTPTLSEnabled,
-		HTTPTLSCertFile:  *neo4jHTTPTLSCertFile,
-		HTTPTLSKeyFile:   *neo4jHTTPTLSKeyFile,
 	}
 }
 

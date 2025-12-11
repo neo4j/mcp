@@ -91,6 +91,9 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 
 // TestHTTPServerTLSConfiguration verifies that the HTTP server correctly uses TLS settings
 func TestHTTPServerTLSConfiguration(t *testing.T) {
+	// Generate test certificates dynamically for TLS test
+	certPath, keyPath := config.GenerateTestTLSCertificate(t)
+
 	tests := []struct {
 		name           string
 		tlsEnabled     bool
@@ -101,8 +104,8 @@ func TestHTTPServerTLSConfiguration(t *testing.T) {
 		{
 			name:           "TLS enabled with cert and key",
 			tlsEnabled:     true,
-			tlsCertFile:    "../../test/tls/cert.pem",
-			tlsKeyFile:     "../../test/tls/key.pem",
+			tlsCertFile:    certPath,
+			tlsKeyFile:     keyPath,
 			expectTLSSetup: true,
 		},
 		{
