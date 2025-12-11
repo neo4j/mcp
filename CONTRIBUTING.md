@@ -35,6 +35,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 The MCP server requires certain environment variables to connect to a Neo4j instance.
 
 **Required variables** (server will not start without these):
+
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
@@ -42,6 +43,7 @@ export NEO4J_PASSWORD="password"
 ```
 
 **Optional variables** (with defaults):
+
 ```bash
 export NEO4J_DATABASE="neo4j"          # Default: neo4j
 export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
@@ -213,6 +215,12 @@ When adding new database operations:
 - Mock generation fails → ensure `mockgen` on PATH.
 - Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
 - Dependency/build issues → `go mod tidy`.
+
+## Update MCPB Bundle (for Claude Desktop)
+
+If your changes impact the end-user configuration (e.g., adding new environment variables or modifying tool definitions), you must update the `manifest.json` file. This ensures that integrations like Claude Desktop are aware of the new server configuration.
+
+For more information refer to the dedicated guide: [the MCPB build documentation](docs/BUILD_MCPB.md).
 
 ### Getting Help
 
