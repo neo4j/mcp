@@ -14,8 +14,8 @@ const (
 
 // chainMiddleware chains together all HTTP middleware
 func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
-	// Chain middleware in reverse order (last to first)
-	// Order: CORS -> BasicAuth -> Logging -> Handler
+	// Chain middleware in reverse order (last added = first to execute)
+	// Execution order: PathValidator -> CORS -> BasicAuth -> Logging -> Handler
 
 	// Start with the actual handler
 	handler := next
@@ -28,6 +28,9 @@ func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 
 	// Add CORS middleware (if configured)
 	handler = corsMiddleware(allowedOrigins)(handler)
+
+	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
+	handler = pathValidationMiddleware()(handler)
 
 	return handler
 }
@@ -87,6 +90,21 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 				return
 			}
 
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// pathValidationMiddleware validates that requests are only sent to /mcp path
+// Returns 404 for all other paths to avoid hanging connections
+func pathValidationMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Only /mcp path is valid for this MCP server
+			if r.URL.Path != "/mcp" {
+				http.Error(w, "Not Found: This server only handles requests to /mcp", http.StatusNotFound)
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}

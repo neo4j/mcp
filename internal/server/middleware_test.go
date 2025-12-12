@@ -271,7 +271,7 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
 	handler := chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	req.SetBasicAuth("user", "pass")
 	rec := httptest.NewRecorder()
@@ -292,7 +292,7 @@ func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
 	handler := chainMiddleware(allowedOrigins, mockHandler())
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	// No auth credentials
 	rec := httptest.NewRecorder()
@@ -353,5 +353,73 @@ func TestParseAllowedOrigins_WithSpaces(t *testing.T) {
 		if result[i] != exp {
 			t.Errorf("Expected origin[%d] = %q, got %q", i, exp, result[i])
 		}
+	}
+}
+
+func TestPathValidationMiddleware_ValidPath(t *testing.T) {
+	handler := pathValidationMiddleware()(mockHandler())
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /mcp path, got %d", rec.Code)
+	}
+
+	if rec.Body.String() != "OK" {
+		t.Errorf("Expected body 'OK', got %q", rec.Body.String())
+	}
+}
+
+func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
+	testCases := []struct {
+		name string
+		path string
+	}{
+		{"root path", "/"},
+		{"other path", "/api"},
+		{"nested path", "/mcp/test"},
+		{"similar path", "/mcpserver"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := pathValidationMiddleware()(mockHandler())
+
+			req := httptest.NewRequest("GET", tc.path, nil)
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusNotFound {
+				t.Errorf("Expected status 404 for path %s, got %d", tc.path, rec.Code)
+			}
+
+			expectedBody := "Not Found: This server only handles requests to /mcp\n"
+			if rec.Body.String() != expectedBody {
+				t.Errorf("Expected body %q, got %q", expectedBody, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestPathValidationMiddleware_InFullChain(t *testing.T) {
+	// Test that path validation happens before auth check
+	// Invalid paths should return 404 without requiring auth
+	allowedOrigins := []string{}
+	handler := chainMiddleware(allowedOrigins, mockHandler())
+
+	req := httptest.NewRequest("GET", "/", nil)
+	// No auth credentials
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 404 for invalid path, not 401 for missing auth
+	// This proves path validation happens first in the middleware chain
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404 for invalid path (before auth check), got %d", rec.Code)
 	}
 }
