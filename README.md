@@ -97,6 +97,8 @@ neo4j-mcp
 
 **Production Usage**: Use certificates from a trusted Certificate Authority (e.g., Let's Encrypt, or your organisation) for production deployments.
 
+📘 **[TLS Testing & Setup Guide](test/tls/README.md)** – Detailed instructions for generating certificates, testing TLS setup, and production deployment
+
 ## Configuration Options
 
 The `neo4j-mcp` server can be configured using environment variables or CLI flags. CLI flags take precedence over environment variables.
