@@ -97,7 +97,7 @@ neo4j-mcp
 
 **Production Usage**: Use certificates from a trusted Certificate Authority (e.g., Let's Encrypt, or your organisation) for production deployments.
 
-📘 **[TLS Testing & Setup Guide](test/tls/README.md)** – Detailed instructions for generating certificates, testing TLS setup, and production deployment
+📘 **[TLS Setup Guide](docs/TLS_SETUP.md)** – Detailed instructions for generating certificates, testing TLS, and production deployment
 
 ## Configuration Options
 

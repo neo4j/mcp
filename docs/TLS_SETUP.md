@@ -1,6 +1,8 @@
-# TLS Testing for Neo4j MCP Server
+# TLS/HTTPS Setup for Neo4j MCP Server
 
-**Note**: Automated tests generate certificates dynamically. For manual/integration testing, follow the steps below.
+This guide covers TLS/HTTPS configuration for the Neo4j MCP server, including certificate generation, testing, and production deployment.
+
+**Note**: Automated tests generate certificates dynamically. For manual testing or production deployment, follow the steps below.
 
 **Security**: `.pem` files are in `.gitignore` and should never be committed.
 
