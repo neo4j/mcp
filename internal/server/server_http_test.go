@@ -256,10 +256,10 @@ func TestHTTPServerTimeoutValues(t *testing.T) {
 		Idle       time.Duration
 		ReadHeader time.Duration
 	}{
-		Read:       10 * time.Second,
-		Write:      60 * time.Second,
-		Idle:       60 * time.Second,
 		ReadHeader: 5 * time.Second,
+		Read:       15 * time.Second,
+		Write:      60 * time.Second,
+		Idle:       120 * time.Second,
 	}
 
 	if srv.httpServer.ReadTimeout != expectedTimeouts.Read {

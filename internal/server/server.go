@@ -24,10 +24,10 @@ const (
 	protocolHTTP  = "http"
 	protocolHTTPS = "https"
 	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
-	serverHTTPReadTimeout       = 10 * time.Second // Time to read request body (handles slow uploads)
-	serverHTTPWriteTimeout      = 60 * time.Second // Time to write complete response (allows complex queries and large result sets)
-	serverHTTPIdleTimeout       = 60 * time.Second // Connection reuse window for HTTP clients
-	serverHTTPReadHeaderTimeout = 5 * time.Second  // Time to read headers (prevents slow header attacks)
+	serverHTTPReadHeaderTimeout = 5 * time.Second  // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
+	serverHTTPReadTimeout       = 15 * time.Second // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
+	serverHTTPWriteTimeout      = 60 * time.Second // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
+	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 )
 
 // Neo4jMCPServer represents the MCP server instance
