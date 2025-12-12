@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"log/slog"
@@ -20,11 +21,13 @@ import (
 )
 
 const (
+	protocolHTTP  = "http"
+	protocolHTTPS = "https"
 	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
-	serverHTTPReadTimeout       = 10 * time.Second // Time to read request body (handles slow uploads)
-	serverHTTPWriteTimeout      = 60 * time.Second // Time to write complete response (allows complex queries and large result sets)
-	serverHTTPIdleTimeout       = 60 * time.Second // Connection reuse window for HTTP clients
-	serverHTTPReadHeaderTimeout = 5 * time.Second  // Time to read headers (prevents slow header attacks)
+	serverHTTPReadHeaderTimeout = 5 * time.Second  // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
+	serverHTTPReadTimeout       = 15 * time.Second // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
+	serverHTTPWriteTimeout      = 60 * time.Second // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
+	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -261,6 +264,29 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 	return startupInfo
 }
 
+// buildTLSConfig creates a TLS configuration with security best practices
+// - Sets minimum TLS version to TLS 1.2 (allows TLS 1.3 negotiation)
+// - Uses Go's default cipher suites (well-maintained and secure)
+// - Compatible with self-signed and enterprise certificates
+func (s *Neo4jMCPServer) buildTLSConfig() (*tls.Config, error) {
+	// Load the certificate and key
+	cert, err := tls.LoadX509KeyPair(s.config.HTTPTLSCertFile, s.config.HTTPTLSKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS certificate and key: %w", err)
+	}
+
+	// Create TLS config with security best practices
+	// MinVersion is set to TLS 1.2, which allows TLS 1.3 clients to negotiate higher versions
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		// CipherSuites: nil (uses Go's default secure cipher suites)
+		// PreferServerCipherSuites: deprecated in Go 1.17+ (server preference is always used for TLS 1.3)
+	}
+
+	return tlsConfig, nil
+}
+
 // Stop gracefully stops the HTTP server
 func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 	if s.httpServer != nil {
@@ -278,7 +304,11 @@ func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
 
 func (s *Neo4jMCPServer) StartHTTPServer() error {
 	addr := fmt.Sprintf("%s:%s", s.config.HTTPHost, s.config.HTTPPort)
-	slog.Info("Starting HTTP server", "address", addr, "url", fmt.Sprintf("http://%s", addr))
+	protocol := protocolHTTP
+	if s.config.HTTPTLSEnabled {
+		protocol = protocolHTTPS
+	}
+	slog.Info("Starting HTTP server", "address", addr, "url", fmt.Sprintf("%s://%s", protocol, addr), "tls", s.config.HTTPTLSEnabled)
 
 	// Create the StreamableHTTPServer - it serves on /mcp path by default
 	mcpServerHTTP := server.NewStreamableHTTPServer(
@@ -298,13 +328,30 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		ReadHeaderTimeout: serverHTTPReadHeaderTimeout,
 	}
 
+	// Configure TLS if enabled
+	if s.config.HTTPTLSEnabled {
+		tlsConfig, err := s.buildTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to configure TLS: %w", err)
+		}
+		s.httpServer.TLSConfig = tlsConfig
+		slog.Info("TLS configuration applied", "minVersion", "TLS 1.2 (allows TLS 1.3 negotiation)")
+	}
+
 	// Signal that httpServer is ready for reading
 	close(s.httpServerReady)
 
 	// Channel to receive server errors
 	errChan := make(chan error, 1)
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var err error
+		if s.config.HTTPTLSEnabled {
+			// Use empty strings for cert/key files since they're already loaded in TLSConfig
+			err = s.httpServer.ListenAndServeTLS("", "")
+		} else {
+			err = s.httpServer.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			errChan <- fmt.Errorf("HTTP server failed: %w", err)
 		}
 	}()

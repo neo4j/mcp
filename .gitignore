@@ -40,3 +40,4 @@ dist/
 # Agents
 CLAUDE.md
 gemini.md
+*.pem
