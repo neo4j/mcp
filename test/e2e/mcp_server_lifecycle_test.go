@@ -2,21 +2,21 @@ package e2e
 
 import (
 	"context"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/test/e2e/helpers"
 )
 
 func TestSeverMCP(t *testing.T) {
 	t.Parallel()
 	t.Run("lifecycle test (MCPServer -> MCP Client -> Initialize Req -> List Tools -> Call Tool -> Stop)", func(t *testing.T) {
+		tc := helpers.NewE2ETestContext(t, dbs.GetDriver())
+
 		// Build the server binary
-		binaryPath, cleanup, err := buildServer(t)
+		binaryPath, cleanup, err := tc.BuildServer(t)
 		if err != nil {
 			t.Fatalf("failed to build server: %v", err)
 		}
@@ -45,7 +45,7 @@ func TestSeverMCP(t *testing.T) {
 		defer mcpClient.Close()
 
 		// Test server initialization
-		initializeResponse, err := mcpClient.Initialize(ctx, buildInitializeRequest())
+		initializeResponse, err := mcpClient.Initialize(ctx, tc.BuildInitializeRequest())
 		if err != nil {
 			t.Fatalf("failed to initialize MCP server: %v", err)
 		}
@@ -67,64 +67,4 @@ func TestSeverMCP(t *testing.T) {
 
 		t.Logf("Server started successfully with %d tools available", len(listToolsResponse.Tools))
 	})
-}
-
-func buildServer(t *testing.T) (string, func(), error) {
-	// Create temporary directory for the build
-	tmpDir := os.TempDir()
-
-	// Create a unique subdirectory for this test run
-	buildDir, err := os.MkdirTemp(tmpDir, "mcp-server-test-*")
-	if err != nil {
-		return "", nil, err
-	}
-
-	// Define cleanup function
-	cleanup := func() {
-		if err := os.RemoveAll(buildDir); err != nil {
-			t.Logf("failed to cleanup build directory: %v", err)
-		}
-	}
-
-	// Define binary path
-	binaryName := "neo4j-mcp"
-	binaryPath := filepath.Join(buildDir, binaryName)
-
-	// Get the project root directory (go up from test/e2e/)
-	projectRoot := filepath.Join("..", "..")
-
-	// Build the server binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
-	cmd.Dir = filepath.Join(projectRoot, "cmd", "neo4j-mcp")
-	cmd.Env = os.Environ() // Use current environment
-
-	// Capture build output for debugging
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		cleanup()
-		return "", nil, err
-	}
-
-	t.Logf("Built server binary at: %s", binaryPath)
-	if len(output) > 0 {
-		t.Logf("Build output: %s", string(output))
-	}
-
-	// Verify the binary was created, if not cleanup and return
-	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		cleanup()
-		return "", nil, err
-	}
-
-	return binaryPath, cleanup, nil
-}
-
-func buildInitializeRequest() mcp.InitializeRequest {
-	InitializeRequest := mcp.InitializeRequest{}
-	InitializeRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-	InitializeRequest.Params.ClientInfo = mcp.Implementation{
-		Name:    "test-client",
-		Version: "1.0.0",
-	}
-	return InitializeRequest
 }

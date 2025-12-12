@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -200,4 +204,66 @@ func (tc *E2ETestContext) AssertNodeHasLabel(node map[string]any, expectedLabel 
 func makeTestID() string {
 	id := fmt.Sprintf("e2e-%s", uuid.NewString())
 	return strings.ReplaceAll(id, "-", "_")
+}
+
+func (tc *E2ETestContext) BuildServer(t *testing.T) (string, func(), error) {
+	tc.t.Helper()
+	// Create temporary directory for the build
+	tmpDir := os.TempDir()
+
+	// Create a unique subdirectory for this test run
+	buildDir, err := os.MkdirTemp(tmpDir, "mcp-server-test-*")
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Define cleanup function
+	cleanup := func() {
+		if err := os.RemoveAll(buildDir); err != nil {
+			t.Logf("failed to cleanup build directory: %v", err)
+		}
+	}
+
+	// Define binary path
+	binaryName := "neo4j-mcp"
+	binaryPath := filepath.Join(buildDir, binaryName)
+
+	// Get the project root directory (go up from test/e2e/)
+	projectRoot := filepath.Join("..", "..")
+
+	// Build the server binary
+	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd.Dir = filepath.Join(projectRoot, "cmd", "neo4j-mcp")
+	cmd.Env = os.Environ() // Use current environment
+
+	// Capture build output for debugging
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+
+	t.Logf("Built server binary at: %s", binaryPath)
+	if len(output) > 0 {
+		t.Logf("Build output: %s", string(output))
+	}
+
+	// Verify the binary was created, if not cleanup and return
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		cleanup()
+		return "", nil, err
+	}
+
+	return binaryPath, cleanup, nil
+}
+
+func (tc *E2ETestContext) BuildInitializeRequest() mcp.InitializeRequest {
+	tc.t.Helper()
+	InitializeRequest := mcp.InitializeRequest{}
+	InitializeRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	InitializeRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "test-client",
+		Version: "1.0.0",
+	}
+	return InitializeRequest
 }
