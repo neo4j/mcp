@@ -397,11 +397,12 @@ func TestTLSActualConnection(t *testing.T) {
 	// Get the configured address
 	addr := srv.httpServer.Addr
 
-	// Create HTTPS client that trusts our self-signed certificate
+	// Create HTTPS client that accepts self-signed certificate for testing
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Accept self-signed cert for testing
+				//nolint:gosec // G402: InsecureSkipVerify is acceptable in tests with self-signed certificates
+				InsecureSkipVerify: true,
 			},
 		},
 		Timeout: 2 * time.Second,
