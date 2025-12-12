@@ -92,11 +92,10 @@ func buildServer(t *testing.T) (string, func(), error) {
 
 	// Get the project root directory (go up from test/e2e/)
 	projectRoot := filepath.Join("..", "..")
-	sourceDir := filepath.Join(projectRoot, "cmd", "neo4j-mcp")
 
 	// Build the server binary
 	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
-	cmd.Dir = sourceDir
+	cmd.Dir = filepath.Join(projectRoot, "cmd", "neo4j-mcp")
 	cmd.Env = os.Environ() // Use current environment
 
 	// Capture build output for debugging
@@ -111,7 +110,7 @@ func buildServer(t *testing.T) (string, func(), error) {
 		t.Logf("Build output: %s", string(output))
 	}
 
-	// Verify the binary was created
+	// Verify the binary was created, if not cleanup and return
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		cleanup()
 		return "", nil, err

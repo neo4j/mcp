@@ -1,4 +1,4 @@
-//go:build integration || e2e
+//go:build integration
 
 package helpers
 
