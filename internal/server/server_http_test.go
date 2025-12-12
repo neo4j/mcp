@@ -17,6 +17,21 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// findFreePort finds and returns an available TCP port on 127.0.0.1.
+// This is useful for tests that need to bind to a specific port.
+func findFreePort(t *testing.T) int {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	return port
+}
+
 // TestHTTPServerPortConfiguration verifies that the HTTP server uses the configured port
 func TestHTTPServerPortConfiguration(t *testing.T) {
 	tests := []struct {
@@ -344,15 +359,7 @@ func TestBuildTLSConfig(t *testing.T) {
 // TestTLSActualConnection verifies end-to-end TLS connectivity with an actual HTTPS request
 func TestTLSActualConnection(t *testing.T) {
 	certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
-
-	// Find a free port by listening on :0 and then closing it
-	// This is a common pattern for tests that need a specific port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("Failed to find free port: %v", err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
+	port := findFreePort(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -364,7 +371,7 @@ func TestTLSActualConnection(t *testing.T) {
 		Database:        "neo4j",
 		TransportMode:   config.TransportModeHTTP,
 		HTTPHost:        "127.0.0.1",
-		HTTPPort:        fmt.Sprintf("%d", port), // Use the free port we found
+		HTTPPort:        fmt.Sprintf("%d", port),
 		HTTPTLSEnabled:  true,
 		HTTPTLSCertFile: certPath,
 		HTTPTLSKeyFile:  keyPath,

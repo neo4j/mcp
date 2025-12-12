@@ -40,6 +40,8 @@ func main() {
 		Port:          cliArgs.HTTPPort,
 		Host:          cliArgs.HTTPHost,
 		TLSEnabled:    cliArgs.HTTPTLSEnabled,
+		TLSCertFile:   cliArgs.HTTPTLSCertFile,
+		TLSKeyFile:    cliArgs.HTTPTLSKeyFile,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr

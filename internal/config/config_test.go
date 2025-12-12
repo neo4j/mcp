@@ -543,3 +543,107 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 }
 
+func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
+	t.Run("Default port 8080 when TLS disabled", func(t *testing.T) {
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
+		// NEO4J_MCP_HTTP_TLS_ENABLED is not set (defaults to false)
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPPort != "8080" {
+			t.Errorf("LoadConfig() HTTPPort = %v, want '8080' (default for HTTP)", cfg.HTTPPort)
+		}
+	})
+
+	t.Run("Default port 443 when TLS enabled", func(t *testing.T) {
+		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
+
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
+		// NEO4J_MCP_HTTP_PORT is not set (should default to 443)
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPPort != "443" {
+			t.Errorf("LoadConfig() HTTPPort = %v, want '443' (default for HTTPS)", cfg.HTTPPort)
+		}
+	})
+
+	t.Run("Explicit port overrides default", func(t *testing.T) {
+		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
+
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
+		t.Setenv("NEO4J_MCP_HTTP_PORT", "8443")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPPort != "8443" {
+			t.Errorf("LoadConfig() HTTPPort = %v, want '8443' (explicitly configured)", cfg.HTTPPort)
+		}
+	})
+
+	t.Run("CLI override for port takes precedence", func(t *testing.T) {
+		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
+
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
+		// Don't set NEO4J_MCP_HTTP_PORT in environment
+
+		overrides := &CLIOverrides{
+			Port: "9443",
+		}
+
+		cfg, err := LoadConfig(overrides)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPPort != "9443" {
+			t.Errorf("LoadConfig() HTTPPort = %v, want '9443' (from CLI override)", cfg.HTTPPort)
+		}
+	})
+
+	t.Run("CLI TLS enable changes default port", func(t *testing.T) {
+		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
+
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
+		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
+		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
+		// Don't set NEO4J_MCP_HTTP_PORT
+
+		overrides := &CLIOverrides{
+			TLSEnabled: "true",
+		}
+
+		cfg, err := LoadConfig(overrides)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPPort != "443" {
+			t.Errorf("LoadConfig() HTTPPort = %v, want '443' (default for HTTPS after CLI override)", cfg.HTTPPort)
+		}
+	})
+}
