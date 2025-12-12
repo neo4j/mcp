@@ -13,6 +13,7 @@ import (
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/testutil"
 	"go.uber.org/mock/gomock"
 )
 
@@ -95,7 +96,7 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 // TestHTTPServerTLSConfiguration verifies that the HTTP server correctly uses TLS settings
 func TestHTTPServerTLSConfiguration(t *testing.T) {
 	// Generate test certificates dynamically for TLS test
-	certPath, keyPath := config.GenerateTestTLSCertificate(t)
+	certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 	tests := []struct {
 		name           string
@@ -301,7 +302,7 @@ func TestBuildTLSConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var certPath, keyPath string
 			if tt.setupCerts {
-				certPath, keyPath = config.GenerateTestTLSCertificate(t)
+				certPath, keyPath = testutil.GenerateTestTLSCertificate(t)
 			} else {
 				certPath = "/nonexistent/cert.pem"
 				keyPath = "/nonexistent/key.pem"
@@ -342,7 +343,7 @@ func TestBuildTLSConfig(t *testing.T) {
 
 // TestTLSActualConnection verifies end-to-end TLS connectivity with an actual HTTPS request
 func TestTLSActualConnection(t *testing.T) {
-	certPath, keyPath := config.GenerateTestTLSCertificate(t)
+	certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 	// Find a free port by listening on :0 and then closing it
 	// This is a common pattern for tests that need a specific port

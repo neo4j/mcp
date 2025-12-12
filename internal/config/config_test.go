@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"github.com/neo4j/mcp/internal/testutil"
 )
 
 func TestConfig_Validate(t *testing.T) {
@@ -338,7 +340,7 @@ func TestLoadConfig_ValidIntValue(t *testing.T) {
 
 func TestConfig_Validate_TLS(t *testing.T) {
 	// Generate test certificates once for all test cases
-	certPath, keyPath := GenerateTestTLSCertificate(t)
+	certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 	tests := []struct {
 		name    string
@@ -432,7 +434,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 func TestLoadConfig_TLS(t *testing.T) {
 	t.Run("TLS enabled via environment variables", func(t *testing.T) {
 		// Generate test certificates dynamically
-		certPath, keyPath := GenerateTestTLSCertificate(t)
+		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
@@ -473,7 +475,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 
 	t.Run("TLS CLI overrides environment", func(t *testing.T) {
 		// Generate test certificates dynamically
-		certPath, keyPath := GenerateTestTLSCertificate(t)
+		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
