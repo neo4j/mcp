@@ -17,13 +17,6 @@ func TestSeverMCP(t *testing.T) {
 	t.Run("lifecycle test (MCPServer -> MCP Client -> Initialize Req -> List Tools -> Call Tool -> Stop)", func(t *testing.T) {
 		tc := helpers.NewE2ETestContext(t, dbs.GetDriver())
 
-		// Build the server binary
-		// binaryPath, cleanup, err := tc.BuildServer(t)
-		// if err != nil {
-		// 	t.Fatalf("failed to build server: %v", err)
-		// }
-		// defer cleanup()
-
 		// Create MCP client that will communicate with the server over STDIO
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
