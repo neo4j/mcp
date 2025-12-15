@@ -64,7 +64,7 @@ export NEO4J_MCP_TRANSPORT="http"
 ```bash
 # HTTP server configuration
 export NEO4J_MCP_HTTP_HOST="127.0.0.1"      # Default: 127.0.0.1
-export NEO4J_MCP_HTTP_PORT="8080"           # Default: 8080
+export NEO4J_MCP_HTTP_PORT="80"             # Default: 80
 export NEO4J_MCP_HTTP_ALLOWED_ORIGINS="*"   # Default: empty (no CORS)
 
 # Neo4j configuration (same as STDIO mode)
@@ -132,7 +132,7 @@ export NEO4J_MCP_TRANSPORT="http"
 neo4j-mcp
 ```
 
-The server will start on `http://127.0.0.1:8080` by default.
+The server will start on `http://127.0.0.1:80` by default.
 
 Then create or edit your `mcp.json` file:
 
@@ -141,7 +141,7 @@ Then create or edit your `mcp.json` file:
   "servers": {
     "neo4j-http": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp",
+      "url": "http://127.0.0.1:80/mcp",
       "headers": {
         "Authorization": "Basic bmVvNGo6cGFzc3dvcmQ="
       }
@@ -224,7 +224,7 @@ Then edit your Claude Desktop configuration file:
   "mcpServers": {
     "neo4j-http": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp",
+      "url": "http://127.0.0.1:80/mcp",
       "headers": {
         "Authorization": "Basic bmVvNGo6cGFzc3dvcmQ="
       }
@@ -244,14 +244,14 @@ HTTP mode supports multiple users with different credentials accessing the same 
   "mcpServers": {
     "neo4j-admin": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp",
+      "url": "http://127.0.0.1:80/mcp",
       "headers": {
         "Authorization": "Basic YWRtaW46YWRtaW5wYXNz"
       }
     },
     "neo4j-readonly": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp",
+      "url": "http://127.0.0.1:80/mcp",
       "headers": {
         "Authorization": "Basic cmVhZG9ubHk6cmVhZHBhc3M="
       }

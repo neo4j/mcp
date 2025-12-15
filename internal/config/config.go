@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
@@ -32,9 +33,12 @@ type Config struct {
 	LogFormat          string
 	SchemaSampleSize   int32
 	TransportMode      string // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort           string // HTTP server port (default: "8080")
+	HTTPPort           string // HTTP server port (default: "443" with TLS, "80" without TLS)
 	HTTPHost           string // HTTP server host (default: "127.0.0.1")
 	HTTPAllowedOrigins string // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPTLSEnabled     bool   // If true, enables TLS/HTTPS for HTTP server (default: false)
+	HTTPTLSCertFile    string // Path to TLS certificate file (required if HTTPTLSEnabled is true)
+	HTTPTLSKeyFile     string // Path to TLS private key file (required if HTTPTLSEnabled is true)
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -71,6 +75,22 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers")
 	}
 
+	// For HTTP mode with TLS enabled, require certificate and key files
+	if c.TransportMode == TransportModeHTTP && c.HTTPTLSEnabled {
+		if c.HTTPTLSCertFile == "" {
+			return fmt.Errorf("TLS certificate file is required when TLS is enabled (set NEO4J_MCP_HTTP_TLS_CERT_FILE)")
+		}
+		if c.HTTPTLSKeyFile == "" {
+			return fmt.Errorf("TLS key file is required when TLS is enabled (set NEO4J_MCP_HTTP_TLS_KEY_FILE)")
+		}
+
+		// Validate that certificate and key files exist and are valid
+		// This provides early, clear error messages before attempting to start the server
+		if _, err := tls.LoadX509KeyPair(c.HTTPTLSCertFile, c.HTTPTLSKeyFile); err != nil {
+			return fmt.Errorf("failed to load TLS certificate and key: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -85,6 +105,9 @@ type CLIOverrides struct {
 	TransportMode string
 	Port          string
 	Host          string
+	TLSEnabled    string
+	TLSCertFile   string
+	TLSKeyFile    string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -117,9 +140,12 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogFormat:          logFormat,
 		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
 		TransportMode:      GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
-		HTTPPort:           GetEnvWithDefault("NEO4J_MCP_HTTP_PORT", "8080"),
+		HTTPPort:           GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
 		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
+		HTTPTLSEnabled:     ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
+		HTTPTLSCertFile:    GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
+		HTTPTLSKeyFile:     GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
 	}
 
 	// Apply CLI overrides if provided
@@ -150,6 +176,25 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.Host != "" {
 			cfg.HTTPHost = cliOverrides.Host
+		}
+		if cliOverrides.TLSEnabled != "" {
+			cfg.HTTPTLSEnabled = ParseBool(cliOverrides.TLSEnabled, false)
+		}
+		if cliOverrides.TLSCertFile != "" {
+			cfg.HTTPTLSCertFile = cliOverrides.TLSCertFile
+		}
+		if cliOverrides.TLSKeyFile != "" {
+			cfg.HTTPTLSKeyFile = cliOverrides.TLSKeyFile
+		}
+	}
+
+	// Set default HTTP port based on TLS configuration if not explicitly provided
+	// Default to 443 for HTTPS, 80 for HTTP
+	if cfg.HTTPPort == "" {
+		if cfg.HTTPTLSEnabled {
+			cfg.HTTPPort = "443"
+		} else {
+			cfg.HTTPPort = "80"
 		}
 	}
 

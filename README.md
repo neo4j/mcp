@@ -64,6 +64,41 @@ The Neo4j MCP server supports two transport modes:
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
+## TLS/HTTPS Configuration
+
+When using HTTP transport mode, you can enable TLS/HTTPS for secure communication:
+
+### Environment Variables
+
+- `NEO4J_MCP_HTTP_TLS_ENABLED` - Enable TLS/HTTPS: `true` or `false` (default: `false`)
+- `NEO4J_MCP_HTTP_TLS_CERT_FILE` - Path to TLS certificate file (required when TLS is enabled)
+- `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
+- `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
+
+### Security Configuration
+
+- **Minimum TLS Version**: Hardcoded to TLS 1.2 (allows TLS 1.3 negotiation)
+- **Cipher Suites**: Uses Go's secure default cipher suites
+- **Certificate Types**: Compatible with self-signed and enterprise certificates
+- **Default Port**: Automatically uses port 443 when TLS is enabled (standard HTTPS port)
+
+### Example Configuration
+
+```bash
+export NEO4J_URI="bolt://localhost:7687"
+export NEO4J_MCP_TRANSPORT="http"
+export NEO4J_MCP_HTTP_TLS_ENABLED="true"
+export NEO4J_MCP_HTTP_TLS_CERT_FILE="/path/to/cert.pem"
+export NEO4J_MCP_HTTP_TLS_KEY_FILE="/path/to/key.pem"
+
+neo4j-mcp
+# Server will listen on https://127.0.0.1:443 by default
+```
+
+**Production Usage**: Use certificates from a trusted Certificate Authority (e.g., Let's Encrypt, or your organisation) for production deployments.
+
+📘 **[TLS Setup Guide](docs/TLS_SETUP.md)** – Detailed instructions for generating certificates, testing TLS, and production deployment
+
 ## Configuration Options
 
 The `neo4j-mcp` server can be configured using environment variables or CLI flags. CLI flags take precedence over environment variables.
@@ -97,6 +132,9 @@ Available flags:
 - `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_MCP_TRANSPORT)
 - `--neo4j-http-host` - HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
 - `--neo4j-http-port` - HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
+- `--neo4j-http-tls-enabled` - Enable TLS/HTTPS: `true` or `false` (overrides NEO4J_MCP_HTTP_TLS_ENABLED)
+- `--neo4j-http-tls-cert-file` - Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE)
+- `--neo4j-http-tls-key-file` - Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE)
 
 Use `neo4j-mcp --help` to see all available options.
 
