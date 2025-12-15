@@ -207,6 +207,64 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "--neo4j-transport-mode requires a value (got flag --neo4j-uri instead)",
 		},
+		{
+			name:             "http tls enabled flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-tls-enabled", "true"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http tls enabled flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-tls-enabled"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-tls-enabled requires a value",
+		},
+		{
+			name:             "http tls cert file flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-tls-cert-file", "/path/to/cert.pem"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http tls cert file flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-tls-cert-file"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-tls-cert-file requires a value",
+		},
+		{
+			name:             "http tls key file flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-tls-key-file", "/path/to/key.pem"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http tls key file flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-tls-key-file"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-tls-key-file requires a value",
+		},
+		{
+			name:             "http allowed origins flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-allowed-origins", "https://example.com"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http allowed origins flag with multiple origins",
+			args:             []string{testProgramName, "--neo4j-http-allowed-origins", "https://example.com,https://example2.com"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http allowed origins flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-allowed-origins"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-allowed-origins requires a value",
+		},
 	}
 
 	for _, tt := range tests {

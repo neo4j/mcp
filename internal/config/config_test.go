@@ -647,3 +647,73 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
+	t.Run("HTTPAllowedOrigins from environment variable", func(t *testing.T) {
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://example.com,https://example2.com")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPAllowedOrigins != "https://example.com,https://example2.com" {
+			t.Errorf("LoadConfig() HTTPAllowedOrigins = %v, want 'https://example.com,https://example2.com'", cfg.HTTPAllowedOrigins)
+		}
+	})
+
+	t.Run("HTTPAllowedOrigins with wildcard from environment variable", func(t *testing.T) {
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "*")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPAllowedOrigins != "*" {
+			t.Errorf("LoadConfig() HTTPAllowedOrigins = %v, want '*'", cfg.HTTPAllowedOrigins)
+		}
+	})
+
+	t.Run("HTTPAllowedOrigins empty by default", func(t *testing.T) {
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		// Don't set NEO4J_MCP_HTTP_ALLOWED_ORIGINS
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPAllowedOrigins != "" {
+			t.Errorf("LoadConfig() HTTPAllowedOrigins = %v, want '' (empty by default)", cfg.HTTPAllowedOrigins)
+		}
+	})
+
+	t.Run("HTTPAllowedOrigins CLI override takes precedence over environment", func(t *testing.T) {
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://env-example.com")
+
+		overrides := &CLIOverrides{
+			AllowedOrigins: "https://cli-example.com",
+		}
+
+		cfg, err := LoadConfig(overrides)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.HTTPAllowedOrigins != "https://cli-example.com" {
+			t.Errorf("LoadConfig() HTTPAllowedOrigins = %v, want 'https://cli-example.com' (from CLI)", cfg.HTTPAllowedOrigins)
+		}
+	})
+}
