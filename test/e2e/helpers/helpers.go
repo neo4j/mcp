@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
@@ -122,96 +121,8 @@ func (tc *E2ETestContext) GetUniqueLabel(label string) UniqueLabel {
 	return uniqueLabel
 }
 
-// VerifyNodeInDB verifies that a node exists in the database with the given properties
-func (tc *E2ETestContext) VerifyNodeInDB(label UniqueLabel, props map[string]any) *neo4j.Record {
-	tc.t.Helper()
-
-	// Build WHERE clause dynamically, excluding test_id from verification
-	whereClauses := []string{}
-	queryParams := make(map[string]any)
-
-	for key, value := range props {
-		if key != "test_id" { // Skip test_id in verification
-			whereClauses = append(whereClauses, fmt.Sprintf("n.%s = $%s", key, key))
-			queryParams[key] = value
-		}
-	}
-
-	whereClause := ""
-	if len(whereClauses) > 0 {
-		whereClause = " WHERE " + strings.Join(whereClauses, " AND ")
-	}
-
-	query := fmt.Sprintf("MATCH (n:%s)%s RETURN n", label, whereClause)
-	records, err := tc.Service.ExecuteReadQuery(tc.ctx, query, queryParams)
-	if err != nil {
-		tc.t.Fatalf("E2E: failed to verify node in DB: %v", err)
-	}
-	if len(records) != 1 {
-		tc.t.Fatalf("E2E: expected 1 record in DB, got %d", len(records))
-	}
-
-	return records[0]
-}
-
-// AssertNodeProperties validates node properties match expected values
-func (tc *E2ETestContext) AssertNodeProperties(node map[string]any, expectedProps map[string]any) {
-	tc.t.Helper()
-
-	props, ok := node["Props"].(map[string]any)
-	if !ok {
-		tc.t.Fatalf("E2E: expected 'Props' to be a map, got %T: %+v", node["Props"], node)
-	}
-
-	for key, expectedVal := range expectedProps {
-		if key == "test_id" {
-			continue // Skip test_id in property assertions
-		}
-
-		actualVal, exists := props[key]
-		if !exists {
-			tc.t.Errorf("E2E: property %q not found in node", key)
-			continue
-		}
-
-		if actualVal != expectedVal {
-			tc.t.Errorf("E2E: property %q: expected %v (type=%T), got %v (type=%T)",
-				key, expectedVal, expectedVal, actualVal, actualVal)
-		}
-	}
-}
-
-// AssertNodeHasLabel checks if a node has a specific label
-func (tc *E2ETestContext) AssertNodeHasLabel(node map[string]any, expectedLabel UniqueLabel) {
-	tc.t.Helper()
-
-	labels, ok := node["Labels"].([]any)
-	if !ok {
-		tc.t.Fatalf("E2E: expected 'Labels' to be a slice, got %T", node["Labels"])
-	}
-
-	for _, label := range labels {
-		if labelStr, ok := label.(string); ok && labelStr == string(expectedLabel) {
-			return
-		}
-	}
-
-	tc.t.Errorf("E2E: expected node to have label %q, got labels=%v", expectedLabel, labels)
-}
-
 // makeTestID returns a unique test id suitable for tagging resources created by E2E tests
 func makeTestID() string {
 	id := fmt.Sprintf("e2e-%s", uuid.NewString())
 	return strings.ReplaceAll(id, "-", "_")
-}
-
-func (tc *E2ETestContext) BuildInitializeRequest() mcp.InitializeRequest {
-	tc.t.Helper()
-	InitializeRequest := mcp.InitializeRequest{}
-	InitializeRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-	InitializeRequest.Params.ClientInfo = mcp.Implementation{
-		Name:    "test-client",
-		Version: "1.0.0",
-	}
-	return InitializeRequest
 }

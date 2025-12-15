@@ -5,41 +5,43 @@ package e2e
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 )
 
-func TestSeverMCP(t *testing.T) {
+func TestSeverLifecycleMCP(t *testing.T) {
 	t.Parallel()
+	// Create MCP client
+	ctx := context.Background()
+
+	cfg := dbs.GetDriverConf()
+	args := []string{
+		"--neo4j-uri", cfg.URI,
+		"--neo4j-username", cfg.Username,
+		"--neo4j-password", cfg.Password,
+		"--neo4j-database", cfg.Database,
+	}
+
+	mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
+	if err != nil {
+		t.Fatalf("failed to create MCP client: %v", err)
+	}
+
+	// Initialize the server
+	_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+	if err != nil {
+		t.Fatalf("failed to initialize MCP server: %v", err)
+	}
+	t.Cleanup(func() {
+		mcpClient.Close()
+	})
 	t.Run("lifecycle test (MCPServer -> MCP Client -> Initialize Req -> List Tools -> Call Tool -> Stop)", func(t *testing.T) {
-		tc := helpers.NewE2ETestContext(t, dbs.GetDriver())
-
-		// Create MCP client that will communicate with the server over STDIO
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		cfg := dbs.GetDriverConf()
-
-		// Prepare CLI arguments for the server (thread-safe approach)
-		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
-		}
-
-		// Create MCP client with the built server binary and CLI arguments
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		if err != nil {
-			t.Fatalf("failed to create MCP client: %v", err)
-		}
-		defer mcpClient.Close()
+		helpers.NewE2ETestContext(t, dbs.GetDriver())
 
 		// Test server initialization
-		initializeResponse, err := mcpClient.Initialize(ctx, tc.BuildInitializeRequest())
+		initializeResponse, err := mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
 		if err != nil {
 			t.Fatalf("failed to initialize MCP server: %v", err)
 		}
