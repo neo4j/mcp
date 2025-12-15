@@ -223,8 +223,8 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Headers header to be set")
 	}
 
-	if rec.Header().Get("Access-Control-Max-Age") != maxAgeSeconds {
-		t.Errorf("Expected Access-Control-Max-Age: %s, got %q", maxAgeSeconds, rec.Header().Get("Access-Control-Max-Age"))
+	if rec.Header().Get("Access-Control-Max-Age") != corsMaxAgeSeconds {
+		t.Errorf("Expected Access-Control-Max-Age: %s, got %q", corsMaxAgeSeconds, rec.Header().Get("Access-Control-Max-Age"))
 	}
 }
 

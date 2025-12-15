@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxAgeSeconds = "86400" // 24 hours
+	corsMaxAgeSeconds = "86400" // 24 hours
 )
 
 // chainMiddleware chains together all HTTP middleware
@@ -82,7 +82,7 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 			// Set other CORS headers
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Max-Age", maxAgeSeconds)
+			w.Header().Set("Access-Control-Max-Age", corsMaxAgeSeconds)
 
 			// Handle preflight requests
 			if r.Method == "OPTIONS" {
