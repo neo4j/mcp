@@ -29,6 +29,7 @@ Options:
   --neo4j-transport-mode <MODE>       MCP Transport mode (e.g., 'stdio', 'http') (overrides environment variable NEO4J_MCP_TRANSPORT)
   --neo4j-http-port <PORT>            HTTP server port (overrides environment variable NEO4J_MCP_HTTP_PORT)
   --neo4j-http-host <HOST>            HTTP server host (overrides environment variable NEO4J_MCP_HTTP_HOST)
+  --neo4j-http-allowed-origins <ORIGINS> Comma-separated list of allowed CORS origins (overrides environment variable NEO4J_MCP_HTTP_ALLOWED_ORIGINS)
   --neo4j-http-tls-enabled <BOOLEAN>  Enable TLS/HTTPS for HTTP server: true or false (overrides environment variable NEO4J_MCP_HTTP_TLS_ENABLED)
   --neo4j-http-tls-cert-file <PATH>   Path to TLS certificate file (overrides environment variable NEO4J_MCP_HTTP_TLS_CERT_FILE)
   --neo4j-http-tls-key-file <PATH>    Path to TLS private key file (overrides environment variable NEO4J_MCP_HTTP_TLS_KEY_FILE)
@@ -46,6 +47,7 @@ Optional Environment Variables:
   NEO4J_MCP_TRANSPORT MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
   NEO4J_MCP_HTTP_PORT HTTP server port (default: 443 with TLS, 80 without TLS)
   NEO4J_MCP_HTTP_HOST HTTP server host (default: 127.0.0.1)
+  NEO4J_MCP_HTTP_ALLOWED_ORIGINS Comma-separated list of allowed CORS origins (optional)
   NEO4J_MCP_HTTP_TLS_ENABLED Enable TLS/HTTPS for HTTP server (default: false)
   NEO4J_MCP_HTTP_TLS_CERT_FILE Path to TLS certificate file (required when TLS is enabled)
   NEO4J_MCP_HTTP_TLS_KEY_FILE Path to TLS private key file (required when TLS is enabled)
@@ -62,19 +64,20 @@ For more information, visit: https://github.com/neo4j/mcp
 
 // Args holds configuration values parsed from command-line flags
 type Args struct {
-	URI              string
-	Username         string
-	Password         string
-	Database         string
-	ReadOnly         string
-	Telemetry        string
-	SchemaSampleSize string
-	TransportMode    string
-	HTTPPort         string
-	HTTPHost         string
-	HTTPTLSEnabled   string
-	HTTPTLSCertFile  string
-	HTTPTLSKeyFile   string
+	URI                string
+	Username           string
+	Password           string
+	Database           string
+	ReadOnly           string
+	Telemetry          string
+	SchemaSampleSize   string
+	TransportMode      string
+	HTTPPort           string
+	HTTPHost           string
+	HTTPAllowedOrigins string
+	HTTPTLSEnabled     string
+	HTTPTLSCertFile    string
+	HTTPTLSKeyFile     string
 }
 
 // this is a list of known configuration flags to be skipped in HandleArgs
@@ -90,6 +93,7 @@ var argsSlice = []string{
 	"--neo4j-transport-mode",
 	"--neo4j-http-port",
 	"--neo4j-http-host",
+	"--neo4j-http-allowed-origins",
 	"--neo4j-http-tls-enabled",
 	"--neo4j-http-tls-cert-file",
 	"--neo4j-http-tls-key-file",
@@ -108,6 +112,7 @@ func ParseConfigFlags() *Args {
 	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "MCP Transport mode (e.g., 'stdio', 'http') (overrides NEO4J_MCP_TRANSPORT env var)")
 	neo4jHTTPPort := flag.String("neo4j-http-port", "", "HTTP server port (overrides NEO4J_MCP_HTTP_PORT env var)")
 	neo4jHTTPHost := flag.String("neo4j-http-host", "", "HTTP server host (overrides NEO4J_MCP_HTTP_HOST env var)")
+	neo4jHTTPAllowedOrigins := flag.String("neo4j-http-allowed-origins", "", "Comma-separated list of allowed CORS origins (overrides NEO4J_MCP_HTTP_ALLOWED_ORIGINS env var)")
 	neo4jHTTPTLSEnabled := flag.String("neo4j-http-tls-enabled", "", "Enable TLS/HTTPS for HTTP server: true or false (overrides NEO4J_MCP_HTTP_TLS_ENABLED env var)")
 	neo4jHTTPTLSCertFile := flag.String("neo4j-http-tls-cert-file", "", "Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE env var)")
 	neo4jHTTPTLSKeyFile := flag.String("neo4j-http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
@@ -115,19 +120,20 @@ func ParseConfigFlags() *Args {
 	flag.Parse()
 
 	return &Args{
-		URI:              *neo4jURI,
-		Username:         *neo4jUsername,
-		Password:         *neo4jPassword,
-		Database:         *neo4jDatabase,
-		ReadOnly:         *neo4jReadOnly,
-		Telemetry:        *neo4jTelemetry,
-		SchemaSampleSize: *neo4jSchemaSampleSize,
-		TransportMode:    *neo4jTransportMode,
-		HTTPPort:         *neo4jHTTPPort,
-		HTTPHost:         *neo4jHTTPHost,
-		HTTPTLSEnabled:   *neo4jHTTPTLSEnabled,
-		HTTPTLSCertFile:  *neo4jHTTPTLSCertFile,
-		HTTPTLSKeyFile:   *neo4jHTTPTLSKeyFile,
+		URI:                *neo4jURI,
+		Username:           *neo4jUsername,
+		Password:           *neo4jPassword,
+		Database:           *neo4jDatabase,
+		ReadOnly:           *neo4jReadOnly,
+		Telemetry:          *neo4jTelemetry,
+		SchemaSampleSize:   *neo4jSchemaSampleSize,
+		TransportMode:      *neo4jTransportMode,
+		HTTPPort:           *neo4jHTTPPort,
+		HTTPHost:           *neo4jHTTPHost,
+		HTTPAllowedOrigins: *neo4jHTTPAllowedOrigins,
+		HTTPTLSEnabled:     *neo4jHTTPTLSEnabled,
+		HTTPTLSCertFile:    *neo4jHTTPTLSCertFile,
+		HTTPTLSKeyFile:     *neo4jHTTPTLSKeyFile,
 	}
 }
 

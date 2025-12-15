@@ -96,18 +96,19 @@ func (c *Config) Validate() error {
 
 // CLIOverrides holds optional configuration values from CLI flags
 type CLIOverrides struct {
-	URI           string
-	Username      string
-	Password      string
-	Database      string
-	ReadOnly      string
-	Telemetry     string
-	TransportMode string
-	Port          string
-	Host          string
-	TLSEnabled    string
-	TLSCertFile   string
-	TLSKeyFile    string
+	URI            string
+	Username       string
+	Password       string
+	Database       string
+	ReadOnly       string
+	Telemetry      string
+	TransportMode  string
+	Port           string
+	Host           string
+	AllowedOrigins string
+	TLSEnabled     string
+	TLSCertFile    string
+	TLSKeyFile     string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -176,6 +177,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.Host != "" {
 			cfg.HTTPHost = cliOverrides.Host
+		}
+		if cliOverrides.AllowedOrigins != "" {
+			cfg.HTTPAllowedOrigins = cliOverrides.AllowedOrigins
 		}
 		if cliOverrides.TLSEnabled != "" {
 			cfg.HTTPTLSEnabled = ParseBool(cliOverrides.TLSEnabled, false)
