@@ -73,7 +73,7 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 - `NEO4J_MCP_HTTP_TLS_ENABLED` - Enable TLS/HTTPS: `true` or `false` (default: `false`)
 - `NEO4J_MCP_HTTP_TLS_CERT_FILE` - Path to TLS certificate file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
-- `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `8080` when TLS disabled)
+- `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
 
 ### Security Configuration
 

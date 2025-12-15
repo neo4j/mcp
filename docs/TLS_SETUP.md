@@ -147,7 +147,7 @@ openssl s_client -connect 127.0.0.1:8443 </dev/null 2>/dev/null | grep "Cipher"
 - **`-k` flag**: Skips certificate verification (needed for self-signed certificates)
 - **Basic Auth**: All requests require `-u username:password`
 - **Content-Type**: MCP requests need `Content-Type: application/json` header
-- **Port**: Default port is 443 when TLS is enabled, 8080 when TLS is disabled (configurable via `--neo4j-http-port` or `NEO4J_MCP_HTTP_PORT`)
+- **Port**: Default port is 443 when TLS is enabled, 80 when TLS is disabled (configurable via `--neo4j-http-port` or `NEO4J_MCP_HTTP_PORT`)
 
 ## Production Use
 

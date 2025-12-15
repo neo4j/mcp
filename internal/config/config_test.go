@@ -544,7 +544,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 }
 
 func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
-	t.Run("Default port 8080 when TLS disabled", func(t *testing.T) {
+	t.Run("Default port 80 when TLS disabled", func(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_MCP_TRANSPORT", "http")
 		// NEO4J_MCP_HTTP_TLS_ENABLED is not set (defaults to false)
@@ -554,8 +554,8 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 			t.Fatalf("LoadConfig() unexpected error: %v", err)
 		}
 
-		if cfg.HTTPPort != "8080" {
-			t.Errorf("LoadConfig() HTTPPort = %v, want '8080' (default for HTTP)", cfg.HTTPPort)
+		if cfg.HTTPPort != "80" {
+			t.Errorf("LoadConfig() HTTPPort = %v, want '80' (default for HTTP)", cfg.HTTPPort)
 		}
 	})
 

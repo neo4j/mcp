@@ -33,7 +33,7 @@ type Config struct {
 	LogFormat          string
 	SchemaSampleSize   int32
 	TransportMode      string // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort           string // HTTP server port (default: "443" with TLS, "8080" without TLS)
+	HTTPPort           string // HTTP server port (default: "443" with TLS, "80" without TLS)
 	HTTPHost           string // HTTP server host (default: "127.0.0.1")
 	HTTPAllowedOrigins string // Comma-separated list of allowed CORS origins (optional, "*" for all)
 	HTTPTLSEnabled     bool   // If true, enables TLS/HTTPS for HTTP server (default: false)
@@ -189,12 +189,12 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	}
 
 	// Set default HTTP port based on TLS configuration if not explicitly provided
-	// Default to 443 for HTTPS, 8080 for HTTP
+	// Default to 443 for HTTPS, 80 for HTTP
 	if cfg.HTTPPort == "" {
 		if cfg.HTTPTLSEnabled {
 			cfg.HTTPPort = "443"
 		} else {
-			cfg.HTTPPort = "8080"
+			cfg.HTTPPort = "80"
 		}
 	}
 

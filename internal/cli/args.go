@@ -44,7 +44,7 @@ Optional Environment Variables:
   NEO4J_READ_ONLY Enable read-only mode (default: false)
   NEO4J_SCHEMA_SAMPLE_SIZE Number of nodes to sample for schema inference (default: 100)
   NEO4J_MCP_TRANSPORT MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
-  NEO4J_MCP_HTTP_PORT HTTP server port (default: 443 with TLS, 8080 without TLS)
+  NEO4J_MCP_HTTP_PORT HTTP server port (default: 443 with TLS, 80 without TLS)
   NEO4J_MCP_HTTP_HOST HTTP server host (default: 127.0.0.1)
   NEO4J_MCP_HTTP_TLS_ENABLED Enable TLS/HTTPS for HTTP server (default: false)
   NEO4J_MCP_HTTP_TLS_CERT_FILE Path to TLS certificate file (required when TLS is enabled)

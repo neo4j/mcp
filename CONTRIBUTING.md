@@ -67,7 +67,7 @@ export NEO4J_SCHEMA_SAMPLE_SIZE="100"  # Default: 100 (number of nodes to sample
 
 # HTTP mode specific (ignored in STDIO mode)
 export NEO4J_MCP_HTTP_HOST="127.0.0.1" # Default: 127.0.0.1
-export NEO4J_MCP_HTTP_PORT="8080"      # Default: 8080
+export NEO4J_MCP_HTTP_PORT="80"        # Default: 80
 export NEO4J_MCP_HTTP_ALLOWED_ORIGINS="*" # Default: empty (no CORS)
 ```
 
@@ -165,13 +165,13 @@ Test with curl:
 
 ```bash
 # List available tools
-curl -X POST http://localhost:8080/mcp \
+curl -X POST http://localhost:80/mcp \
   -u "neo4j:password" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 
 # Get Neo4j schema
-curl -X POST http://localhost:8080/mcp \
+curl -X POST http://localhost:80/mcp \
   -u "neo4j:password" \
   -H "Content-Type: application/json" \
   -d '{
@@ -185,22 +185,22 @@ curl -X POST http://localhost:8080/mcp \
   }'
 
 # Test authentication (should return 401)
-curl -X POST http://localhost:8080/mcp \
+curl -X POST http://localhost:80/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/list"}'
 
 # Test CORS (if configured)
-curl -X OPTIONS http://localhost:8080/mcp \
+curl -X OPTIONS http://localhost:80/mcp \
   -H "Origin: http://localhost:3000" \
   -H "Access-Control-Request-Method: POST"
 
 # Test multi-user/multi-tenant (different credentials per request)
-curl -X POST http://localhost:8080/mcp \
+curl -X POST http://localhost:80/mcp \
   -u "userA:passwordA" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}'
 
-curl -X POST http://localhost:8080/mcp \
+curl -X POST http://localhost:80/mcp \
   -u "userB:passwordB" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}'

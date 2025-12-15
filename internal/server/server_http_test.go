@@ -42,7 +42,7 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 		{
 			name:     "default port",
 			httpHost: "localhost",
-			httpPort: "8080",
+			httpPort: "80",
 		},
 		{
 			name:     "custom port",
