@@ -119,6 +119,7 @@ func TestConfig_Validate(t *testing.T) {
 
 func TestLoadConfig_ValidConfig(t *testing.T) {
 	// Unit test: set required env variables and verify LoadConfig works
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
@@ -149,6 +150,7 @@ func TestLoadConfig_ValidConfig(t *testing.T) {
 
 func TestLoadConfig_MissingRequiredEnvVars(t *testing.T) {
 	// Unit test: verify LoadConfig returns error when required env vars are missing
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "")
 	t.Setenv("NEO4J_USERNAME", "")
 	t.Setenv("NEO4J_PASSWORD", "")
@@ -174,6 +176,7 @@ func TestLoadConfig_MissingRequiredEnvVars(t *testing.T) {
 
 func TestLoadConfig_CLIOverrides(t *testing.T) {
 	// Unit test: verify CLI overrides take precedence over environment variables
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "bolt://env-host:7687")
 	t.Setenv("NEO4J_USERNAME", "env-user")
 	t.Setenv("NEO4J_PASSWORD", "env-pass")
@@ -208,6 +211,7 @@ func TestLoadConfig_CLIOverrides(t *testing.T) {
 
 func TestLoadConfig_PartialCLIOverrides(t *testing.T) {
 	// Unit test: verify partial CLI overrides work (some from CLI, some from env)
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "bolt://env-host:7687")
 	t.Setenv("NEO4J_USERNAME", "env-user")
 	t.Setenv("NEO4J_PASSWORD", "env-pass")
@@ -244,6 +248,7 @@ func TestLoadConfig_PartialCLIOverrides(t *testing.T) {
 
 func TestLoadConfig_InvalidBooleanValues(t *testing.T) {
 	// Unit test: verify invalid boolean values fall back to defaults
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
@@ -268,6 +273,7 @@ func TestLoadConfig_InvalidBooleanValues(t *testing.T) {
 
 func TestLoadConfig_ValidBooleanValues(t *testing.T) {
 	// Unit test: verify valid boolean values are parsed correctly
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
@@ -292,6 +298,7 @@ func TestLoadConfig_ValidBooleanValues(t *testing.T) {
 
 func TestLoadConfig_ValidIntValue(t *testing.T) {
 	// Set required env variables for basic validation to pass
+	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
@@ -459,6 +466,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 
 	t.Run("TLS disabled by default", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
@@ -650,6 +658,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 
 func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 	t.Run("HTTPAllowedOrigins from environment variable", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
@@ -666,6 +675,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 	})
 
 	t.Run("HTTPAllowedOrigins with wildcard from environment variable", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
@@ -682,6 +692,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 	})
 
 	t.Run("HTTPAllowedOrigins empty by default", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
@@ -698,6 +709,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 	})
 
 	t.Run("HTTPAllowedOrigins CLI override takes precedence over environment", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
