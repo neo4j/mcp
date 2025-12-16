@@ -265,6 +265,18 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "--neo4j-http-allowed-origins requires a value",
 		},
+		{
+			name:             "double dash separator stops flag processing",
+			args:             []string{testProgramName, "--", "--unknown-flag"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, -- stops our flag processing
+		},
+		{
+			name:             "double dash separator with config flags before it",
+			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--", "--unknown-flag"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, config flag before -- is valid
+		},
 	}
 
 	for _, tt := range tests {
