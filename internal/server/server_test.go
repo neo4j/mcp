@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -17,10 +18,11 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		URI:      "bolt://test-host:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
+		URI:           "bolt://test-host:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		TransportMode: config.TransportModeStdio,
 	}
 
 	analyticsService := analytics.NewMockService(ctrl)
@@ -150,7 +152,8 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		}
 
 		// Stop should work without errors
-		err = s.Stop()
+		ctx := context.Background()
+		err = s.Stop(ctx)
 		if err != nil {
 			t.Errorf("Stop() unexpected error = %v", err)
 		}
@@ -240,10 +243,11 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		URI:      "bolt://test-host:7687",
-		Username: "neo4j",
-		Password: "password",
-		Database: "neo4j",
+		URI:           "bolt://test-host:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		TransportMode: config.TransportModeStdio,
 	}
 
 	mockDB := db.NewMockService(ctrl)
@@ -299,7 +303,8 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 			t.Errorf("Start() unexpected error = %v", err)
 		}
 		// Stop should work without errors
-		err = s.Stop()
+		ctx := context.Background()
+		err = s.Stop(ctx)
 		if err != nil {
 			t.Errorf("Stop() unexpected error = %v", err)
 		}

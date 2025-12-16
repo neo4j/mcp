@@ -187,6 +187,96 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "--neo4j-schema-sample-size requires a value",
 		},
+		{
+			name:             "transport mode flag valid value",
+			args:             []string{testProgramName, "--neo4j-transport-mode", "http"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "transport mode flag missing value",
+			args:             []string{testProgramName, "--neo4j-transport-mode"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-transport-mode requires a value",
+		},
+		{
+			name:             "transport mode flag missing value followed by another flag",
+			args:             []string{testProgramName, "--neo4j-transport-mode", "--neo4j-uri", "bolt://localhost:7687"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-transport-mode requires a value (got flag --neo4j-uri instead)",
+		},
+		{
+			name:             "http tls enabled flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-tls-enabled", "true"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http tls enabled flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-tls-enabled"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-tls-enabled requires a value",
+		},
+		{
+			name:             "http tls cert file flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-tls-cert-file", "/path/to/cert.pem"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http tls cert file flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-tls-cert-file"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-tls-cert-file requires a value",
+		},
+		{
+			name:             "http tls key file flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-tls-key-file", "/path/to/key.pem"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http tls key file flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-tls-key-file"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-tls-key-file requires a value",
+		},
+		{
+			name:             "http allowed origins flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-allowed-origins", "https://example.com"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http allowed origins flag with multiple origins",
+			args:             []string{testProgramName, "--neo4j-http-allowed-origins", "https://example.com,https://example2.com"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http allowed origins flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-allowed-origins"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-allowed-origins requires a value",
+		},
+		{
+			name:             "double dash separator stops flag processing",
+			args:             []string{testProgramName, "--", "--unknown-flag"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, -- stops our flag processing
+		},
+		{
+			name:             "double dash separator with config flags before it",
+			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--", "--unknown-flag"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, config flag before -- is valid
+		},
 	}
 
 	for _, tt := range tests {

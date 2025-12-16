@@ -2,9 +2,16 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
@@ -13,14 +20,27 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+const (
+	protocolHTTP  = "http"
+	protocolHTTPS = "https"
+	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
+	serverHTTPReadHeaderTimeout = 5 * time.Second  // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
+	serverHTTPReadTimeout       = 15 * time.Second // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
+	serverHTTPWriteTimeout      = 60 * time.Second // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
+	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
+)
+
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer    *server.MCPServer
-	config       *config.Config
-	dbService    database.Service
-	version      string
-	anService    analytics.Service
-	gdsInstalled bool
+	MCPServer       *server.MCPServer
+	httpServer      *http.Server
+	httpServerReady chan struct{}
+	shutdownChan    chan struct{}
+	config          *config.Config
+	dbService       database.Service
+	version         string
+	anService       analytics.Service
+	gdsInstalled    bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -35,18 +55,19 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return &Neo4jMCPServer{
-		MCPServer:    mcpServer,
-		config:       cfg,
-		dbService:    dbService,
-		version:      version,
-		anService:    anService,
-		gdsInstalled: false,
+		MCPServer:       mcpServer,
+		httpServerReady: make(chan struct{}),
+		shutdownChan:    make(chan struct{}),
+		config:          cfg,
+		dbService:       dbService,
+		version:         version,
+		anService:       anService,
+		gdsInstalled:    false,
 	}
 }
 
-// Start initializes and starts the MCP server using stdio transport
+// Start initializes and starts the MCP server
 func (s *Neo4jMCPServer) Start() error {
-	slog.Info("Starting Neo4j MCP Server...")
 	err := s.verifyRequirements()
 	if err != nil {
 		return err
@@ -58,9 +79,35 @@ func (s *Neo4jMCPServer) Start() error {
 	if err := s.registerTools(); err != nil {
 		return fmt.Errorf("failed to register tools: %w", err)
 	}
-	slog.Info("Started Neo4j MCP Server. Now listening for input...")
-	// Note: ServeStdio handles its own signal management for graceful shutdown
-	return server.ServeStdio(s.MCPServer)
+
+	switch s.config.TransportMode {
+	case config.TransportModeHTTP:
+		return s.StartHTTPServer()
+	case config.TransportModeStdio:
+		slog.Info("Starting stdio server")
+		return server.ServeStdio(s.MCPServer)
+	default:
+		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
+	}
+}
+
+// parseAllowedOrigins parses the allowed origins string into a slice of strings
+func parseAllowedOrigins(allowedOriginsStr string) []string {
+	if allowedOriginsStr == "" {
+		return []string{}
+	}
+
+	if allowedOriginsStr == "*" {
+		return []string{"*"}
+	}
+	origins := strings.Split(allowedOriginsStr, ",")
+	allowedOrigins := make([]string, 0, len(origins))
+
+	for _, origin := range origins {
+		allowedOrigins = append(allowedOrigins, strings.TrimSpace(origin))
+	}
+
+	return allowedOrigins
 }
 
 // verifyRequirements check the Neo4j requirements:
@@ -68,7 +115,14 @@ func (s *Neo4jMCPServer) Start() error {
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
 // - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
+// Note: In HTTP mode, these checks are skipped at startup since credentials come from per-request Basic Auth headers.
 func (s *Neo4jMCPServer) verifyRequirements() error {
+	// Skip verification in HTTP mode - credentials come from per-request Basic Auth headers
+	if s.config.TransportMode == config.TransportModeHTTP {
+		slog.Info("Skipping startup verification in HTTP mode (credentials required per-request)")
+		return nil
+	}
+
 	err := s.dbService.VerifyConnectivity(context.Background())
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
@@ -120,15 +174,27 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 }
 
 func (s *Neo4jMCPServer) emitStartupEvent() {
-	// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
-	records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+	var startupInfo analytics.StartupEventInfo
 
-	if err != nil {
-		slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
-		return
+	// In HTTP mode, skip database query since credentials come from per-request Basic Auth headers
+	if s.config.TransportMode == config.TransportModeHTTP {
+		startupInfo = analytics.StartupEventInfo{
+			Neo4jVersion:  "unknown-http-mode",
+			Edition:       "unknown-http-mode",
+			CypherVersion: []string{"unknown-http-mode"},
+			McpVersion:    s.version,
+		}
+	} else {
+		// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
+		records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+
+		if err != nil {
+			slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
+			return
+		}
+
+		startupInfo = recordsToStartupEventInfo(records, s.version)
 	}
-
-	startupInfo := recordsToStartupEventInfo(records, s.version)
 
 	// track startup event
 	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
@@ -198,10 +264,119 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 	return startupInfo
 }
 
-// Stop gracefully stops the server
-func (s *Neo4jMCPServer) Stop() error {
-	slog.Info("Stopping Neo4j MCP Server...")
-	// Currently no cleanup needed - the MCP server handles its own lifecycle
-	// Database service cleanup is handled by the caller (main.go)
+// buildTLSConfig creates a TLS configuration with security best practices
+// - Sets minimum TLS version to TLS 1.2 (allows TLS 1.3 negotiation)
+// - Uses Go's default cipher suites (well-maintained and secure)
+// - Compatible with self-signed and enterprise certificates
+func (s *Neo4jMCPServer) buildTLSConfig() (*tls.Config, error) {
+	// Load the certificate and key
+	cert, err := tls.LoadX509KeyPair(s.config.HTTPTLSCertFile, s.config.HTTPTLSKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS certificate and key: %w", err)
+	}
+
+	// Create TLS config with security best practices
+	// MinVersion is set to TLS 1.2, which allows TLS 1.3 clients to negotiate higher versions
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		// CipherSuites: nil (uses Go's default secure cipher suites)
+		// PreferServerCipherSuites: deprecated in Go 1.17+ (server preference is always used for TLS 1.3)
+	}
+
+	return tlsConfig, nil
+}
+
+// Stop gracefully stops the HTTP server
+func (s *Neo4jMCPServer) Stop(ctx context.Context) error {
+	if s.httpServer != nil {
+		slog.Info("Stopping HTTP server...")
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			slog.Error("Error shutting down HTTP server", "error", err)
+			return err
+		}
+		// Signal the StartHTTPServer goroutine to exit
+		close(s.shutdownChan)
+		slog.Info("HTTP server stopped")
+	}
 	return nil
+}
+
+func (s *Neo4jMCPServer) StartHTTPServer() error {
+	addr := fmt.Sprintf("%s:%s", s.config.HTTPHost, s.config.HTTPPort)
+	protocol := protocolHTTP
+	if s.config.HTTPTLSEnabled {
+		protocol = protocolHTTPS
+	}
+	slog.Info("Starting HTTP server", "address", addr, "url", fmt.Sprintf("%s://%s", protocol, addr), "tls", s.config.HTTPTLSEnabled)
+
+	// Create the StreamableHTTPServer - it serves on /mcp path by default
+	mcpServerHTTP := server.NewStreamableHTTPServer(
+		s.MCPServer,
+		server.WithStateLess(true),
+	)
+
+	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
+	// Wrap handler with middleware and create HTTP server
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
+		// Timeouts optimized for stateless HTTP MCP requests
+		ReadTimeout:       serverHTTPReadTimeout,
+		WriteTimeout:      serverHTTPWriteTimeout,
+		IdleTimeout:       serverHTTPIdleTimeout,
+		ReadHeaderTimeout: serverHTTPReadHeaderTimeout,
+	}
+
+	// Configure TLS if enabled
+	if s.config.HTTPTLSEnabled {
+		tlsConfig, err := s.buildTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to configure TLS: %w", err)
+		}
+		s.httpServer.TLSConfig = tlsConfig
+		slog.Info("TLS configuration applied", "minVersion", "TLS 1.2 (allows TLS 1.3 negotiation)")
+	}
+
+	// Signal that httpServer is ready for reading
+	close(s.httpServerReady)
+
+	// Channel to receive server errors
+	errChan := make(chan error, 1)
+	go func() {
+		var err error
+		if s.config.HTTPTLSEnabled {
+			// Use empty strings for cert/key files since they're already loaded in TLSConfig
+			err = s.httpServer.ListenAndServeTLS("", "")
+		} else {
+			err = s.httpServer.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
+			errChan <- fmt.Errorf("HTTP server failed: %w", err)
+		}
+	}()
+
+	// Channel to receive shutdown signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Block until we receive a signal, an error, or a shutdown request
+	select {
+	case sig := <-sigChan:
+		slog.Info("Shutdown signal received", "signal", sig.String())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), serverHTTPShutdownTimeout)
+		defer cancel()
+		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Error during server shutdown", "error", err)
+			return err
+		}
+		close(s.shutdownChan)
+		slog.Info("HTTP server stopped gracefully")
+		return nil
+	case err := <-errChan:
+		return err
+	case <-s.shutdownChan:
+		// Server was stopped via Stop() method
+		return nil
+	}
 }

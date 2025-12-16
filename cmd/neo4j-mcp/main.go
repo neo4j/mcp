@@ -30,12 +30,19 @@ func main() {
 
 	// Load and validate configuration (env vars + CLI overrides)
 	cfg, err := config.LoadConfig(&config.CLIOverrides{
-		URI:       cliArgs.URI,
-		Username:  cliArgs.Username,
-		Password:  cliArgs.Password,
-		Database:  cliArgs.Database,
-		ReadOnly:  cliArgs.ReadOnly,
-		Telemetry: cliArgs.Telemetry,
+		URI:            cliArgs.URI,
+		Username:       cliArgs.Username,
+		Password:       cliArgs.Password,
+		Database:       cliArgs.Database,
+		ReadOnly:       cliArgs.ReadOnly,
+		Telemetry:      cliArgs.Telemetry,
+		TransportMode:  cliArgs.TransportMode,
+		Port:           cliArgs.HTTPPort,
+		Host:           cliArgs.HTTPHost,
+		AllowedOrigins: cliArgs.HTTPAllowedOrigins,
+		TLSEnabled:     cliArgs.HTTPTLSEnabled,
+		TLSCertFile:    cliArgs.HTTPTLSCertFile,
+		TLSKeyFile:     cliArgs.HTTPTLSKeyFile,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr
@@ -47,7 +54,15 @@ func main() {
 	logger.Init(cfg.LogLevel, cfg.LogFormat, os.Stderr)
 
 	// Initialize Neo4j driver
-	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
+	// For STDIO mode: use environment credentials
+	// For HTTP mode: create driver without auth, per-request credentials will be used via impersonation
+	// Credentials come from per-request Basic Auth headers
+	var authToken neo4j.AuthToken
+	if cfg.TransportMode == config.TransportModeStdio {
+		authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
+	}
+
+	driver, err := neo4j.NewDriverWithContext(cfg.URI, authToken)
 	if err != nil {
 		slog.Error("Failed to create Neo4j driver", "error", err)
 		os.Exit(1)
@@ -62,7 +77,7 @@ func main() {
 	}()
 
 	// Create database service
-	dbService, err := database.NewNeo4jService(driver, cfg.Database)
+	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.TransportMode)
 	if err != nil {
 		slog.Error("Failed to create database service", "error", err)
 		return
@@ -83,17 +98,9 @@ func main() {
 	// Create and configure the MCP server
 	mcpServer := server.NewNeo4jMCPServer(Version, cfg, dbService, anService)
 
-	// Gracefully handle shutdown
-	defer func() {
-		if err := mcpServer.Stop(); err != nil {
-			slog.Error("Error stopping server", "error", err)
-		}
-	}()
-
-	// Start the server (this blocks until the server is stopped)
+	// Start the server - this blocks until shutdown for both stdio and HTTP modes
 	if err := mcpServer.Start(); err != nil {
 		slog.Error("Server error", "error", err)
-		return // so that defer can run
+		return
 	}
-
 }
