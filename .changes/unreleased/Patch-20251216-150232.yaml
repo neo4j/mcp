@@ -1,0 +1,3 @@
+kind: Patch
+body: 'Schema Sampling Control: Optimize schema introspection performance with `--neo4j-schema-sample-size 500` to control how many nodes are sampled when inferring database schema.'
+time: 2025-12-16T15:02:32.697719Z
