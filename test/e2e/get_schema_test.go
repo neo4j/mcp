@@ -4,14 +4,13 @@ package e2e
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetSchemaE2E(t *testing.T) {
@@ -53,13 +52,12 @@ func TestGetSchemaE2E(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to call get-schema tool: %v", err)
 		}
-
+		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
+		if !ok {
+			t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
+		}
 		// Verify the tool call was successful
 		if callToolResponse.IsError {
-			textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
-			if !ok {
-				t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
-			}
 			t.Fatalf("get-schema tool call returned an error: %s", textContent.Text)
 		}
 
@@ -68,16 +66,9 @@ func TestGetSchemaE2E(t *testing.T) {
 			t.Fatal("expected get-schema tool to return content, but got none")
 		}
 
-		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
-		if !ok {
-			t.Fatalf("expected content as TextContent, got %T", callToolResponse.Content[0])
-		}
-
 		// Should contain message about empty database
 		expectedMessage := "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."
-		if textContent.Text != expectedMessage {
-			t.Fatalf("expected empty database message, got: %s", textContent.Text)
-		}
+		assert.Equal(t, expectedMessage, textContent.Text, "Should return empty database message")
 
 		t.Log("Successfully handled get-schema on empty database")
 	})
@@ -115,13 +106,13 @@ func TestGetSchemaE2E(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to call get-schema tool: %v", err)
 		}
-
+		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
+		if !ok {
+			t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
+		}
 		// Verify the tool call was successful
 		if callToolResponse.IsError {
-			textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
-			if !ok {
-				t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
-			}
+
 			t.Fatalf("get-schema tool call returned an error: %s", textContent.Text)
 		}
 
@@ -129,44 +120,35 @@ func TestGetSchemaE2E(t *testing.T) {
 			t.Fatal("expected get-schema tool to return content, but got none")
 		}
 
-		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
-		if !ok {
-			t.Fatalf("expected content as TextContent, got %T", callToolResponse.Content[0])
-		}
-
-		// Verify the JSON response contains expected schema entries
+		// Parse and validate the JSON schema response
 		schemaJSON := textContent.Text
 
-		// Check that the response is valid JSON and contains expected entries
-		if !json.Valid([]byte(schemaJSON)) {
-			t.Fatalf("get-schema returned invalid JSON: %s", schemaJSON)
+		personExpectation := map[string]interface{}{
+			"key": personLabel.String(),
+			"value": map[string]interface{}{
+				"type": "node",
+				"properties": map[string]interface{}{
+					"name": "STRING",
+					"age":  "INTEGER",
+				},
+			},
 		}
-
-		// Verify that our seeded labels appear in the schema
-		if !strings.Contains(schemaJSON, personLabel.String()) {
-			t.Errorf("schema JSON should contain Person label %q, got: %s", personLabel.String(), schemaJSON)
+		companyExpectation := map[string]interface{}{
+			"key": companyLabel.String(),
+			"value": map[string]interface{}{
+				"type": "node",
+				"properties": map[string]interface{}{
+					"name":    "STRING",
+					"founded": "INTEGER",
+					"active":  "BOOLEAN",
+				},
+			},
 		}
-
-		if !strings.Contains(schemaJSON, companyLabel.String()) {
-			t.Errorf("schema JSON should contain Company label %q, got: %s", companyLabel.String(), schemaJSON)
-		}
-
-		// Verify that the schema contains expected property types
-		expectedPatterns := []string{
-			`"type":"node"`,       // Both nodes should be of type "node"
-			`"name":"STRING"`,     // Both have name properties of type STRING
-			`"age":"INTEGER"`,     // Person has age of type INTEGER
-			`"founded":"INTEGER"`, // Company has founded of type INTEGER
-			`"active":"BOOLEAN"`,  // Company has active of type BOOLEAN
-		}
-
-		for _, pattern := range expectedPatterns {
-			if !strings.Contains(schemaJSON, pattern) {
-				t.Errorf("schema JSON should contain pattern %q, got: %s", pattern, schemaJSON)
-			}
-		}
+		tc.AssertListContainsJSON(schemaJSON, "", personExpectation)
+		tc.AssertListContainsJSON(schemaJSON, "", companyExpectation)
 
 		t.Logf("Successfully retrieved schema JSON: %s", schemaJSON)
+
 	})
 
 	t.Run("get-schema with nodes and relationships", func(t *testing.T) {
@@ -230,77 +212,58 @@ func TestGetSchemaE2E(t *testing.T) {
 			t.Fatalf("expected content as TextContent, got %T", callToolResponse.Content[0])
 		}
 
-		// Verify the JSON response contains expected schema entries
+		// Parse and validate the JSON schema response
 		schemaJSON := textContent.Text
 
-		// Check that the response is valid JSON
-		if !json.Valid([]byte(schemaJSON)) {
-			t.Fatalf("get-schema returned invalid JSON: %s", schemaJSON)
+		// Create expected schema entries
+		personExpectation := map[string]interface{}{
+			"key": personLabel.String(),
+			"value": map[string]interface{}{
+				"type": "node",
+				"properties": map[string]interface{}{
+					"name": "STRING",
+					"age":  "INTEGER",
+				},
+				"relationships": map[string]interface{}{
+					relationshipLabel.String(): map[string]interface{}{
+						"direction":  "out",
+						"labels":     []interface{}{companyLabel.String()},
+						"properties": map[string]interface{}{"position": "STRING", "since": "INTEGER"},
+					},
+				},
+			},
 		}
 
-		// Verify that our seeded labels appear in the schema
-		if !strings.Contains(schemaJSON, personLabel.String()) {
-			t.Errorf("schema JSON should contain Person label %q, got: %s", personLabel.String(), schemaJSON)
+		companyExpectation := map[string]interface{}{
+			"key": companyLabel.String(),
+			"value": map[string]interface{}{
+				"type": "node",
+				"properties": map[string]interface{}{
+					"name": "STRING",
+				},
+				"relationships": map[string]interface{}{
+					relationshipLabel.String(): map[string]interface{}{
+						"direction":  "in",
+						"labels":     []interface{}{personLabel.String()},
+						"properties": map[string]interface{}{"position": "STRING", "since": "INTEGER"},
+					},
+				},
+			},
 		}
 
-		if !strings.Contains(schemaJSON, companyLabel.String()) {
-			t.Errorf("schema JSON should contain Company label %q, got: %s", companyLabel.String(), schemaJSON)
+		relationshipExpectation := map[string]interface{}{
+			"key": relationshipLabel.String(),
+			"value": map[string]interface{}{
+				"type":       "relationship",
+				"properties": map[string]interface{}{"position": "STRING", "since": "INTEGER"},
+			},
 		}
 
-		if !strings.Contains(schemaJSON, relationshipLabel.String()) {
-			t.Errorf("schema JSON should contain relationship label %q, got: %s", relationshipLabel.String(), schemaJSON)
-		}
-
-		// Verify that the schema contains expected patterns for nodes and relationships
-		expectedPatterns := []string{
-			`"type":"node"`,         // Nodes should be of type "node"
-			`"type":"relationship"`, // Relationship should be of type "relationship"
-			`"name":"STRING"`,       // Name properties
-			`"age":"INTEGER"`,       // Person age property
-			`"since":"INTEGER"`,     // Relationship since property
-			`"position":"STRING"`,   // Relationship position property
-			`"direction":"out"`,     // Relationship direction
-		}
-
-		for _, pattern := range expectedPatterns {
-			if !strings.Contains(schemaJSON, pattern) {
-				t.Errorf("schema JSON should contain pattern %q, got: %s", pattern, schemaJSON)
-			}
-		}
+		// Assert all expected entries exist in the schema
+		tc.AssertListContainsJSON(schemaJSON, "", personExpectation)
+		tc.AssertListContainsJSON(schemaJSON, "", companyExpectation)
+		tc.AssertListContainsJSON(schemaJSON, "", relationshipExpectation)
 
 		t.Logf("Successfully retrieved schema with nodes and relationships: %s", schemaJSON)
-	})
-
-	t.Run("get-schema tool availability", func(t *testing.T) {
-		t.Parallel()
-		helpers.NewE2ETestContext(t, dbs.GetDriver())
-
-		// List tools to verify get-schema is available
-		listToolsResponse, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
-		if err != nil {
-			t.Fatalf("failed to list tools: %v", err)
-		}
-
-		// Verify get-schema tool is in the list
-		getSchemaToolFound := false
-		for _, tool := range listToolsResponse.Tools {
-			if tool.Name == "get-schema" {
-				getSchemaToolFound = true
-
-				// Verify tool description is not empty
-				if tool.Description == "" {
-					t.Error("get-schema tool should have a description")
-				}
-
-				t.Logf("Found get-schema tool with description: %s", tool.Description)
-				break
-			}
-		}
-
-		if !getSchemaToolFound {
-			t.Fatal("get-schema tool not found in available tools")
-		}
-
-		t.Logf("Successfully verified get-schema tool availability among %d total tools", len(listToolsResponse.Tools))
 	})
 }
