@@ -13,31 +13,23 @@ import (
 
 func TestSeverLifecycleMCP(t *testing.T) {
 	t.Parallel()
-	// Create MCP client
-	ctx := context.Background()
 
-	cfg := dbs.GetDriverConf()
-	args := []string{
-		"--neo4j-uri", cfg.URI,
-		"--neo4j-username", cfg.Username,
-		"--neo4j-password", cfg.Password,
-		"--neo4j-database", cfg.Database,
-	}
-
-	mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-	if err != nil {
-		t.Fatalf("failed to create MCP client: %v", err)
-	}
-
-	// Initialize the server
-	_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
-	if err != nil {
-		t.Fatalf("failed to initialize MCP server: %v", err)
-	}
-	t.Cleanup(func() {
-		mcpClient.Close()
-	})
 	t.Run("lifecycle test (MCPServer -> MCP Client -> Initialize Req -> List Tools -> Call Tool -> Stop)", func(t *testing.T) {
+		// Create MCP client
+		ctx := context.Background()
+
+		cfg := dbs.GetDriverConf()
+		args := []string{
+			"--neo4j-uri", cfg.URI,
+			"--neo4j-username", cfg.Username,
+			"--neo4j-password", cfg.Password,
+			"--neo4j-database", cfg.Database,
+		}
+
+		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
+		if err != nil {
+			t.Fatalf("failed to create MCP client: %v", err)
+		}
 		helpers.NewE2ETestContext(t, dbs.GetDriver())
 
 		// Test server initialization
@@ -86,8 +78,9 @@ func TestSeverLifecycleMCP(t *testing.T) {
 		if len(callToolResponse.Content) == 0 {
 			t.Fatal("expected get-schema tool to return content, but got none")
 		}
-
+		mcpClient.Close()
 		t.Logf("Server started successfully with %d tools available", len(listToolsResponse.Tools))
 		t.Logf("Successfully called get-schema tool and received %d content items", len(callToolResponse.Content))
+
 	})
 }

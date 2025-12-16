@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 // BuildServer compile the project and store the output binary in a TempDir,
@@ -30,6 +31,9 @@ func BuildServer() (string, func(), error) {
 
 	// Define binary path
 	binaryName := "neo4j-mcp"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
 	binaryPath := filepath.Join(buildDir, binaryName)
 
 	// Get the project root directory (go up from test/e2e/)
