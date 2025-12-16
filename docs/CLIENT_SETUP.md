@@ -1,29 +1,12 @@
 # MCP Client Setup Guide
 
-This guide covers how to configure various MCP clients (VSCode, Claude Desktop, etc.) to use the Neo4j MCP server in both STDIO and HTTP transport modes.
+This guide covers how to configure various MCP clients (VSCode, Claude Desktop, etc.) to use the Neo4j MCP server.
 
-## Transport Modes Overview
+The server supports two transport modes:
+- **STDIO** (default): For desktop clients (Claude Desktop, VSCode)
+- **HTTP**: For web-based clients and multi-tenant scenarios
 
-The Neo4j MCP server supports two transport modes:
-
-- **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients
-- **HTTP**: RESTful HTTP server with per-request Basic Authentication for web-based clients and multi-tenant scenarios
-
-### When to Use Each Mode
-
-**Use STDIO mode when:**
-
-- Using desktop MCP clients (Claude Desktop, VSCode)
-- Single-user scenarios
-- Local development
-- Following standard MCP patterns
-
-**Use HTTP mode when:**
-
-- Building web-based MCP clients
-- Need multi-tenant support (different users, different credentials)
-- Want to expose MCP over network
-- Integrating with web applications
+See [README.md](../README.md#transport-modes) for more details on transport modes.
 
 ## Environment Variables
 

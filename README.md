@@ -17,12 +17,15 @@ Official Model Context Protocol (MCP) server for Neo4j.
 
 The server performs several pre-flight checks at startup to ensure your environment is correctly configured.
 
-**Mandatory Requirements**
-The server verifies the following core requirements. If any of these checks fail (e.g., due to an invalid configuration, incorrect credentials, or a missing APOC installation), the server will not start:
+**STDIO Mode - Mandatory Requirements**
+In STDIO mode, the server verifies the following core requirements. If any of these checks fail (e.g., due to an invalid configuration, incorrect credentials, or a missing APOC installation), the server will not start:
 
 - A valid connection to your Neo4j instance.
 - The ability to execute queries.
 - The presence of the APOC plugin.
+
+**HTTP Mode - Verification Skipped**
+In HTTP mode, startup verification checks are skipped because credentials come from per-request Basic Auth headers. The server starts immediately without connecting to Neo4j at startup.
 
 **Optional Requirements**
 If an optional dependency is missing, the server will start in an adaptive mode. For instance, if the Graph Data Science (GDS) library is not detected in your Neo4j installation, the server will still launch but will automatically disable all GDS-related tools, such as `list-gds-procedures`. All other tools will remain available.
@@ -62,6 +65,14 @@ The Neo4j MCP server supports two transport modes:
 - **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients (Claude Desktop, VSCode)
 - **HTTP**: RESTful HTTP server with per-request Basic Authentication for web-based clients and multi-tenant scenarios
 
+### Key Differences
+
+| Aspect | STDIO | HTTP |
+|--------|-------|------|
+| Startup Verification | Required - server verifies APOC, connectivity, queries | Skipped - server starts immediately |
+| Credentials | Set via environment variables | Per-request via Basic Auth headers |
+| Telemetry | Collects Neo4j version, edition, Cypher version at startup | Reports "unknown-http-mode" - actual version info not available at startup |
+
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
 ## TLS/HTTPS Configuration
@@ -75,11 +86,16 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 - `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
 
+### Certificate Requirements
+
+- **Format**: Certificates must be in **PEM format** (text-based with `-----BEGIN CERTIFICATE-----` headers)
+- **Trusted CA**: For production use, certificates must be signed by a trusted Certificate Authority. Self-signed certificates do **not** work with most MCP clients (e.g., VSCode Copilot, Claude Desktop)
+- **Production**: Use certificates from Let's Encrypt, your organization's CA, or commercial providers
+
 ### Security Configuration
 
 - **Minimum TLS Version**: Hardcoded to TLS 1.2 (allows TLS 1.3 negotiation)
 - **Cipher Suites**: Uses Go's secure default cipher suites
-- **Certificate Types**: Compatible with self-signed and enterprise certificates
 - **Default Port**: Automatically uses port 443 when TLS is enabled (standard HTTPS port)
 
 ### Example Configuration
@@ -97,7 +113,7 @@ neo4j-mcp
 
 **Production Usage**: Use certificates from a trusted Certificate Authority (e.g., Let's Encrypt, or your organisation) for production deployments.
 
-📘 **[TLS Setup Guide](docs/TLS_SETUP.md)** – Detailed instructions for generating certificates, testing TLS, and production deployment
+For detailed instructions on certificate generation, testing TLS, and production deployment, see [CONTRIBUTING.md](CONTRIBUTING.md#tlshttps-configuration).
 
 ## Configuration Options
 

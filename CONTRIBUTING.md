@@ -206,6 +206,16 @@ curl -X POST http://localhost:80/mcp \
   -d '{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}'
 ```
 
+## TLS/HTTPS Configuration
+
+For detailed instructions on generating certificates and testing TLS configurations, see the **[TLS Setup Guide](docs/TLS_SETUP.md)**.
+
+This guide includes:
+- Self-signed certificate generation for testing
+- Testing TLS with curl and openssl
+- TLS verification commands
+- Production considerations (using Let's Encrypt certificates)
+
 ## MCP Error Handling
 
 MCP error handling follows a specific pattern that differs from standard Go error handling. According to the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#error-handling), tool handlers should communicate errors through the tool result structure rather than returning Go errors directly.
