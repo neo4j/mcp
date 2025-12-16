@@ -13,11 +13,13 @@ All certificates must be in **PEM format** (text-based format with `-----BEGIN C
 **Self-Signed Certificates**: Self-signed certificates do not work out of the box with many MCP clients (e.g., VSCode Copilot, Claude Desktop). These clients require certificates signed by a trusted Certificate Authority (CA).
 
 **For Production**: Use certificates from a trusted CA like:
+
 - Let's Encrypt (free, automated)
 - Your organization's internal CA
 - Commercial certificate providers
 
 Self-signed certificates are only suitable for:
+
 - Local development on `localhost`
 - Testing environments with relaxed security checks
 - Development scenarios where you control the client configuration
@@ -183,7 +185,7 @@ For production, use a proper certificate from a Certificate Authority (e.g., Let
 ./bin/neo4j-mcp \
   --neo4j-uri bolt://localhost:7687 \
   --neo4j-transport-mode http \
-  --neo4j-http-host 0.0.0.0 \
+  --neo4j-http-host 127.0.0.1 \
   --neo4j-http-port 443 \
   --neo4j-http-tls-enabled true \
   --neo4j-http-tls-cert-file /etc/letsencrypt/live/your-domain.com/fullchain.pem \
