@@ -1,3 +1,0 @@
-kind: Patch
-body: 'Per-Request Authentication & CORS: Each HTTP request authenticates independently. Control which clients can connect using `--neo4j-http-allowed-origins https://client.example.com,https://app.example.com` for granular access control.'
-time: 2025-12-16T15:02:11.6188Z

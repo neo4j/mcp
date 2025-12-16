@@ -18,5 +18,3 @@ newlines:
   beforeChangelogVersion: 1
   endOfVersion: 1
 envPrefix: CHANGIE_
-body:
-  block: true
