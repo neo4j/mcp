@@ -132,39 +132,21 @@ func makeTestID() string {
 
 // AssertListContainsJSON checks if a JSON list (at a specific key) contains the expected object.
 // responseBody: The raw JSON string returned by your API.
-// listKey: The key where the list is located (e.g., "users"). Use "" if the root JSON is the list.
 // expectedItem: The struct or map you expect to find.
-func (tc *E2ETestContext) AssertListContainsJSON(responseBody string, key string, expectedItem interface{}) {
+func (tc *E2ETestContext) AssertJSONListContainsObject(responseBody string, expectedItem interface{}) {
 	tc.t.Helper()
 
-	// 1. Unmarshal the Actual Response
 	var actualContainer interface{}
 	err := json.Unmarshal([]byte(responseBody), &actualContainer)
 	assert.NoError(tc.t, err, "Failed to parse response JSON")
 
-	// 2. Extract the list from the JSON
 	var actualList []interface{}
 
-	if key == "" {
-		// Case A: The root is the list (e.g. "[{}, {}]")
-		var ok bool
-		actualList, ok = actualContainer.([]interface{})
-		assert.True(tc.t, ok, "Response root is not a list")
-	} else {
-		// Case B: The list is inside an object (e.g. {"users": [{}, {}]})
-		actualMap, ok := actualContainer.(map[string]interface{})
-		assert.True(tc.t, ok, "Response root is not a JSON object")
+	var ok bool
+	actualList, ok = actualContainer.([]interface{})
+	assert.True(tc.t, ok, "Response root is not a list")
 
-		val, exists := actualMap[key]
-		assert.True(tc.t, exists, "Key '%s' not found in response", key)
-
-		actualList, ok = val.([]interface{})
-		assert.True(tc.t, ok, "Key '%s' is not a JSON list", key)
-	}
-
-	// 3. Normalize the Expected Item (The "Round-Trip" Trick)
-	// We marshal and unmarshal the expected item so that ints become float64s,
-	// matching how the 'actual' JSON was parsed.
+	// Marshall and Unmarshal to obtain the same floats/ints conversion.
 	expectedBytes, err := json.Marshal(expectedItem)
 	assert.NoError(tc.t, err)
 
@@ -172,8 +154,7 @@ func (tc *E2ETestContext) AssertListContainsJSON(responseBody string, key string
 	err = json.Unmarshal(expectedBytes, &expectedNormalized)
 	assert.NoError(tc.t, err)
 
-	// 4. Assert
-	assert.Contains(tc.t, actualList, expectedNormalized, "List at '%s' did not contain expected object", key)
+	assert.Contains(tc.t, actualList, expectedNormalized, "List at '%s' did not contain expected object")
 }
 
 func BuildInitializeRequest() mcp.InitializeRequest {

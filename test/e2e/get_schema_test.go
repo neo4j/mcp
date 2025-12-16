@@ -144,8 +144,8 @@ func TestGetSchemaE2E(t *testing.T) {
 				},
 			},
 		}
-		tc.AssertListContainsJSON(schemaJSON, "", personExpectation)
-		tc.AssertListContainsJSON(schemaJSON, "", companyExpectation)
+		tc.AssertJSONListContainsObject(schemaJSON, personExpectation)
+		tc.AssertJSONListContainsObject(schemaJSON, companyExpectation)
 
 		t.Logf("Successfully retrieved schema JSON: %s", schemaJSON)
 
@@ -260,9 +260,9 @@ func TestGetSchemaE2E(t *testing.T) {
 		}
 
 		// Assert all expected entries exist in the schema
-		tc.AssertListContainsJSON(schemaJSON, "", personExpectation)
-		tc.AssertListContainsJSON(schemaJSON, "", companyExpectation)
-		tc.AssertListContainsJSON(schemaJSON, "", relationshipExpectation)
+		tc.AssertJSONListContainsObject(schemaJSON, personExpectation)
+		tc.AssertJSONListContainsObject(schemaJSON, companyExpectation)
+		tc.AssertJSONListContainsObject(schemaJSON, relationshipExpectation)
 
 		t.Logf("Successfully retrieved schema with nodes and relationships: %s", schemaJSON)
 	})
