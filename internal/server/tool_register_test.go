@@ -24,15 +24,17 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// Current tools: get-schema, read-cypher, write-cypher, list-gds-procedures
 		expectedTotalToolsCount := 4
 
 		// Start server and register tools
@@ -51,16 +53,18 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: true,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// Readonly tools: get-schema, read-cypher, list-gds-procedures
 		expectedTotalToolsCount := 3
 
 		// Start server and register tools
@@ -78,16 +82,18 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, true)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: false,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// All tools: get-schema, read-cypher, write-cypher, list-gds-procedures
 		expectedTotalToolsCount := 4
 
 		// Start server and register tools
@@ -106,16 +112,18 @@ func TestToolRegister(t *testing.T) {
 		mockDB := getMockedDBService(ctrl, false)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		cfg := &config.Config{
-			URI:      "bolt://test-host:7687",
-			Username: "neo4j",
-			Password: "password",
-			Database: "neo4j",
-			ReadOnly: false,
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
+		// Non-GDS tools: get-schema, read-cypher, write-cypher
 		expectedTotalToolsCount := 3
 
 		// Start server and register tools
