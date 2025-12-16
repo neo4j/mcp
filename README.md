@@ -67,11 +67,11 @@ The Neo4j MCP server supports two transport modes:
 
 ### Key Differences
 
-| Aspect | STDIO | HTTP |
-|--------|-------|------|
-| Startup Verification | Required - server verifies APOC, connectivity, queries | Skipped - server starts immediately |
-| Credentials | Set via environment variables | Per-request via Basic Auth headers |
-| Telemetry | Collects Neo4j version, edition, Cypher version at startup | Reports "unknown-http-mode" - actual version info not available at startup |
+| Aspect               | STDIO                                                      | HTTP                                                                       |
+| -------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Startup Verification | Required - server verifies APOC, connectivity, queries     | Skipped - server starts immediately                                        |
+| Credentials          | Set via environment variables                              | Per-request via Basic Auth headers                                         |
+| Telemetry            | Collects Neo4j version, edition, Cypher version at startup | Reports "unknown-http-mode" - actual version info not available at startup |
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
@@ -85,12 +85,6 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 - `NEO4J_MCP_HTTP_TLS_CERT_FILE` - Path to TLS certificate file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
-
-### Certificate Requirements
-
-- **Format**: Certificates must be in **PEM format** (text-based with `-----BEGIN CERTIFICATE-----` headers)
-- **Trusted CA**: For production use, certificates must be signed by a trusted Certificate Authority. Self-signed certificates do **not** work with most MCP clients (e.g., VSCode Copilot, Claude Desktop)
-- **Production**: Use certificates from Let's Encrypt, your organization's CA, or commercial providers
 
 ### Security Configuration
 
