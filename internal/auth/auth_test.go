@@ -39,6 +39,38 @@ func TestGetBearerToken_Missing(t *testing.T) {
 // See internal/server/middleware.go lines 54-58.
 // An empty bearer token can never exist in context in production.
 
+func TestBothBearerAndBasicAuthInContext(t *testing.T) {
+	// This test verifies that both bearer token and basic auth can coexist in context.
+	// This test ensures they don't interfere with each other and both auth methods coexist independently in context.
+
+	ctx := context.Background()
+
+	// Add both auth types to context
+	ctx = WithBearerToken(ctx, "test-bearer-token")
+	ctx = WithBasicAuth(ctx, "testuser", "testpass")
+
+	// Verify bearer token is present and correct
+	token, hasBearerToken := GetBearerToken(ctx)
+	if !hasBearerToken {
+		t.Error("Expected bearer token in context")
+	}
+	if token != "test-bearer-token" {
+		t.Errorf("Expected bearer token 'test-bearer-token', got %q", token)
+	}
+
+	// Verify basic auth is also present and correct
+	user, pass, hasBasicAuth := GetBasicAuthCredentials(ctx)
+	if !hasBasicAuth {
+		t.Error("Expected basic auth in context")
+	}
+	if user != "testuser" {
+		t.Errorf("Expected user 'testuser', got %q", user)
+	}
+	if pass != "testpass" {
+		t.Errorf("Expected pass 'testpass', got %q", pass)
+	}
+}
+
 func TestWithBasicAuth(t *testing.T) {
 	ctx := context.Background()
 	user := "testuser"
