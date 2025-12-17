@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/auth"
@@ -37,8 +38,26 @@ func authCheckHandler(t *testing.T, expectAuth bool, expectedUser, expectedPass 
 	})
 }
 
-func TestBasicAuthMiddleware_WithValidCredentials(t *testing.T) {
-	handler := basicAuthMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+// bearerTokenCheckHandler verifies if bearer token is in context
+func bearerTokenCheckHandler(t *testing.T, expectToken bool, expectedToken string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, ok := auth.GetBearerToken(r.Context())
+		if expectToken {
+			if !ok {
+				t.Error("Expected bearer token in context, but none found")
+			}
+			if token != expectedToken {
+				t.Errorf("Expected token %q, got %q", expectedToken, token)
+			}
+		} else if ok {
+			t.Error("Expected no bearer token in context, but found some")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
+func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
+	handler := authMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -51,8 +70,8 @@ func TestBasicAuthMiddleware_WithValidCredentials(t *testing.T) {
 	}
 }
 
-func TestBasicAuthMiddleware_WithoutCredentials(t *testing.T) {
-	handler := basicAuthMiddleware()(mockHandler())
+func TestAuthMiddleware_WithoutCredentials(t *testing.T) {
+	handler := authMiddleware()(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -70,8 +89,8 @@ func TestBasicAuthMiddleware_WithoutCredentials(t *testing.T) {
 	}
 }
 
-func TestBasicAuthMiddleware_WithEmptyCredentials(t *testing.T) {
-	handler := basicAuthMiddleware()(authCheckHandler(t, true, "", ""))
+func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
+	handler := authMiddleware()(authCheckHandler(t, true, "", ""))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("", "")
@@ -83,6 +102,99 @@ func TestBasicAuthMiddleware_WithEmptyCredentials(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", rec.Code)
 	}
 }
+
+// ==== TODO: placeholder tests to fix the errors, need to be expanded
+
+func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
+	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-123"))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Authorization", "Bearer test-token-123")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
+	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-456"))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Authorization", "Bearer   test-token-456  ")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
+	handler := authMiddleware()(mockHandler())
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Authorization", "Bearer ")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status 401, got %d", rec.Code)
+	}
+
+	if !strings.Contains(rec.Header().Get("WWW-Authenticate"), "Bearer") {
+		t.Error("Expected WWW-Authenticate header to include Bearer")
+	}
+}
+
+func TestAuthMiddleware_BearerTokenPrecedence(t *testing.T) {
+	// Bearer token should be checked first and take precedence
+	// This test verifies Bearer token works when provided
+	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "priority-token"))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Authorization", "Bearer priority-token")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+
+	// Also verify that BasicAuth alone still works (fallback path)
+	handler2 := authMiddleware()(authCheckHandler(t, true, "fallback-user", "fallback-pass"))
+	req2 := httptest.NewRequest("GET", "/", nil)
+	req2.SetBasicAuth("fallback-user", "fallback-pass")
+	rec2 := httptest.NewRecorder()
+
+	handler2.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for basic auth fallback, got %d", rec2.Code)
+	}
+}
+
+func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
+	// When no bearer token, should fall back to basic auth
+	handler := authMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.SetBasicAuth("testuser", "testpass")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+}
+
+// ==== TODO: placeholder tests to fix the errors, need to be expanded
 
 func TestCORSMiddleware_NoConfiguration(t *testing.T) {
 	handler := corsMiddleware([]string{})(mockHandler())
