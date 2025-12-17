@@ -67,7 +67,8 @@ func authMiddleware() func(http.Handler) http.Handler {
 			user, pass, ok := r.BasicAuth()
 			if !ok {
 				// No credentials provided - reject request
-				w.Header().Set("WWW-Authenticate", `Basic realm="Neo4j MCP Server", Bearer realm="Neo4j MCP Server"`)
+				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
+				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
 				http.Error(w, "Unauthorized: Basic or Bearer authentication required", http.StatusUnauthorized)
 				return
 			}
