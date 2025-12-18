@@ -1,33 +1,29 @@
-# Builder stage
-FROM golang:1.25-alpine@sha256:26111811bc967321e7b6f852e914d14bede324cd1accb7f81811929a6a57fea9 AS builder
+FROM alpine:3.20 AS builder
 
-LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp"
+ARG NEO4J_MCP_VERSION=1.1.0
+ARG TARGETARCH
 
-WORKDIR /build
+RUN apk add --no-cache curl
 
-# Copy go mod files
-COPY go.mod go.sum ./
+RUN case "${TARGETARCH}" in \
+      amd64) ARCH="x86_64" ;; \
+      arm64) ARCH="arm64" ;; \
+      *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/neo4j/mcp/releases/download/v${NEO4J_MCP_VERSION}/neo4j-mcp_Linux_${ARCH}.tar.gz" -o /tmp/neo4j-mcp.tar.gz && \
+    tar -xzf /tmp/neo4j-mcp.tar.gz -C /tmp neo4j-mcp
 
-# Download dependencies
-RUN go mod download
+FROM alpine:3.20
 
-# Copy source code
-COPY . .
+COPY --from=builder /tmp/neo4j-mcp /usr/local/bin/neo4j-mcp
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -C cmd/neo4j-mcp -a -installsuffix cgo \
-    -o ../../neo4j-mcp
+ENV NEO4J_MCP_TRANSPORT=http
+ENV NEO4J_MCP_HTTP_HOST=0.0.0.0
+ENV NEO4J_MCP_HTTP_PORT=8080
+ENV NEO4J_READ_ONLY=true
+ENV NEO4J_TELEMETRY=false
+ENV NEO4J_LOG_LEVEL=info
 
-# Runtime stage
-FROM scratch
+EXPOSE 8080
 
-WORKDIR /app
-
-# Copy binary from builder
-COPY --from=builder /build/neo4j-mcp /app/neo4j-mcp
-
-# Run as non-root user (UID 65532 is a standard non-root user ID)
-USER 65532:65532
-
-# Set entrypoint
-ENTRYPOINT ["/app/neo4j-mcp"]
+ENTRYPOINT ["neo4j-mcp"]
