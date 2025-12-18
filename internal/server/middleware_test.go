@@ -5,7 +5,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/server"
+	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/config"
+	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
+	"go.uber.org/mock/gomock"
 )
 
 // mockHandler is a simple handler that returns 200 OK
@@ -14,6 +19,35 @@ func mockHandler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
+}
+
+// mockNeo4jMCPServer creates a mock Neo4jMCPServer for testing
+func mockNeo4jMCPServer(t *testing.T) *Neo4jMCPServer {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+
+	cfg := &config.Config{
+		URI:           "bolt://localhost:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		TransportMode: config.TransportModeHTTP,
+		Telemetry:     false, // Disable telemetry in tests
+	}
+
+	mockDBService := db_mocks.NewMockService(ctrl)
+	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
+
+	mcpServer := server.NewMCPServer("test-server", "1.0.0")
+
+	return &Neo4jMCPServer{
+		MCPServer:    mcpServer,
+		config:       cfg,
+		dbService:    mockDBService,
+		anService:    mockAnalyticsService,
+		version:      "1.0.0",
+		gdsInstalled: false,
+	}
 }
 
 // authCheckHandler verifies if credentials are in context
@@ -269,7 +303,8 @@ func TestLoggingMiddleware(t *testing.T) {
 
 func TestAddMiddleware_FullChain(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
+	mockServer := mockNeo4jMCPServer(t)
+	handler := chainMiddleware(allowedOrigins, mockServer, authCheckHandler(t, true, "user", "pass"))
 
 	req := httptest.NewRequest("GET", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -290,7 +325,8 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 
 func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := chainMiddleware(allowedOrigins, mockHandler())
+	mockServer := mockNeo4jMCPServer(t)
+	handler := chainMiddleware(allowedOrigins, mockServer, mockHandler())
 
 	req := httptest.NewRequest("GET", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -409,7 +445,8 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	// Test that path validation happens before auth check
 	// Invalid paths should return 404 without requiring auth
 	allowedOrigins := []string{}
-	handler := chainMiddleware(allowedOrigins, mockHandler())
+	mockServer := mockNeo4jMCPServer(t)
+	handler := chainMiddleware(allowedOrigins, mockServer, mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	// No auth credentials

@@ -13,15 +13,18 @@ const (
 )
 
 // chainMiddleware chains together all HTTP middleware
-func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+func chainMiddleware(allowedOrigins []string, mcpServer *Neo4jMCPServer, next http.Handler) http.Handler {
 	// Chain middleware in reverse order (last added = first to execute)
-	// Execution order: PathValidator -> CORS -> BasicAuth -> Logging -> Handler
+	// Execution order: PathValidator -> CORS -> BasicAuth -> HTTPMetrics -> Logging -> Handler
 
 	// Start with the actual handler
 	handler := next
 
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
+
+	// Add HTTP metrics middleware (collects metrics on first request)
+	handler = httpMetricsMiddleware(mcpServer)(handler)
 
 	// Add basic auth middleware (always requires credentials if header present)
 	handler = basicAuthMiddleware()(handler)
@@ -124,6 +127,27 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 				"host", r.Host,
 				"query", r.URL.RawQuery,
 			)
+
+			// Call the next handler
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// httpMetricsMiddleware collects and emits HTTP mode metrics on the first request.
+// Uses sync.Once to ensure metrics are collected exactly once per server session.
+// Requires Basic Auth credentials to be present in the request context (set by basicAuthMiddleware).
+func httpMetricsMiddleware(mcpServer *Neo4jMCPServer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Only collect metrics if telemetry is enabled
+			if mcpServer.config.Telemetry {
+				// Use sync.Once to ensure metrics are collected exactly once
+				mcpServer.httpMetricsSent.Do(func() {
+					// Run metrics collection in background to avoid blocking the request
+					go mcpServer.collectAndEmitHTTPMetrics(r.Context())
+				})
+			}
 
 			// Call the next handler
 			next.ServeHTTP(w, r)

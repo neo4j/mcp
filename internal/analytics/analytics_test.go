@@ -16,7 +16,7 @@ import (
 // newTestAnalytics creates an analytics service for testing
 func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTTPClient, uri string) *analytics.Analytics {
 	t.Helper()
-	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri)
+	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri, "stdio", false)
 }
 
 func TestAnalytics(t *testing.T) {

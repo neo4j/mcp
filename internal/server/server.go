@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,6 +42,7 @@ type Neo4jMCPServer struct {
 	version         string
 	anService       analytics.Service
 	gdsInstalled    bool
+	httpMetricsSent sync.Once // Ensures HTTP mode metrics are sent exactly once
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -264,6 +266,27 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 	return startupInfo
 }
 
+// collectAndEmitHTTPMetrics collects and emits metrics for HTTP mode on first request.
+// This method is called via httpMetricsSent.Do() to ensure it runs exactly once.
+// It queries Neo4j for database information and sends a startup event with the collected metrics.
+func (s *Neo4jMCPServer) collectAndEmitHTTPMetrics(ctx context.Context) {
+	slog.Info("Collecting HTTP mode metrics on first request")
+
+	// Query dbms.components() to collect meta information about the database
+	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
+	if err != nil {
+		slog.Error("Failed to collect HTTP mode metrics", "error", err.Error())
+		// Don't block request on metrics failure - metrics are best-effort
+		return
+	}
+
+	startupInfo := recordsToStartupEventInfo(records, s.version)
+
+	// Emit startup event with collected metrics
+	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
+	slog.Info("HTTP mode metrics collected and sent successfully")
+}
+
 // buildTLSConfig creates a TLS configuration with security best practices
 // - Sets minimum TLS version to TLS 1.2 (allows TLS 1.3 negotiation)
 // - Uses Go's default cipher suites (well-maintained and secure)
@@ -320,7 +343,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Wrap handler with middleware and create HTTP server
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
+		Handler: chainMiddleware(allowedOrigins, s, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       serverHTTPReadTimeout,
 		WriteTimeout:      serverHTTPWriteTimeout,

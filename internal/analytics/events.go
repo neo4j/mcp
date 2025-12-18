@@ -31,6 +31,8 @@ type startupProperties struct {
 	Edition       string   `json:"edition"`
 	CypherVersion []string `json:"cypher_version"`
 	McpVersion    string   `json:"mcp_version"`
+	TransportMode string   `json:"transport_mode"`
+	TLSEnabled    bool     `json:"tls_enabled"`
 }
 
 type toolsProperties struct {
@@ -73,6 +75,8 @@ func (a *Analytics) NewStartupEvent(startupInfoEvent StartupEventInfo) TrackEven
 			Edition:        startupInfoEvent.Edition,
 			CypherVersion:  startupInfoEvent.CypherVersion,
 			McpVersion:     startupInfoEvent.McpVersion,
+			TransportMode:  a.cfg.transportMode,
+			TLSEnabled:     a.cfg.tlsEnabled,
 		},
 	}
 }

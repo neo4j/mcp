@@ -23,6 +23,8 @@ type analyticsConfig struct {
 	startupTime      int64
 	client           HTTPClient
 	isAura           bool
+	transportMode    string
+	tlsEnabled       bool
 }
 
 type Analytics struct {
@@ -31,7 +33,7 @@ type Analytics struct {
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string) *Analytics {
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string, transportMode string, tlsEnabled bool) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -40,12 +42,14 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		startupTime:      time.Now().Unix(),
 		client:           client,
 		isAura:           isAura(uri),
+		transportMode:    transportMode,
+		tlsEnabled:       tlsEnabled,
 	}
 
 	return &Analytics{cfg: cfg, disabled: false}
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) *Analytics {
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string, transportMode string, tlsEnabled bool) *Analytics {
 	distinctID := getDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
@@ -54,6 +58,8 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) *An
 		startupTime:      time.Now().Unix(),
 		client:           http.DefaultClient,
 		isAura:           isAura(uri),
+		transportMode:    transportMode,
+		tlsEnabled:       tlsEnabled,
 	}
 
 	return &Analytics{cfg: cfg, disabled: false}
