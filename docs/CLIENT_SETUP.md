@@ -40,7 +40,29 @@ export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_MCP_TRANSPORT="http"
 ```
 
-**Important:** Do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD` for HTTP mode. Credentials come from per-request Basic Auth headers.
+**Important:** Do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD` for HTTP mode. Credentials come from per-request headers (Bearer token or Basic Auth).
+
+**Authentication Methods:**
+
+The HTTP mode supports two authentication methods:
+
+1. **Bearer Token** (for Neo4j Enterprise/Aura with SSO/OAuth):
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -H "Authorization: Bearer your-sso-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
+2. **Basic Auth** (traditional username/password):
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -u neo4j:password \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
+**Auth Precedence:** If both `Authorization: Bearer` and `Authorization: Basic` headers are present, the Bearer token takes precedence.
 
 **Optional:**
 
