@@ -4,12 +4,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/neo4j/mcp/internal/analytics"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -304,7 +307,7 @@ func TestLoggingMiddleware(t *testing.T) {
 func TestAddMiddleware_FullChain(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
 	mockServer := mockNeo4jMCPServer(t)
-	handler := chainMiddleware(allowedOrigins, mockServer, authCheckHandler(t, true, "user", "pass"))
+	handler := mockServer.chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
 	req := httptest.NewRequest("GET", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -326,7 +329,7 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
 	mockServer := mockNeo4jMCPServer(t)
-	handler := chainMiddleware(allowedOrigins, mockServer, mockHandler())
+	handler := mockServer.chainMiddleware(allowedOrigins, mockHandler())
 
 	req := httptest.NewRequest("GET", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -446,7 +449,7 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	// Invalid paths should return 404 without requiring auth
 	allowedOrigins := []string{}
 	mockServer := mockNeo4jMCPServer(t)
-	handler := chainMiddleware(allowedOrigins, mockServer, mockHandler())
+	handler := mockServer.chainMiddleware(allowedOrigins, mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	// No auth credentials
@@ -458,5 +461,161 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	// This proves path validation happens first in the middleware chain
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("Expected status 404 for invalid path (before auth check), got %d", rec.Code)
+	}
+}
+
+func TestHTTPMetricsMiddleware_TelemetryEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
+	mockDBService := db_mocks.NewMockService(ctrl)
+
+	cfg := &config.Config{
+		URI:            "bolt://databases.neo4j.io:7687", // Aura URI to test isAura detection
+		Database:       "neo4j",
+		TransportMode:  config.TransportModeHTTP,
+		Telemetry:      true, // Enable telemetry
+		HTTPTLSEnabled: true, // Enable TLS for testing
+	}
+
+	mcpServer := server.NewMCPServer("test-server", "1.0.0")
+	testServer := &Neo4jMCPServer{
+		MCPServer:    mcpServer,
+		config:       cfg,
+		dbService:    mockDBService,
+		anService:    mockAnalyticsService,
+		version:      "1.0.0",
+		gdsInstalled: false,
+	}
+
+	// Track how many times the metrics collection is called
+	dbQueryCallCount := 0
+	emitEventCallCount := 0
+
+	// Expect metrics to be collected once
+	mockDBService.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).DoAndReturn(
+		func(ctx interface{}, query string, params map[string]any) ([]*neo4j.Record, error) {
+			dbQueryCallCount++
+			return nil, nil
+		},
+	).Times(1)
+
+	// Match on specific StartupEventInfo fields
+	mockAnalyticsService.EXPECT().NewStartupEvent(
+		gomock.Cond(func(x interface{}) bool {
+			info, ok := x.(analytics.StartupEventInfo)
+			if !ok {
+				return false
+			}
+			// Verify expected fields
+			return info.McpVersion == "1.0.0"
+		}),
+	).Return(analytics.TrackEvent{
+		Event:      "MCP4NEO4J_MCP_STARTUP",
+		Properties: map[string]interface{}{}, // Actual properties don't matter for the return
+	}).Times(1)
+
+	// Match on specific TrackEvent structure
+	mockAnalyticsService.EXPECT().EmitEvent(
+		gomock.Cond(func(x interface{}) bool {
+			event, ok := x.(analytics.TrackEvent)
+			if !ok {
+				t.Errorf("EmitEvent called with non-TrackEvent: %T", x)
+				return false
+			}
+			emitEventCallCount++
+
+			// Verify event name matches
+			if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+				t.Errorf("Expected event 'MCP4NEO4J_MCP_STARTUP', got '%s'", event.Event)
+				return false
+			}
+
+			// The Properties will be the actual struct from analytics package
+			// We can't access httpStartupProperties here since it's unexported,
+			// but we can verify it's not nil and is the right type structure
+			if event.Properties == nil {
+				t.Errorf("Expected non-nil properties")
+				return false
+			}
+
+			return true
+		}),
+	).Times(1)
+
+	handler := testServer.httpMetricsMiddleware()(mockHandler())
+
+	// Make first request
+	req1 := httptest.NewRequest("GET", "/", nil)
+	rec1 := httptest.NewRecorder()
+	handler.ServeHTTP(rec1, req1)
+
+	// Make second request - this should NOT trigger metrics collection again
+	req2 := httptest.NewRequest("GET", "/", nil)
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+
+	// Make third request - verify sync.Once is working
+	req3 := httptest.NewRequest("GET", "/", nil)
+	rec3 := httptest.NewRecorder()
+	handler.ServeHTTP(rec3, req3)
+
+	// All requests should succeed
+	if rec1.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for first request, got %d", rec1.Code)
+	}
+	if rec2.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for second request, got %d", rec2.Code)
+	}
+	if rec3.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for third request, got %d", rec3.Code)
+	}
+
+	// Wait for the goroutine to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify metrics were collected exactly once (sync.Once behavior)
+	if dbQueryCallCount != 1 {
+		t.Errorf("Expected DB query to be called exactly once, but was called %d times", dbQueryCallCount)
+	}
+	if emitEventCallCount != 1 {
+		t.Errorf("Expected EmitEvent to be called exactly once, but was called %d times", emitEventCallCount)
+	}
+}
+
+func TestHTTPMetricsMiddleware_TelemetryDisabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
+	mockDBService := db_mocks.NewMockService(ctrl)
+
+	cfg := &config.Config{
+		URI:           "bolt://localhost:7687",
+		Database:      "neo4j",
+		TransportMode: config.TransportModeHTTP,
+		Telemetry:     false, // Disable telemetry
+	}
+
+	mcpServer := server.NewMCPServer("test-server", "1.0.0")
+	testServer := &Neo4jMCPServer{
+		MCPServer:    mcpServer,
+		config:       cfg,
+		dbService:    mockDBService,
+		anService:    mockAnalyticsService,
+		version:      "1.0.0",
+		gdsInstalled: false,
+	}
+
+	// No metrics should be collected
+	mockDBService.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockAnalyticsService.EXPECT().NewStartupEvent(gomock.Any()).Times(0)
+	mockAnalyticsService.EXPECT().EmitEvent(gomock.Any()).Times(0)
+
+	handler := testServer.httpMetricsMiddleware()(mockHandler())
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
 	}
 }

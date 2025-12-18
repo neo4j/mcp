@@ -32,7 +32,11 @@ type startupProperties struct {
 	CypherVersion []string `json:"cypher_version"`
 	McpVersion    string   `json:"mcp_version"`
 	TransportMode string   `json:"transport_mode"`
-	TLSEnabled    bool     `json:"tls_enabled"`
+}
+
+type httpStartupProperties struct {
+	startupProperties
+	TLSEnabled bool `json:"tls_enabled"`
 }
 
 type toolsProperties struct {
@@ -67,17 +71,29 @@ type StartupEventInfo struct {
 }
 
 func (a *Analytics) NewStartupEvent(startupInfoEvent StartupEventInfo) TrackEvent {
+	baseStartupProps := startupProperties{
+		baseProperties: a.getBaseProperties(),
+		Neo4jVersion:   startupInfoEvent.Neo4jVersion,
+		Edition:        startupInfoEvent.Edition,
+		CypherVersion:  startupInfoEvent.CypherVersion,
+		McpVersion:     startupInfoEvent.McpVersion,
+		TransportMode:  a.cfg.transportMode,
+	}
+
+	// For HTTP mode, include TLS-specific properties
+	var properties interface{}
+	if a.cfg.transportMode == "http" {
+		properties = httpStartupProperties{
+			startupProperties: baseStartupProps,
+			TLSEnabled:        a.cfg.tlsEnabled,
+		}
+	} else {
+		properties = baseStartupProps
+	}
+
 	return TrackEvent{
-		Event: strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: startupProperties{
-			baseProperties: a.getBaseProperties(),
-			Neo4jVersion:   startupInfoEvent.Neo4jVersion,
-			Edition:        startupInfoEvent.Edition,
-			CypherVersion:  startupInfoEvent.CypherVersion,
-			McpVersion:     startupInfoEvent.McpVersion,
-			TransportMode:  a.cfg.transportMode,
-			TLSEnabled:     a.cfg.tlsEnabled,
-		},
+		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
+		Properties: properties,
 	}
 }
 

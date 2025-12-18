@@ -343,7 +343,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Wrap handler with middleware and create HTTP server
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: chainMiddleware(allowedOrigins, s, mcpServerHTTP),
+		Handler: s.chainMiddleware(allowedOrigins, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       serverHTTPReadTimeout,
 		WriteTimeout:      serverHTTPWriteTimeout,

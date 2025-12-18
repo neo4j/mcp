@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/neo4j/mcp/internal/auth"
 )
@@ -12,8 +14,8 @@ const (
 	corsMaxAgeSeconds = "86400" // 24 hours
 )
 
-// chainMiddleware chains together all HTTP middleware
-func chainMiddleware(allowedOrigins []string, mcpServer *Neo4jMCPServer, next http.Handler) http.Handler {
+// chainMiddleware chains together all HTTP middleware for this server instance
+func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	// Chain middleware in reverse order (last added = first to execute)
 	// Execution order: PathValidator -> CORS -> BasicAuth -> HTTPMetrics -> Logging -> Handler
 
@@ -24,7 +26,7 @@ func chainMiddleware(allowedOrigins []string, mcpServer *Neo4jMCPServer, next ht
 	handler = loggingMiddleware()(handler)
 
 	// Add HTTP metrics middleware (collects metrics on first request)
-	handler = httpMetricsMiddleware(mcpServer)(handler)
+	handler = s.httpMetricsMiddleware()(handler)
 
 	// Add basic auth middleware (always requires credentials if header present)
 	handler = basicAuthMiddleware()(handler)
@@ -137,15 +139,19 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 // httpMetricsMiddleware collects and emits HTTP mode metrics on the first request.
 // Uses sync.Once to ensure metrics are collected exactly once per server session.
 // Requires Basic Auth credentials to be present in the request context (set by basicAuthMiddleware).
-func httpMetricsMiddleware(mcpServer *Neo4jMCPServer) func(http.Handler) http.Handler {
+func (s *Neo4jMCPServer) httpMetricsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only collect metrics if telemetry is enabled
-			if mcpServer.config.Telemetry {
+			if s.config.Telemetry {
 				// Use sync.Once to ensure metrics are collected exactly once
-				mcpServer.httpMetricsSent.Do(func() {
-					// Run metrics collection in background to avoid blocking the request
-					go mcpServer.collectAndEmitHTTPMetrics(r.Context())
+				s.httpMetricsSent.Do(func() {
+					// Run metrics collection in background with timeout to avoid blocking the request
+					go func() {
+						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						defer cancel()
+						s.collectAndEmitHTTPMetrics(ctx)
+					}()
 				})
 			}
 
