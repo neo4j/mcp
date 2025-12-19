@@ -81,7 +81,7 @@ func (a *Analytics) NewStartupEvent(startupInfoEvent StartupEventInfo) TrackEven
 	}
 
 	// For HTTP mode, include TLS-specific properties
-	var properties interface{}
+	var properties any
 	if a.cfg.transportMode == "http" {
 		properties = httpStartupProperties{
 			startupProperties: baseStartupProps,

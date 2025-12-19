@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/config"
 )
 
 const (
@@ -142,8 +143,8 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 func (s *Neo4jMCPServer) httpMetricsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only collect metrics if telemetry is enabled
-			if s.config.Telemetry {
+			// Only collect metrics if telemetry is enabled AND transport mode is HTTP
+			if s.config.Telemetry && s.config.TransportMode == config.TransportModeHTTP {
 				// Use sync.Once to ensure metrics are collected exactly once
 				s.httpMetricsSent.Do(func() {
 					// Run metrics collection in background with timeout to avoid blocking the request

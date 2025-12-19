@@ -291,6 +291,111 @@ func TestEventCreation(t *testing.T) {
 		}
 	})
 
+	t.Run("NewStartupEvent with STDIO transport mode", func(t *testing.T) {
+		stdioAnalytics := analytics.NewAnalyticsWithClient(
+			"test-token",
+			"http://localhost",
+			nil,
+			"bolt://localhost:7687",
+			"stdio",
+			false,
+		)
+		event := stdioAnalytics.NewStartupEvent(analytics.StartupEventInfo{
+			Neo4jVersion:  "5.0.0",
+			CypherVersion: []string{"5"},
+			Edition:       "community",
+			McpVersion:    "1.0.0",
+		})
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+
+		props := assertBaseProperties(t, event.Properties)
+
+		// Verify transport_mode is set to "stdio"
+		if props["transport_mode"] != "stdio" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "stdio")
+		}
+
+		// Verify tls_enabled is NOT present in STDIO mode (uses base startupProperties, not httpStartupProperties)
+		if _, exists := props["tls_enabled"]; exists {
+			t.Errorf("tls_enabled should not be present in STDIO mode, but found: %v", props["tls_enabled"])
+		}
+	})
+
+	t.Run("NewStartupEvent with HTTP transport mode and TLS enabled", func(t *testing.T) {
+		httpAnalytics := analytics.NewAnalyticsWithClient(
+			"test-token",
+			"http://localhost",
+			nil,
+			"bolt://localhost:7687",
+			"http",
+			true,
+		)
+		event := httpAnalytics.NewStartupEvent(analytics.StartupEventInfo{
+			Neo4jVersion:  "5.0.0",
+			CypherVersion: []string{"5"},
+			Edition:       "community",
+			McpVersion:    "1.0.0",
+		})
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+
+		props := assertBaseProperties(t, event.Properties)
+
+		// Verify transport_mode is set to "http"
+		if props["transport_mode"] != "http" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "http")
+		}
+
+		// Verify tls_enabled is present and set to true in HTTP mode
+		tlsEnabled, exists := props["tls_enabled"]
+		if !exists {
+			t.Errorf("tls_enabled should be present in HTTP mode")
+		} else if tlsEnabled != true {
+			t.Errorf("unexpected tls_enabled: got %v, want %v", tlsEnabled, true)
+		}
+	})
+
+	t.Run("NewStartupEvent with HTTP transport mode and TLS disabled", func(t *testing.T) {
+		httpAnalytics := analytics.NewAnalyticsWithClient(
+			"test-token",
+			"http://localhost",
+			nil,
+			"bolt://localhost:7687",
+			"http",
+			false,
+		)
+		event := httpAnalytics.NewStartupEvent(analytics.StartupEventInfo{
+			Neo4jVersion:  "5.0.0",
+			CypherVersion: []string{"5"},
+			Edition:       "community",
+			McpVersion:    "1.0.0",
+		})
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+
+		props := assertBaseProperties(t, event.Properties)
+
+		// Verify transport_mode is set to "http"
+		if props["transport_mode"] != "http" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "http")
+		}
+
+		// Verify tls_enabled is present and set to false in HTTP mode
+		tlsEnabled, exists := props["tls_enabled"]
+		if !exists {
+			t.Errorf("tls_enabled should be present in HTTP mode")
+		} else if tlsEnabled != false {
+			t.Errorf("unexpected tls_enabled: got %v, want %v", tlsEnabled, false)
+		}
+	})
+
 }
 
 func assertBaseProperties(t *testing.T, props interface{}) map[string]interface{} {

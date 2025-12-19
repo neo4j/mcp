@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
@@ -12,7 +12,6 @@ import (
 	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -464,158 +463,131 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	}
 }
 
-func TestHTTPMetricsMiddleware_TelemetryEnabled(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
-	mockDBService := db_mocks.NewMockService(ctrl)
-
-	cfg := &config.Config{
-		URI:            "bolt://databases.neo4j.io:7687", // Aura URI to test isAura detection
-		Database:       "neo4j",
-		TransportMode:  config.TransportModeHTTP,
-		Telemetry:      true, // Enable telemetry
-		HTTPTLSEnabled: true, // Enable TLS for testing
-	}
-
-	mcpServer := server.NewMCPServer("test-server", "1.0.0")
-	testServer := &Neo4jMCPServer{
-		MCPServer:    mcpServer,
-		config:       cfg,
-		dbService:    mockDBService,
-		anService:    mockAnalyticsService,
-		version:      "1.0.0",
-		gdsInstalled: false,
-	}
-
-	// Track how many times the metrics collection is called
-	dbQueryCallCount := 0
-	emitEventCallCount := 0
-
-	// Expect metrics to be collected once
-	mockDBService.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).DoAndReturn(
-		func(ctx interface{}, query string, params map[string]any) ([]*neo4j.Record, error) {
-			dbQueryCallCount++
-			return nil, nil
+func TestHTTPMetricsMiddleware(t *testing.T) {
+	tests := []struct {
+		name               string
+		transportMode      string
+		telemetryEnabled   bool
+		tlsEnabled         bool
+		expectMetrics      bool
+		expectEmitTimes    int
+		expectDBQueryTimes int
+	}{
+		{
+			name:               "HTTP mode with telemetry and TLS enabled",
+			transportMode:      config.TransportModeHTTP,
+			telemetryEnabled:   true,
+			tlsEnabled:         true,
+			expectMetrics:      true,
+			expectEmitTimes:    1,
+			expectDBQueryTimes: 1,
 		},
-	).Times(1)
-
-	// Match on specific StartupEventInfo fields
-	mockAnalyticsService.EXPECT().NewStartupEvent(
-		gomock.Cond(func(x interface{}) bool {
-			info, ok := x.(analytics.StartupEventInfo)
-			if !ok {
-				return false
-			}
-			// Verify expected fields
-			return info.McpVersion == "1.0.0"
-		}),
-	).Return(analytics.TrackEvent{
-		Event:      "MCP4NEO4J_MCP_STARTUP",
-		Properties: map[string]interface{}{}, // Actual properties don't matter for the return
-	}).Times(1)
-
-	// Match on specific TrackEvent structure
-	mockAnalyticsService.EXPECT().EmitEvent(
-		gomock.Cond(func(x interface{}) bool {
-			event, ok := x.(analytics.TrackEvent)
-			if !ok {
-				t.Errorf("EmitEvent called with non-TrackEvent: %T", x)
-				return false
-			}
-			emitEventCallCount++
-
-			// Verify event name matches
-			if event.Event != "MCP4NEO4J_MCP_STARTUP" {
-				t.Errorf("Expected event 'MCP4NEO4J_MCP_STARTUP', got '%s'", event.Event)
-				return false
-			}
-
-			// The Properties will be the actual struct from analytics package
-			// We can't access httpStartupProperties here since it's unexported,
-			// but we can verify it's not nil and is the right type structure
-			if event.Properties == nil {
-				t.Errorf("Expected non-nil properties")
-				return false
-			}
-
-			return true
-		}),
-	).Times(1)
-
-	handler := testServer.httpMetricsMiddleware()(mockHandler())
-
-	// Make first request
-	req1 := httptest.NewRequest("GET", "/", nil)
-	rec1 := httptest.NewRecorder()
-	handler.ServeHTTP(rec1, req1)
-
-	// Make second request - this should NOT trigger metrics collection again
-	req2 := httptest.NewRequest("GET", "/", nil)
-	rec2 := httptest.NewRecorder()
-	handler.ServeHTTP(rec2, req2)
-
-	// Make third request - verify sync.Once is working
-	req3 := httptest.NewRequest("GET", "/", nil)
-	rec3 := httptest.NewRecorder()
-	handler.ServeHTTP(rec3, req3)
-
-	// All requests should succeed
-	if rec1.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for first request, got %d", rec1.Code)
-	}
-	if rec2.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for second request, got %d", rec2.Code)
-	}
-	if rec3.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for third request, got %d", rec3.Code)
+		{
+			name:               "HTTP mode with telemetry enabled, TLS disabled",
+			transportMode:      config.TransportModeHTTP,
+			telemetryEnabled:   true,
+			tlsEnabled:         false,
+			expectMetrics:      true,
+			expectEmitTimes:    1,
+			expectDBQueryTimes: 1,
+		},
+		{
+			name:               "HTTP mode with telemetry disabled",
+			transportMode:      config.TransportModeHTTP,
+			telemetryEnabled:   false,
+			tlsEnabled:         true,
+			expectMetrics:      false,
+			expectEmitTimes:    0,
+			expectDBQueryTimes: 0,
+		},
+		{
+			name:               "STDIO mode with telemetry enabled",
+			transportMode:      config.TransportModeStdio,
+			telemetryEnabled:   true,
+			tlsEnabled:         false,
+			expectMetrics:      false,
+			expectEmitTimes:    0,
+			expectDBQueryTimes: 0,
+		},
 	}
 
-	// Wait for the goroutine to complete
-	time.Sleep(100 * time.Millisecond)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
+				mockDBService := db_mocks.NewMockService(ctrl)
 
-	// Verify metrics were collected exactly once (sync.Once behavior)
-	if dbQueryCallCount != 1 {
-		t.Errorf("Expected DB query to be called exactly once, but was called %d times", dbQueryCallCount)
-	}
-	if emitEventCallCount != 1 {
-		t.Errorf("Expected EmitEvent to be called exactly once, but was called %d times", emitEventCallCount)
-	}
-}
+				cfg := &config.Config{
+					URI:            "bolt://localhost:7687",
+					Database:       "neo4j",
+					TransportMode:  tt.transportMode,
+					Telemetry:      tt.telemetryEnabled,
+					HTTPTLSEnabled: tt.tlsEnabled,
+				}
 
-func TestHTTPMetricsMiddleware_TelemetryDisabled(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
-	mockDBService := db_mocks.NewMockService(ctrl)
+				mcpServer := server.NewMCPServer("test-server", "1.0.0")
+				testServer := &Neo4jMCPServer{
+					MCPServer:    mcpServer,
+					config:       cfg,
+					dbService:    mockDBService,
+					anService:    mockAnalyticsService,
+					version:      "1.0.0",
+					gdsInstalled: false,
+				}
 
-	cfg := &config.Config{
-		URI:           "bolt://localhost:7687",
-		Database:      "neo4j",
-		TransportMode: config.TransportModeHTTP,
-		Telemetry:     false, // Disable telemetry
-	}
+				// Setup expectations
+				if tt.expectMetrics {
+					// Expect DB query
+					mockDBService.EXPECT().
+						ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+						Return(nil, nil).
+						Times(tt.expectDBQueryTimes)
 
-	mcpServer := server.NewMCPServer("test-server", "1.0.0")
-	testServer := &Neo4jMCPServer{
-		MCPServer:    mcpServer,
-		config:       cfg,
-		dbService:    mockDBService,
-		anService:    mockAnalyticsService,
-		version:      "1.0.0",
-		gdsInstalled: false,
-	}
+					// Expect NewStartupEvent to be called and return a TrackEvent
+					mockAnalyticsService.EXPECT().
+						NewStartupEvent(gomock.Any()).
+						Return(analytics.TrackEvent{
+							Event:      "MCP4NEO4J_MCP_STARTUP",
+							Properties: map[string]interface{}{},
+						}).
+						Times(tt.expectEmitTimes)
 
-	// No metrics should be collected
-	mockDBService.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	mockAnalyticsService.EXPECT().NewStartupEvent(gomock.Any()).Times(0)
-	mockAnalyticsService.EXPECT().EmitEvent(gomock.Any()).Times(0)
+					// Expect EmitEvent to be called with the startup event
+					mockAnalyticsService.EXPECT().
+						EmitEvent(gomock.Any()).
+						Times(tt.expectEmitTimes)
+				} else {
+					// No metrics should be collected
+					mockDBService.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockAnalyticsService.EXPECT().NewStartupEvent(gomock.Any()).Times(0)
+					mockAnalyticsService.EXPECT().EmitEvent(gomock.Any()).Times(0)
+				}
 
-	handler := testServer.httpMetricsMiddleware()(mockHandler())
+				handler := testServer.httpMetricsMiddleware()(mockHandler())
 
-	req := httptest.NewRequest("GET", "/", nil)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+				// Make multiple requests to verify sync.Once behavior
+				// Each request should complete successfully, but metrics should only be collected once
+				for i := 0; i < 3; i++ {
+					req := httptest.NewRequest("GET", "/", nil)
+					rec := httptest.NewRecorder()
+					handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
+					if rec.Code != http.StatusOK {
+						t.Errorf("Request %d: expected status 200, got %d", i+1, rec.Code)
+					}
+
+					// After each request, wait for any spawned goroutines to complete
+					// This ensures we're testing that sync.Once prevents multiple collections
+					// across sequential requests, not just within a single request
+					if tt.expectMetrics {
+						synctest.Wait()
+					}
+				}
+
+				// Final verification: mock expectations with .Times(1) will fail if
+				// metrics were collected more than once across all 3 requests
+			})
+		})
 	}
 }
