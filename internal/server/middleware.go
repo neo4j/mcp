@@ -139,7 +139,7 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 
 // httpMetricsMiddleware collects and emits HTTP mode metrics on the first request.
 // Uses sync.Once to ensure metrics are collected exactly once per server session.
-// Requires Basic Auth credentials to be present in the request context (set by basicAuthMiddleware).
+// Extracts Basic Auth credentials from request context for Neo4j query authentication.
 func (s *Neo4jMCPServer) httpMetricsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -147,9 +147,14 @@ func (s *Neo4jMCPServer) httpMetricsMiddleware() func(http.Handler) http.Handler
 			if s.config.Telemetry && s.config.TransportMode == config.TransportModeHTTP {
 				// Use sync.Once to ensure metrics are collected exactly once
 				s.httpMetricsSent.Do(func() {
+					// Extract auth credentials from request context for the background goroutine
+					// This ensures the Neo4j query has authentication in HTTP mode
+					reqCtx := r.Context()
+
 					// Run metrics collection in background with timeout to avoid blocking the request
 					go func() {
-						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						// Create new context with timeout but preserve auth from request
+						ctx, cancel := context.WithTimeout(reqCtx, 10*time.Second)
 						defer cancel()
 						s.collectAndEmitHTTPMetrics(ctx)
 					}()
