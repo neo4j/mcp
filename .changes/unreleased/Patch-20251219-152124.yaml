@@ -1,0 +1,3 @@
+kind: Patch
+body: Added HTTP mode telemetry that collects and emits startup metrics (transport mode, TLS status, Neo4j version) on the first HTTP request when telemetry is enabled. Includes comprehensive test coverage with proper goroutine synchronization using testing/synctest.
+time: 2025-12-19T15:21:24.0517Z
