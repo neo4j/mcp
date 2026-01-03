@@ -53,7 +53,14 @@ export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_MCP_TRANSPORT="http"
 ```
 
-**Note:** In HTTP mode, do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD`. Credentials come from per-request Basic Auth headers.
+**Optional credentials (fallback):**
+
+```bash
+export NEO4J_USERNAME="neo4j"
+export NEO4J_PASSWORD="password"
+```
+
+**Note:** In HTTP mode, credentials can come from per-request Basic Auth headers or environment variables. Request headers take priority; environment variables are used as a fallback when no Authorization header is provided. Authentication is only required for `tools/call` requests - protocol methods like `initialize` and `tools/list` work without credentials.
 
 ### Optional Variables (Both Modes)
 
@@ -184,10 +191,15 @@ curl -X POST http://localhost:80/mcp \
     }
   }'
 
-# Test authentication (should return 401)
+# Test tools/call without auth (should return 401 if no env credentials)
 curl -X POST http://localhost:80/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/list"}'
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get-schema","arguments":{}}}'
+
+# Protocol methods work without auth (initialize, tools/list)
+curl -X POST http://localhost:80/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}'
 
 # Test CORS (if configured)
 curl -X OPTIONS http://localhost:80/mcp \
