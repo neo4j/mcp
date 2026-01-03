@@ -28,8 +28,19 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
+.idea/
 .vscode/
+*.iml
+*.ipr
+*.iws
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
 
 
 # Binaries

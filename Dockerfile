@@ -23,6 +23,9 @@ FROM scratch
 
 WORKDIR /app
 
+# Copy CA certificates for TLS connections to Neo4j Aura
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 # Copy binary from builder
 COPY --from=builder /build/neo4j-mcp /app/neo4j-mcp
 

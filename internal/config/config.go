@@ -63,7 +63,7 @@ func (c *Config) Validate() error {
 	}
 
 	// For STDIO mode, require username and password from environment
-	// For HTTP mode, credentials come from per-request Basic Auth headers
+	// For HTTP mode, credentials are optional - can come from request headers or env vars as fallback
 	if c.TransportMode == TransportModeStdio {
 		if c.Username == "" {
 			return fmt.Errorf("Neo4j username is required for STDIO mode")
@@ -71,9 +71,8 @@ func (c *Config) Validate() error {
 		if c.Password == "" {
 			return fmt.Errorf("Neo4j password is required for STDIO mode")
 		}
-	} else if c.Username != "" || c.Password != "" {
-		return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers")
 	}
+	// HTTP mode: credentials are optional (can come from request headers or env vars)
 
 	// For HTTP mode with TLS enabled, require certificate and key files
 	if c.TransportMode == TransportModeHTTP && c.HTTPTLSEnabled {

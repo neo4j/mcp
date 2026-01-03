@@ -54,11 +54,10 @@ func main() {
 	logger.Init(cfg.LogLevel, cfg.LogFormat, os.Stderr)
 
 	// Initialize Neo4j driver
-	// For STDIO mode: use environment credentials
-	// For HTTP mode: create driver without auth, per-request credentials will be used via impersonation
-	// Credentials come from per-request Basic Auth headers
+	// For STDIO mode: credentials are required, use them
+	// For HTTP mode: credentials are optional, use them if provided (for fallback)
 	var authToken neo4j.AuthToken
-	if cfg.TransportMode == config.TransportModeStdio {
+	if cfg.Username != "" && cfg.Password != "" {
 		authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
 	}
 

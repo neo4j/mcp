@@ -1,0 +1,3 @@
+kind: Minor
+body: 'Add support for environment variable credentials in HTTP mode as a fallback when Basic Auth headers are missing. Additionally, relax authentication requirements for non-sensitive MCP protocol methods (like `initialize` and `tools/list`) and fix TLS certificate issues in the Docker image.  '
+time: 2026-01-03T09:01:02.910693-07:00

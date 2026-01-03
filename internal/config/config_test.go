@@ -81,7 +81,7 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "",
 		},
 		{
-			name: "credentials set for HTTP mode should raise error",
+			name: "credentials set for HTTP mode should be valid (used as fallback)",
 			cfg: &Config{
 				Telemetry:     true,
 				URI:           "bolt://localhost:7687",
@@ -90,8 +90,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:      "neo4j",
 				TransportMode: TransportModeHTTP,
 			},
-			wantErr: true,
-			errMsg:  "Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers",
+			wantErr: false, // Credentials in HTTP mode are now valid (used as fallback when not provided in request)
 		},
 	}
 

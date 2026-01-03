@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/config"
 )
 
 // mockHandler is a simple handler that returns 200 OK
@@ -38,7 +40,7 @@ func authCheckHandler(t *testing.T, expectAuth bool, expectedUser, expectedPass 
 }
 
 func TestBasicAuthMiddleware_WithValidCredentials(t *testing.T) {
-	handler := basicAuthMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := basicAuthMiddleware(&config.Config{})(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -51,15 +53,17 @@ func TestBasicAuthMiddleware_WithValidCredentials(t *testing.T) {
 	}
 }
 
-func TestBasicAuthMiddleware_WithoutCredentials(t *testing.T) {
-	handler := basicAuthMiddleware()(mockHandler())
+func TestBasicAuthMiddleware_WithoutCredentials_ToolsCall(t *testing.T) {
+	handler := basicAuthMiddleware(&config.Config{})(mockHandler())
 
-	req := httptest.NewRequest("GET", "/", nil)
+	// tools/call requires authentication
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-schema"}}`
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	// Should return 401 when no credentials provided
+	// Should return 401 when no credentials provided for tools/call
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("Expected status 401, got %d", rec.Code)
 	}
@@ -71,7 +75,7 @@ func TestBasicAuthMiddleware_WithoutCredentials(t *testing.T) {
 }
 
 func TestBasicAuthMiddleware_WithEmptyCredentials(t *testing.T) {
-	handler := basicAuthMiddleware()(authCheckHandler(t, true, "", ""))
+	handler := basicAuthMiddleware(&config.Config{})(authCheckHandler(t, true, "", ""))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("", "")
@@ -268,10 +272,15 @@ func TestLoggingMiddleware(t *testing.T) {
 }
 
 func TestAddMiddleware_FullChain(t *testing.T) {
+	cfg := &config.Config{
+		TransportMode: config.TransportModeHTTP,
+	}
 	allowedOrigins := []string{"http://example.com"}
-	handler := chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
+	handler := chainMiddleware(cfg, allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	// Use tools/call to test auth is properly passed through
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-schema"}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Origin", "http://example.com")
 	req.SetBasicAuth("user", "pass")
 	rec := httptest.NewRecorder()
@@ -288,18 +297,23 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 	}
 }
 
-func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
+func TestAddMiddleware_FullChain_NoAuth_ToolsCall(t *testing.T) {
+	cfg := &config.Config{
+		TransportMode: config.TransportModeHTTP,
+	}
 	allowedOrigins := []string{"http://example.com"}
-	handler := chainMiddleware(allowedOrigins, mockHandler())
+	handler := chainMiddleware(cfg, allowedOrigins, mockHandler())
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	// tools/call requires authentication
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-schema"}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Origin", "http://example.com")
 	// No auth credentials
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	// Should return 401 when no credentials provided
+	// Should return 401 when no credentials provided for tools/call
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("Expected status 401, got %d", rec.Code)
 	}
@@ -408,8 +422,11 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	// Test that path validation happens before auth check
 	// Invalid paths should return 404 without requiring auth
+	cfg := &config.Config{
+		TransportMode: config.TransportModeHTTP,
+	}
 	allowedOrigins := []string{}
-	handler := chainMiddleware(allowedOrigins, mockHandler())
+	handler := chainMiddleware(cfg, allowedOrigins, mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	// No auth credentials
@@ -421,5 +438,274 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	// This proves path validation happens first in the middleware chain
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("Expected status 404 for invalid path (before auth check), got %d", rec.Code)
+	}
+}
+
+func TestAddMiddleware_FullChain_ConfigCredentialsFallback(t *testing.T) {
+	// When no request credentials, should fall back to config credentials
+	cfg := &config.Config{
+		TransportMode: config.TransportModeHTTP,
+		Username:      "envuser",
+		Password:      "envpass",
+	}
+	allowedOrigins := []string{"http://example.com"}
+	handler := chainMiddleware(cfg, allowedOrigins, authCheckHandler(t, true, "envuser", "envpass"))
+
+	// tools/call requires auth - should use config credentials as fallback
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-schema"}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Origin", "http://example.com")
+	// No auth credentials in request - should fall back to config
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 200 since config credentials are used as fallback
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200 with config credentials fallback, got %d", rec.Code)
+	}
+
+	// Verify CORS headers are set
+	if rec.Header().Get("Access-Control-Allow-Origin") != "http://example.com" {
+		t.Errorf("Expected CORS header to be set")
+	}
+}
+
+// =============================================================================
+// Tests for MCP method-based authentication
+// =============================================================================
+
+func TestIsAuthRequiredForMethod(t *testing.T) {
+	testCases := []struct {
+		method       string
+		authRequired bool
+	}{
+		// Methods that require auth (database access)
+		{"tools/call", true},
+
+		// Protocol methods that don't require auth
+		{"initialize", false},
+		{"tools/list", false},
+		{"ping", false},
+		{"notifications/initialized", false},
+		{"notifications/cancelled", false},
+		{"resources/list", false},
+		{"prompts/list", false},
+		{"", false}, // Empty method (malformed request)
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			result := isAuthRequiredForMethod(tc.method)
+			if result != tc.authRequired {
+				t.Errorf("isAuthRequiredForMethod(%q) = %v, want %v", tc.method, result, tc.authRequired)
+			}
+		})
+	}
+}
+
+func TestExtractMCPMethod(t *testing.T) {
+	testCases := []struct {
+		name           string
+		body           string
+		expectedMethod string
+		expectError    bool
+	}{
+		{
+			name:           "initialize method",
+			body:           `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+			expectedMethod: "initialize",
+			expectError:    false,
+		},
+		{
+			name:           "tools/list method",
+			body:           `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
+			expectedMethod: "tools/list",
+			expectError:    false,
+		},
+		{
+			name:           "tools/call method",
+			body:           `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get-schema"}}`,
+			expectedMethod: "tools/call",
+			expectError:    false,
+		},
+		{
+			name:           "empty body",
+			body:           "",
+			expectedMethod: "",
+			expectError:    false,
+		},
+		{
+			name:           "invalid JSON",
+			body:           "not json",
+			expectedMethod: "",
+			expectError:    false, // Returns empty method, no error
+		},
+		{
+			name:           "JSON without method",
+			body:           `{"jsonrpc":"2.0","id":1}`,
+			expectedMethod: "",
+			expectError:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(tc.body))
+			method, err := extractMCPMethod(req)
+
+			if tc.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if method != tc.expectedMethod {
+				t.Errorf("extractMCPMethod() = %q, want %q", method, tc.expectedMethod)
+			}
+
+			// Verify body was restored for subsequent reads
+			if tc.body != "" {
+				restoredBody := make([]byte, len(tc.body))
+				n, _ := req.Body.Read(restoredBody)
+				if string(restoredBody[:n]) != tc.body {
+					t.Error("Request body was not properly restored")
+				}
+			}
+		})
+	}
+}
+
+func TestBasicAuthMiddleware_ProtocolMethodsAllowedWithoutAuth(t *testing.T) {
+	testCases := []struct {
+		name   string
+		method string
+		body   string
+	}{
+		{
+			name:   "initialize",
+			method: "initialize",
+			body:   `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+		},
+		{
+			name:   "tools/list",
+			method: "tools/list",
+			body:   `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`,
+		},
+		{
+			name:   "ping",
+			method: "ping",
+			body:   `{"jsonrpc":"2.0","id":3,"method":"ping"}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := basicAuthMiddleware(&config.Config{})(mockHandler())
+
+			req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(tc.body))
+			// No auth credentials
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			// Should return 200 - protocol methods don't require auth
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected status 200 for %s without auth, got %d", tc.method, rec.Code)
+			}
+		})
+	}
+}
+
+func TestBasicAuthMiddleware_ToolsCallRequiresAuth(t *testing.T) {
+	handler := basicAuthMiddleware(&config.Config{})(mockHandler())
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-schema"}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	// No auth credentials
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 401 - tools/call requires auth
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status 401 for tools/call without auth, got %d", rec.Code)
+	}
+
+	// Should have WWW-Authenticate header
+	if rec.Header().Get("WWW-Authenticate") == "" {
+		t.Error("Expected WWW-Authenticate header to be set")
+	}
+}
+
+func TestBasicAuthMiddleware_ToolsCallWithAuthSucceeds(t *testing.T) {
+	handler := basicAuthMiddleware(&config.Config{})(authCheckHandler(t, true, "neo4j", "password"))
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get-schema"}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.SetBasicAuth("neo4j", "password")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 200 - tools/call with valid auth
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for tools/call with auth, got %d", rec.Code)
+	}
+}
+
+func TestBasicAuthMiddleware_ProtocolMethodsWithAuthStoresCredentials(t *testing.T) {
+	// Even for protocol methods, if credentials are provided, they should be stored
+	handler := basicAuthMiddleware(&config.Config{})(authCheckHandler(t, true, "neo4j", "password"))
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.SetBasicAuth("neo4j", "password")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for tools/list with auth, got %d", rec.Code)
+	}
+}
+
+func TestBasicAuthMiddleware_FullChain_ProtocolMethodWithoutAuth(t *testing.T) {
+	cfg := &config.Config{
+		TransportMode: config.TransportModeHTTP,
+	}
+	allowedOrigins := []string{}
+	handler := chainMiddleware(cfg, allowedOrigins, mockHandler())
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	// No auth credentials
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 200 - tools/list doesn't require auth
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for tools/list in full chain, got %d", rec.Code)
+	}
+}
+
+func TestBasicAuthMiddleware_FullChain_ToolsCallWithoutAuth(t *testing.T) {
+	cfg := &config.Config{
+		TransportMode: config.TransportModeHTTP,
+	}
+	allowedOrigins := []string{}
+	handler := chainMiddleware(cfg, allowedOrigins, mockHandler())
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read-cypher"}}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	// No auth credentials
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 401 - tools/call requires auth
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status 401 for tools/call without auth in full chain, got %d", rec.Code)
 	}
 }

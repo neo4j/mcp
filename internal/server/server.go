@@ -115,11 +115,12 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
 // - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
-// Note: In HTTP mode, these checks are skipped at startup since credentials come from per-request Basic Auth headers.
+// Note: In HTTP mode without environment credentials, these checks are skipped since credentials
+// will come from per-request Basic Auth headers. Verification runs when credentials are available.
 func (s *Neo4jMCPServer) verifyRequirements() error {
-	// Skip verification in HTTP mode - credentials come from per-request Basic Auth headers
-	if s.config.TransportMode == config.TransportModeHTTP {
-		slog.Info("Skipping startup verification in HTTP mode (credentials required per-request)")
+	// Skip verification in HTTP mode without credentials - credentials will come from per-request headers
+	if s.config.TransportMode == config.TransportModeHTTP && (s.config.Username == "" || s.config.Password == "") {
+		slog.Info("Skipping startup verification in HTTP mode (no environment credentials configured)")
 		return nil
 	}
 
@@ -176,8 +177,8 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 func (s *Neo4jMCPServer) emitStartupEvent() {
 	var startupInfo analytics.StartupEventInfo
 
-	// In HTTP mode, skip database query since credentials come from per-request Basic Auth headers
-	if s.config.TransportMode == config.TransportModeHTTP {
+	// In HTTP mode without credentials, skip database query since credentials will come from per-request headers
+	if s.config.TransportMode == config.TransportModeHTTP && (s.config.Username == "" || s.config.Password == "") {
 		startupInfo = analytics.StartupEventInfo{
 			Neo4jVersion:  "unknown-http-mode",
 			Edition:       "unknown-http-mode",
@@ -320,7 +321,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Wrap handler with middleware and create HTTP server
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
+		Handler: chainMiddleware(s.config, allowedOrigins, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       serverHTTPReadTimeout,
 		WriteTimeout:      serverHTTPWriteTimeout,
