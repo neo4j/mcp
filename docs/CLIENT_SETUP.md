@@ -3,6 +3,7 @@
 This guide covers how to configure various MCP clients (VSCode, Claude Desktop, etc.) to use the Neo4j MCP server.
 
 The server supports two transport modes:
+
 - **STDIO** (default): For desktop clients (Claude Desktop, VSCode)
 - **HTTP**: For web-based clients and multi-tenant scenarios
 
@@ -47,6 +48,7 @@ export NEO4J_MCP_TRANSPORT="http"
 The HTTP mode supports two authentication methods:
 
 1. **Bearer Token** (for Neo4j Enterprise/Aura with SSO/OAuth):
+
 ```bash
 curl -X POST http://localhost:8080/mcp \
   -H "Authorization: Bearer your-sso-token-here" \
@@ -55,14 +57,13 @@ curl -X POST http://localhost:8080/mcp \
 ```
 
 2. **Basic Auth** (traditional username/password):
+
 ```bash
 curl -X POST http://localhost:8080/mcp \
   -u neo4j:password \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```
-
-**Auth Precedence:** If both `Authorization: Bearer` and `Authorization: Basic` headers are present, the Bearer token takes precedence.
 
 **Optional:**
 

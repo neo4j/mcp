@@ -36,8 +36,7 @@ func TestGetBearerToken_Missing(t *testing.T) {
 
 // Note: We don't test empty bearer tokens because the middleware (authMiddleware)
 // explicitly rejects empty tokens with a 401 error before they reach the context.
-// See internal/server/middleware.go lines 54-58.
-// An empty bearer token can never exist in context in production.
+// See internal/server/middleware.go, an empty bearer token can never exist in context in production.
 
 func TestBothBearerAndBasicAuthInContext(t *testing.T) {
 	// This test verifies that both bearer token and basic auth can coexist in context.

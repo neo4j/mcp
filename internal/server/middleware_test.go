@@ -103,8 +103,6 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 	}
 }
 
-// ==== TODO: placeholder tests to fix the errors, need to be expanded
-
 func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
 	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-123"))
 
@@ -193,8 +191,6 @@ func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", rec.Code)
 	}
 }
-
-// ==== TODO: placeholder tests to fix the errors, need to be expanded
 
 func TestCORSMiddleware_NoConfiguration(t *testing.T) {
 	handler := corsMiddleware([]string{})(mockHandler())
