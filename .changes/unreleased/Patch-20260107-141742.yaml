@@ -1,0 +1,3 @@
+kind: Patch
+body: Install CA certificates in Dockerfile to support HTTPS connections.
+time: 2026-01-07T14:17:42.323292Z
