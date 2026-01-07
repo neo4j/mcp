@@ -73,6 +73,13 @@ func authMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
+			// Validate credentials are not empty (consistent with bearer token validation)
+			if user == "" || pass == "" {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
+				http.Error(w, "Unauthorized: Username and password cannot be empty", http.StatusUnauthorized)
+				return
+			}
+
 			// Basic auth credentials provided - store in context
 			ctx := auth.WithBasicAuth(r.Context(), user, pass)
 			next.ServeHTTP(w, r.WithContext(ctx))

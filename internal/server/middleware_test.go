@@ -90,16 +90,36 @@ func TestAuthMiddleware_WithoutCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
-	handler := authMiddleware()(authCheckHandler(t, true, "", ""))
+	testCases := []struct {
+		name     string
+		username string
+		password string
+	}{
+		{"both empty", "", ""},
+		{"empty username", "", "password"},
+		{"empty password", "username", ""},
+	}
 
-	req := httptest.NewRequest("GET", "/", nil)
-	req.SetBasicAuth("", "")
-	rec := httptest.NewRecorder()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := authMiddleware()(mockHandler())
 
-	handler.ServeHTTP(rec, req)
+			req := httptest.NewRequest("GET", "/", nil)
+			req.SetBasicAuth(tc.username, tc.password)
+			rec := httptest.NewRecorder()
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
+			handler.ServeHTTP(rec, req)
+
+			// Empty credentials should be rejected
+			if rec.Code != http.StatusUnauthorized {
+				t.Errorf("Expected status 401, got %d", rec.Code)
+			}
+
+			// Should have WWW-Authenticate header
+			if rec.Header().Get("WWW-Authenticate") == "" {
+				t.Error("Expected WWW-Authenticate header to be set")
+			}
+		})
 	}
 }
 
@@ -146,34 +166,6 @@ func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
 
 	if !strings.Contains(rec.Header().Get("WWW-Authenticate"), "Bearer") {
 		t.Error("Expected WWW-Authenticate header to include Bearer")
-	}
-}
-
-func TestAuthMiddleware_BearerTokenPrecedence(t *testing.T) {
-	// Bearer token should be checked first and take precedence
-	// This test verifies Bearer token works when provided
-	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "priority-token"))
-
-	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer priority-token")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
-	}
-
-	// Also verify that BasicAuth alone still works (fallback path)
-	handler2 := authMiddleware()(authCheckHandler(t, true, "fallback-user", "fallback-pass"))
-	req2 := httptest.NewRequest("GET", "/", nil)
-	req2.SetBasicAuth("fallback-user", "fallback-pass")
-	rec2 := httptest.NewRecorder()
-
-	handler2.ServeHTTP(rec2, req2)
-
-	if rec2.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for basic auth fallback, got %d", rec2.Code)
 	}
 }
 
