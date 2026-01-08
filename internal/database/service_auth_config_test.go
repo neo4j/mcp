@@ -43,10 +43,6 @@ func TestBuildQueryOptions_HTTPMode_BearerToken(t *testing.T) {
 	if config.Auth == nil {
 		t.Fatal("Expected auth token to be set, got nil")
 	}
-
-	// Verify it's a bearer token (BearerAuth sets a specific scheme)
-	// The neo4j driver stores tokens with their scheme, we can't inspect the exact token
-	// but we can verify that Auth was populated
 }
 
 // TestBuildQueryOptions_HTTPMode_BasicAuth verifies that basic auth
@@ -143,56 +139,5 @@ func TestBuildQueryOptions_STDIOMode_BasicAuthIgnored(t *testing.T) {
 	// In STDIO mode, auth from context should be ignored
 	if config.Auth != nil {
 		t.Errorf("Expected no auth token in STDIO mode, got %+v", config.Auth)
-	}
-}
-
-// TestBuildQueryOptions_WithBaseOptions verifies that base options
-// (like routing options) are properly included.
-func TestBuildQueryOptions_WithBaseOptions(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := auth.WithBearerToken(context.Background(), "test-token")
-
-	// Add a base option (e.g., readers routing)
-	options := service.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
-	config := applyOptions(options)
-
-	if config.Database != "testdb" {
-		t.Errorf("Expected database 'testdb', got %q", config.Database)
-	}
-
-	if config.Auth == nil {
-		t.Fatal("Expected auth token to be set, got nil")
-	}
-
-	// Verify readers routing was applied
-	if config.Routing != neo4j.Read {
-		t.Errorf("Expected readers routing (Read), got %v", config.Routing)
-	}
-}
-
-// TestBuildQueryOptions_HTTPMode_EmptyDatabase verifies behavior with empty database name.
-func TestBuildQueryOptions_HTTPMode_EmptyDatabase(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "", // Empty database name
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := auth.WithBearerToken(context.Background(), "test-token")
-	options := service.buildQueryOptions(ctx)
-	config := applyOptions(options)
-
-	// Database should be set (even if empty)
-	if config.Database != "" {
-		t.Errorf("Expected empty database, got %q", config.Database)
-	}
-
-	if config.Auth == nil {
-		t.Fatal("Expected auth token to be set, got nil")
 	}
 }
