@@ -144,7 +144,7 @@ func (s *Neo4jMCPServer) httpMetricsMiddleware() func(http.Handler) http.Handler
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only collect metrics if telemetry is enabled AND transport mode is HTTP
-			if s.config.Telemetry && s.config.TransportMode == config.TransportModeHTTP {
+			if s.config.Telemetry  {
 				// Use sync.Once to ensure metrics are collected exactly once
 				s.httpMetricsSent.Do(func() {
 					// Extract auth credentials from request context for the background goroutine
