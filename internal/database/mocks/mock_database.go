@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	neo4j "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	neo4j "github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	gomock "go.uber.org/mock/gomock"
 )
 

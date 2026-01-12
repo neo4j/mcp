@@ -5,7 +5,7 @@ package database
 import (
 	"context"
 
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 // QueryExecutor defines the interface for executing Neo4j queries

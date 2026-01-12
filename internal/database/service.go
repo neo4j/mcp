@@ -9,7 +9,7 @@ import (
 
 	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 // Neo4jService is the concrete implementation of DatabaseService

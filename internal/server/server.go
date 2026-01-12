@@ -17,16 +17,16 @@ import (
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 const (
-	protocolHTTP  = "http"
-	protocolHTTPS = "https"
-	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
-	serverHTTPReadHeaderTimeout = 5 * time.Second  // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
-	serverHTTPReadTimeout       = 15 * time.Second // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
-	serverHTTPWriteTimeout      = 60 * time.Second // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
+	protocolHTTP                = "http"
+	protocolHTTPS               = "https"
+	serverHTTPShutdownTimeout   = 65 * time.Second  // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
+	serverHTTPReadHeaderTimeout = 5 * time.Second   // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
+	serverHTTPReadTimeout       = 15 * time.Second  // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
+	serverHTTPWriteTimeout      = 60 * time.Second  // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
 	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 )
 
