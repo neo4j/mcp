@@ -20,7 +20,7 @@ import (
 var Version = "development"
 
 const MixPanelEndpoint = "https://api.mixpanel.com"
-const MixPanelToken = "4bfb2414ab973c741b6f067bf06d5575"
+const MixPanelToken = "4bfb2414ab973c741b6f067bf06d5575" // #nosec G101 -- MixPanel tokens are safe to be public
 
 func main() {
 	// Handle CLI arguments (version, help, etc.)
