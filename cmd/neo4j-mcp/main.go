@@ -16,10 +16,11 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-// go build -C cmd/neo4j-mcp -o ../../bin/ -ldflags "-X 'main.Version=9999' -X 'main.MixPanelEndpoint=https://api-eu.mixpanel.com' -X 'main.MixPanelToken=your-mixpanel-token'"
+// go build -C cmd/neo4j-mcp -o ../../bin/ -ldflags "-X 'main.Version=9999'"
 var Version = "development"
-var MixPanelEndpoint = ""
-var MixPanelToken = ""
+
+const MixPanelEndpoint = "https://api.mixpanel.com"
+const MixPanelToken = "4bfb2414ab973c741b6f067bf06d5575" // #nosec G101 -- MixPanel tokens are safe to be public
 
 func main() {
 	// Handle CLI arguments (version, help, etc.)
@@ -85,8 +86,8 @@ func main() {
 
 	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI)
 
-	// Enable telemetry only when user has opted in AND the required tokens are present
-	if cfg.Telemetry && MixPanelEndpoint != "" && MixPanelToken != "" {
+	// Enable telemetry only when user has opted in AND Version is different from "development", which is changed via ldflags at build time.
+	if cfg.Telemetry && Version != "development" {
 		anService.Enable()
 		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
 		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")
