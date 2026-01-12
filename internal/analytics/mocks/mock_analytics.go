@@ -302,78 +302,40 @@ func (c *MockServiceNewStartupEventCall) DoAndReturn(f func() analytics.TrackEve
 	return c
 }
 
-// NewToolEventWithContext mocks base method.
-func (m *MockService) NewToolEventWithContext(toolsUsed string, connInfo analytics.ConnectionEventInfo, success bool) analytics.TrackEvent {
+// NewToolEvent mocks base method.
+func (m *MockService) NewToolEvent(toolsUsed string, connInfo analytics.ConnectionEventInfo, success bool) analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewToolEventWithContext", toolsUsed, connInfo, success)
+	ret := m.ctrl.Call(m, "NewToolEvent", toolsUsed, connInfo, success)
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
-// NewToolEventWithContext indicates an expected call of NewToolEventWithContext.
-func (mr *MockServiceMockRecorder) NewToolEventWithContext(toolsUsed, connInfo, success any) *MockServiceNewToolEventWithContextCall {
+// NewToolEvent indicates an expected call of NewToolEvent.
+func (mr *MockServiceMockRecorder) NewToolEvent(toolsUsed, connInfo, success any) *MockServiceNewToolEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEventWithContext", reflect.TypeOf((*MockService)(nil).NewToolEventWithContext), toolsUsed, connInfo, success)
-	return &MockServiceNewToolEventWithContextCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEvent", reflect.TypeOf((*MockService)(nil).NewToolEvent), toolsUsed, connInfo, success)
+	return &MockServiceNewToolEventCall{Call: call}
 }
 
-// MockServiceNewToolEventWithContextCall wrap *gomock.Call
-type MockServiceNewToolEventWithContextCall struct {
+// MockServiceNewToolEventCall wrap *gomock.Call
+type MockServiceNewToolEventCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceNewToolEventWithContextCall) Return(arg0 analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
+func (c *MockServiceNewToolEventCall) Return(arg0 analytics.TrackEvent) *MockServiceNewToolEventCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewToolEventWithContextCall) Do(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
+func (c *MockServiceNewToolEventCall) Do(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewToolEventWithContextCall) DoAndReturn(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// NewToolsEvent mocks base method.
-func (m *MockService) NewToolsEvent(toolsUsed string, success bool) analytics.TrackEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewToolsEvent", toolsUsed, success)
-	ret0, _ := ret[0].(analytics.TrackEvent)
-	return ret0
-}
-
-// NewToolsEvent indicates an expected call of NewToolsEvent.
-func (mr *MockServiceMockRecorder) NewToolsEvent(toolsUsed, success any) *MockServiceNewToolsEventCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolsEvent", reflect.TypeOf((*MockService)(nil).NewToolsEvent), toolsUsed, success)
-	return &MockServiceNewToolsEventCall{Call: call}
-}
-
-// MockServiceNewToolsEventCall wrap *gomock.Call
-type MockServiceNewToolsEventCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockServiceNewToolsEventCall) Return(arg0 analytics.TrackEvent) *MockServiceNewToolsEventCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockServiceNewToolsEventCall) Do(f func(string, bool) analytics.TrackEvent) *MockServiceNewToolsEventCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewToolsEventCall) DoAndReturn(f func(string, bool) analytics.TrackEvent) *MockServiceNewToolsEventCall {
+func (c *MockServiceNewToolEventCall) DoAndReturn(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

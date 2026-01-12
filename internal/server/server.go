@@ -43,7 +43,8 @@ type Neo4jMCPServer struct {
 	version                string
 	anService              analytics.Service
 	gdsInstalled           bool
-	httpConnectionInitSent sync.Once // Ensures connection initialized event is sent only once in HTTP mode
+	connectionInfo         analytics.ConnectionEventInfo // Cached connection info (STDIO: set at startup, HTTP: collected per request)
+	httpConnectionInitSent sync.Once                     // Ensures connection initialized event is sent only once in HTTP mode
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -203,6 +204,7 @@ func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
 	}
 
 	connInfo := recordsToConnectionEventInfo(records)
+	s.connectionInfo = connInfo // Cache for use in tool events
 	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 }
 
@@ -418,10 +420,11 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 	toolName := request.Params.Name
 	success := !result.IsError
 
-	// For HTTP mode: collect DB info per request and include with tool event
-	// For STDIO mode: emit tool event without DB info (already sent at startup)
+	// Collect connection info based on transport mode
+	var connInfo analytics.ConnectionEventInfo
 	if s.config.TransportMode == config.TransportModeHTTP {
-		connInfo := s.collectConnectionInfo(ctx)
+		// HTTP mode: collect DB info per request (credentials may differ per request in multi-tenant scenarios)
+		connInfo = s.collectConnectionInfo(ctx)
 
 		// Emit connection initialized event only once per session (on first successful tool call with DB connection)
 		// Note: We emit this even if the tool call failed, as long as we could connect to the DB to get connection info
@@ -430,12 +433,13 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 				s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 			})
 		}
-
-		// Always emit tool event with DB context (credentials may differ per request in multi-tenant scenarios)
-		s.anService.EmitEvent(s.anService.NewToolEventWithContext(toolName, connInfo, success))
 	} else {
-		s.anService.EmitEvent(s.anService.NewToolsEvent(toolName, success))
+		// STDIO mode: use cached connection info from startup
+		connInfo = s.connectionInfo
 	}
+
+	// Emit tool event with DB context (both modes use the same event now for consistency)
+	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, connInfo, success))
 
 	// Handle GDS events for cypher tools
 	if toolName == "read-cypher" || toolName == "write-cypher" {
