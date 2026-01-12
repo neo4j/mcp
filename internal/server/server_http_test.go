@@ -52,7 +52,7 @@ func TestHTTPServerPortConfiguration(t *testing.T) {
 			mockDB := db.NewMockService(ctrl)
 
 			analyticsService := analytics.NewMockService(ctrl)
-			analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
+			analyticsService.EXPECT().NewStartupEvent().AnyTimes()
 			analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 
 			srv := NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
@@ -123,7 +123,7 @@ func TestHTTPServerTLSConfiguration(t *testing.T) {
 			mockDB := db.NewMockService(ctrl)
 
 			analyticsService := analytics.NewMockService(ctrl)
-			analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
+			analyticsService.EXPECT().NewStartupEvent().AnyTimes()
 			analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 
 			srv := NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)

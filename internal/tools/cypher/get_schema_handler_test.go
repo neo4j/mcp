@@ -18,8 +18,6 @@ import (
 func TestGetSchemaHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	analyticsService := analytics.NewMockService(ctrl)
-	analyticsService.EXPECT().NewToolsEvent("get-schema").AnyTimes()
-	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
 
 	t.Run("successful schema retrieval", func(t *testing.T) {
@@ -113,27 +111,8 @@ func TestGetSchemaHandler(t *testing.T) {
 			t.Error("Expected error result for nil database service")
 		}
 	})
-	t.Run("nil analytics service", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: nil,
-		}
 
-		handler := cypher.GetSchemaHandler(deps, 100)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
-
-		if err != nil {
-			t.Errorf("Expected no error from handler, got: %v", err)
-		}
-		if result == nil || !result.IsError {
-			t.Error("Expected error result for nil analytics service")
-		}
-	})
 	t.Run("No records returned from apoc query (empty database)", func(t *testing.T) {
-		analyticsService := analytics.NewMockService(ctrl)
-		analyticsService.EXPECT().NewToolsEvent("get-schema").Times(1)
-		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(1)
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).

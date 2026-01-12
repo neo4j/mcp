@@ -150,6 +150,44 @@ func (c *MockServiceEnableCall) DoAndReturn(f func()) *MockServiceEnableCall {
 	return c
 }
 
+// NewConnectionInitializedEvent mocks base method.
+func (m *MockService) NewConnectionInitializedEvent(connInfo analytics.ConnectionEventInfo) analytics.TrackEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewConnectionInitializedEvent", connInfo)
+	ret0, _ := ret[0].(analytics.TrackEvent)
+	return ret0
+}
+
+// NewConnectionInitializedEvent indicates an expected call of NewConnectionInitializedEvent.
+func (mr *MockServiceMockRecorder) NewConnectionInitializedEvent(connInfo any) *MockServiceNewConnectionInitializedEventCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewConnectionInitializedEvent", reflect.TypeOf((*MockService)(nil).NewConnectionInitializedEvent), connInfo)
+	return &MockServiceNewConnectionInitializedEventCall{Call: call}
+}
+
+// MockServiceNewConnectionInitializedEventCall wrap *gomock.Call
+type MockServiceNewConnectionInitializedEventCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServiceNewConnectionInitializedEventCall) Return(arg0 analytics.TrackEvent) *MockServiceNewConnectionInitializedEventCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServiceNewConnectionInitializedEventCall) Do(f func(analytics.ConnectionEventInfo) analytics.TrackEvent) *MockServiceNewConnectionInitializedEventCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServiceNewConnectionInitializedEventCall) DoAndReturn(f func(analytics.ConnectionEventInfo) analytics.TrackEvent) *MockServiceNewConnectionInitializedEventCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NewGDSProjCreatedEvent mocks base method.
 func (m *MockService) NewGDSProjCreatedEvent() analytics.TrackEvent {
 	m.ctrl.T.Helper()
@@ -227,17 +265,17 @@ func (c *MockServiceNewGDSProjDropEventCall) DoAndReturn(f func() analytics.Trac
 }
 
 // NewStartupEvent mocks base method.
-func (m *MockService) NewStartupEvent(startupEventInfo analytics.StartupEventInfo) analytics.TrackEvent {
+func (m *MockService) NewStartupEvent() analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewStartupEvent", startupEventInfo)
+	ret := m.ctrl.Call(m, "NewStartupEvent")
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
 // NewStartupEvent indicates an expected call of NewStartupEvent.
-func (mr *MockServiceMockRecorder) NewStartupEvent(startupEventInfo any) *MockServiceNewStartupEventCall {
+func (mr *MockServiceMockRecorder) NewStartupEvent() *MockServiceNewStartupEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStartupEvent", reflect.TypeOf((*MockService)(nil).NewStartupEvent), startupEventInfo)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStartupEvent", reflect.TypeOf((*MockService)(nil).NewStartupEvent))
 	return &MockServiceNewStartupEventCall{Call: call}
 }
 
@@ -253,13 +291,51 @@ func (c *MockServiceNewStartupEventCall) Return(arg0 analytics.TrackEvent) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewStartupEventCall) Do(f func(analytics.StartupEventInfo) analytics.TrackEvent) *MockServiceNewStartupEventCall {
+func (c *MockServiceNewStartupEventCall) Do(f func() analytics.TrackEvent) *MockServiceNewStartupEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewStartupEventCall) DoAndReturn(f func(analytics.StartupEventInfo) analytics.TrackEvent) *MockServiceNewStartupEventCall {
+func (c *MockServiceNewStartupEventCall) DoAndReturn(f func() analytics.TrackEvent) *MockServiceNewStartupEventCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewToolEventWithContext mocks base method.
+func (m *MockService) NewToolEventWithContext(toolsUsed string, connInfo analytics.ConnectionEventInfo) analytics.TrackEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewToolEventWithContext", toolsUsed, connInfo)
+	ret0, _ := ret[0].(analytics.TrackEvent)
+	return ret0
+}
+
+// NewToolEventWithContext indicates an expected call of NewToolEventWithContext.
+func (mr *MockServiceMockRecorder) NewToolEventWithContext(toolsUsed, connInfo any) *MockServiceNewToolEventWithContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEventWithContext", reflect.TypeOf((*MockService)(nil).NewToolEventWithContext), toolsUsed, connInfo)
+	return &MockServiceNewToolEventWithContextCall{Call: call}
+}
+
+// MockServiceNewToolEventWithContextCall wrap *gomock.Call
+type MockServiceNewToolEventWithContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServiceNewToolEventWithContextCall) Return(arg0 analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServiceNewToolEventWithContextCall) Do(f func(string, analytics.ConnectionEventInfo) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServiceNewToolEventWithContextCall) DoAndReturn(f func(string, analytics.ConnectionEventInfo) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

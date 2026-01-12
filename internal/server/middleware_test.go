@@ -4,10 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"testing/synctest"
 
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/neo4j/mcp/internal/analytics"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
@@ -460,125 +458,5 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 	// This proves path validation happens first in the middleware chain
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("Expected status 404 for invalid path (before auth check), got %d", rec.Code)
-	}
-}
-
-func TestHTTPMetricsMiddleware(t *testing.T) {
-	tests := []struct {
-		name               string
-		transportMode      string
-		telemetryEnabled   bool
-		tlsEnabled         bool
-		expectMetrics      bool
-		expectEmitTimes    int
-		expectDBQueryTimes int
-	}{
-		{
-			name:               "HTTP mode with telemetry and TLS enabled",
-			transportMode:      config.TransportModeHTTP,
-			telemetryEnabled:   true,
-			tlsEnabled:         true,
-			expectMetrics:      true,
-			expectEmitTimes:    1,
-			expectDBQueryTimes: 1,
-		},
-		{
-			name:               "HTTP mode with telemetry enabled, TLS disabled",
-			transportMode:      config.TransportModeHTTP,
-			telemetryEnabled:   true,
-			tlsEnabled:         false,
-			expectMetrics:      true,
-			expectEmitTimes:    1,
-			expectDBQueryTimes: 1,
-		},
-		{
-			name:               "HTTP mode with telemetry disabled",
-			transportMode:      config.TransportModeHTTP,
-			telemetryEnabled:   false,
-			tlsEnabled:         true,
-			expectMetrics:      false,
-			expectEmitTimes:    0,
-			expectDBQueryTimes: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				ctrl := gomock.NewController(t)
-				mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
-				mockDBService := db_mocks.NewMockService(ctrl)
-
-				cfg := &config.Config{
-					URI:            "bolt://localhost:7687",
-					Database:       "neo4j",
-					TransportMode:  tt.transportMode,
-					Telemetry:      tt.telemetryEnabled,
-					HTTPTLSEnabled: tt.tlsEnabled,
-				}
-
-				mcpServer := server.NewMCPServer("test-server", "1.0.0")
-				testServer := &Neo4jMCPServer{
-					MCPServer:    mcpServer,
-					config:       cfg,
-					dbService:    mockDBService,
-					anService:    mockAnalyticsService,
-					version:      "1.0.0",
-					gdsInstalled: false,
-				}
-
-				// Setup expectations
-				if tt.expectMetrics {
-					// Expect DB query
-					mockDBService.EXPECT().
-						ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
-						Return(nil, nil).
-						Times(tt.expectDBQueryTimes)
-
-					// Expect NewStartupEvent to be called and return a TrackEvent
-					mockAnalyticsService.EXPECT().
-						NewStartupEvent(gomock.Any()).
-						Return(analytics.TrackEvent{
-							Event:      "MCP4NEO4J_MCP_STARTUP",
-							Properties: map[string]interface{}{},
-						}).
-						Times(tt.expectEmitTimes)
-
-					// Expect EmitEvent to be called with the startup event
-					mockAnalyticsService.EXPECT().
-						EmitEvent(gomock.Any()).
-						Times(tt.expectEmitTimes)
-				} else {
-					// No metrics should be collected
-					mockDBService.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-					mockAnalyticsService.EXPECT().NewStartupEvent(gomock.Any()).Times(0)
-					mockAnalyticsService.EXPECT().EmitEvent(gomock.Any()).Times(0)
-				}
-
-				handler := testServer.httpMetricsMiddleware()(mockHandler())
-
-				// Make multiple requests to verify sync.Once behavior
-				// Each request should complete successfully, but metrics should only be collected once
-				for i := 0; i < 3; i++ {
-					req := httptest.NewRequest("GET", "/", nil)
-					rec := httptest.NewRecorder()
-					handler.ServeHTTP(rec, req)
-
-					if rec.Code != http.StatusOK {
-						t.Errorf("Request %d: expected status 200, got %d", i+1, rec.Code)
-					}
-
-					// After each request, wait for any spawned goroutines to complete
-					// This ensures we're testing that sync.Once prevents multiple collections
-					// across sequential requests, not just within a single request
-					if tt.expectMetrics {
-						synctest.Wait()
-					}
-				}
-
-				// Final verification: mock expectations with .Times(1) will fail if
-				// metrics were collected more than once across all 3 requests
-			})
-		})
 	}
 }

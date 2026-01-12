@@ -16,7 +16,7 @@ import (
 // newTestAnalytics creates an analytics service for testing
 func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTTPClient, uri string) *analytics.Analytics {
 	t.Helper()
-	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri, "stdio", false)
+	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri, "stdio", false, "1.0.0")
 }
 
 func TestAnalytics(t *testing.T) {
@@ -211,12 +211,7 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewStartupEvent", func(t *testing.T) {
-		event := analyticsService.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "2025.09.01",
-			CypherVersion: []string{"5", "25"},
-			Edition:       "enterprise",
-			McpVersion:    "1.0.0",
-		})
+		event := analyticsService.NewStartupEvent()
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
 		}
@@ -230,15 +225,29 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == true {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], false)
 		}
+		if props["mcp_version"] != "1.0.0" {
+			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
+		}
+		if props["transport_mode"] != "stdio" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "stdio")
+		}
+	})
+
+	t.Run("NewConnectionInitializedEvent", func(t *testing.T) {
+		event := analyticsService.NewConnectionInitializedEvent(analytics.ConnectionEventInfo{
+			Neo4jVersion:  "2025.09.01",
+			CypherVersion: []string{"5", "25"},
+			Edition:       "enterprise",
+		})
+		if event.Event != "MCP4NEO4J_CONNECTION_INITIALIZED" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_CONNECTION_INITIALIZED")
+		}
+		props := assertBaseProperties(t, event.Properties)
 		if props["neo4j_version"] != "2025.09.01" {
 			t.Errorf("unexpected Neo4jVersion: got %v, want %v", props["neo4j_version"], "2025.09.01")
 		}
 		if props["edition"] != "enterprise" {
 			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
-		}
-
-		if props["mcp_version"] != "1.0.0" {
-			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
 		}
 
 		cypherVersion, ok := props["cypher_version"].([]interface{})
@@ -252,12 +261,7 @@ func TestEventCreation(t *testing.T) {
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
 		auraAnalytics := newTestAnalytics(t, "test-token", "http://localhost", nil, "bolt://mydb.databases.neo4j.io")
-		event := auraAnalytics.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "2025.09.01",
-			CypherVersion: []string{"5", "25"},
-			Edition:       "enterprise",
-			McpVersion:    "1.0.0",
-		})
+		event := auraAnalytics.NewStartupEvent()
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -272,22 +276,8 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == false {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], true)
 		}
-		if props["neo4j_version"] != "2025.09.01" {
-			t.Errorf("unexpected Neo4jVersion: got %v, want %v", props["neo4j_version"], "2025.09.01")
-		}
-		if props["edition"] != "enterprise" {
-			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
-		}
 		if props["mcp_version"] != "1.0.0" {
 			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
-		}
-
-		cypherVersion, ok := props["cypher_version"].([]interface{})
-		if !ok {
-			t.Fatalf("cypher_version is not a []interface{}")
-		}
-		if len(cypherVersion) != 2 || cypherVersion[0] != "5" || cypherVersion[1] != "25" {
-			t.Errorf("unexpected cypher_version: got %v, want %v", props["cypher_version"], []string{"5", "25"})
 		}
 	})
 
@@ -299,13 +289,9 @@ func TestEventCreation(t *testing.T) {
 			"bolt://localhost:7687",
 			"stdio",
 			false,
+			"1.0.0",
 		)
-		event := stdioAnalytics.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "5.0.0",
-			CypherVersion: []string{"5"},
-			Edition:       "community",
-			McpVersion:    "1.0.0",
-		})
+		event := stdioAnalytics.NewStartupEvent()
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -318,7 +304,7 @@ func TestEventCreation(t *testing.T) {
 			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "stdio")
 		}
 
-		// Verify tls_enabled is NOT present in STDIO mode (uses base startupProperties, not httpStartupProperties)
+		// Verify tls_enabled is NOT present in STDIO mode (uses omitempty)
 		if _, exists := props["tls_enabled"]; exists {
 			t.Errorf("tls_enabled should not be present in STDIO mode, but found: %v", props["tls_enabled"])
 		}
@@ -332,13 +318,9 @@ func TestEventCreation(t *testing.T) {
 			"bolt://localhost:7687",
 			"http",
 			true,
+			"1.0.0",
 		)
-		event := httpAnalytics.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "5.0.0",
-			CypherVersion: []string{"5"},
-			Edition:       "community",
-			McpVersion:    "1.0.0",
-		})
+		event := httpAnalytics.NewStartupEvent()
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -368,13 +350,9 @@ func TestEventCreation(t *testing.T) {
 			"bolt://localhost:7687",
 			"http",
 			false,
+			"1.0.0",
 		)
-		event := httpAnalytics.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "5.0.0",
-			CypherVersion: []string{"5"},
-			Edition:       "community",
-			McpVersion:    "1.0.0",
-		})
+		event := httpAnalytics.NewStartupEvent()
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")

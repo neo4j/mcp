@@ -83,7 +83,7 @@ func main() {
 		return
 	}
 
-	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI, cfg.TransportMode, cfg.HTTPTLSEnabled)
+	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI, cfg.TransportMode, cfg.HTTPTLSEnabled, Version)
 
 	// Enable telemetry only when user has opted in AND the required tokens are present
 	if cfg.Telemetry && MixPanelEndpoint != "" && MixPanelToken != "" {

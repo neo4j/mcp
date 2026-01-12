@@ -1,11 +1,9 @@
 package server
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"slices"
-	"time"
 
 	"github.com/neo4j/mcp/internal/auth"
 )
@@ -17,16 +15,13 @@ const (
 // chainMiddleware chains together all HTTP middleware for this server instance
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	// Chain middleware in reverse order (last added = first to execute)
-	// Execution order: PathValidator -> CORS -> BasicAuth -> HTTPMetrics -> Logging -> Handler
+	// Execution order: PathValidator -> CORS -> BasicAuth -> Logging -> Handler
 
 	// Start with the actual handler
 	handler := next
 
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
-
-	// Add HTTP metrics middleware (collects metrics on first request)
-	handler = s.httpMetricsMiddleware()(handler)
 
 	// Add basic auth middleware (always requires credentials if header present)
 	handler = basicAuthMiddleware()(handler)
@@ -129,36 +124,6 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 				"host", r.Host,
 				"query", r.URL.RawQuery,
 			)
-
-			// Call the next handler
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// httpMetricsMiddleware collects and emits HTTP mode metrics on the first request.
-// Uses sync.Once to ensure metrics are collected exactly once per server session.
-// Extracts Basic Auth credentials from request context for Neo4j query authentication.
-func (s *Neo4jMCPServer) httpMetricsMiddleware() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only collect metrics if telemetry is enabled AND transport mode is HTTP
-			if s.config.Telemetry {
-				// Use sync.Once to ensure metrics are collected exactly once
-				s.httpMetricsSent.Do(func() {
-					// Extract auth credentials from request context for the background goroutine
-					// This ensures the Neo4j query has authentication in HTTP mode
-					reqCtx := r.Context()
-
-					// Run metrics collection in background with timeout to avoid blocking the request
-					go func() {
-						// Create new context with timeout but preserve auth from request
-						ctx, cancel := context.WithTimeout(reqCtx, 10*time.Second)
-						defer cancel()
-						s.collectAndEmitHTTPMetrics(ctx)
-					}()
-				})
-			}
 
 			// Call the next handler
 			next.ServeHTTP(w, r)

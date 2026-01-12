@@ -25,23 +25,34 @@ type baseProperties struct {
 	IsAura     bool   `json:"isAura"`
 }
 
-type startupProperties struct {
+// serverStartupProperties contains server-level information available at startup (no DB query required)
+type serverStartupProperties struct {
+	baseProperties
+	McpVersion    string `json:"mcp_version"`
+	TransportMode string `json:"transport_mode"`
+	TLSEnabled    *bool  `json:"tls_enabled,omitempty"` // Only for HTTP mode, pointer allows explicit false
+}
+
+// connectionInitializedProperties contains Neo4j-specific information (requires DB query)
+type connectionInitializedProperties struct {
 	baseProperties
 	Neo4jVersion  string   `json:"neo4j_version"`
 	Edition       string   `json:"edition"`
 	CypherVersion []string `json:"cypher_version"`
-	McpVersion    string   `json:"mcp_version"`
-	TransportMode string   `json:"transport_mode"`
-}
-
-type httpStartupProperties struct {
-	startupProperties
-	TLSEnabled bool `json:"tls_enabled"`
 }
 
 type toolsProperties struct {
 	baseProperties
 	ToolUsed string `json:"tools_used"`
+}
+
+// toolsWithContextProperties is used for HTTP mode to include DB context with each tool call
+type toolsWithContextProperties struct {
+	baseProperties
+	ToolUsed      string   `json:"tools_used"`
+	Neo4jVersion  string   `json:"neo4j_version"`
+	Edition       string   `json:"edition"`
+	CypherVersion []string `json:"cypher_version"`
 }
 
 type TrackEvent struct {
@@ -63,46 +74,67 @@ func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
 	}
 }
 
-type StartupEventInfo struct {
+// ConnectionEventInfo contains Neo4j connection information obtained from database queries
+type ConnectionEventInfo struct {
 	Neo4jVersion  string
 	Edition       string
 	CypherVersion []string
-	McpVersion    string
 }
 
-func (a *Analytics) NewStartupEvent(startupInfoEvent StartupEventInfo) TrackEvent {
-	baseStartupProps := startupProperties{
+// NewStartupEvent creates a server startup event with information available immediately (no DB query)
+func (a *Analytics) NewStartupEvent() TrackEvent {
+	props := serverStartupProperties{
 		baseProperties: a.getBaseProperties(),
-		Neo4jVersion:   startupInfoEvent.Neo4jVersion,
-		Edition:        startupInfoEvent.Edition,
-		CypherVersion:  startupInfoEvent.CypherVersion,
-		McpVersion:     startupInfoEvent.McpVersion,
+		McpVersion:     a.cfg.mcpVersion,
 		TransportMode:  a.cfg.transportMode,
 	}
 
-	// For HTTP mode, include TLS-specific properties
-	var properties any
+	// Only include TLS field for HTTP mode (omitted for STDIO via omitempty tag with nil pointer)
 	if a.cfg.transportMode == "http" {
-		properties = httpStartupProperties{
-			startupProperties: baseStartupProps,
-			TLSEnabled:        a.cfg.tlsEnabled,
-		}
-	} else {
-		properties = baseStartupProps
+		tlsEnabled := a.cfg.tlsEnabled
+		props.TLSEnabled = &tlsEnabled
 	}
 
 	return TrackEvent{
 		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: properties,
+		Properties: props,
 	}
 }
 
+// NewConnectionInitializedEvent creates a connection initialized event with DB information (STDIO mode only)
+func (a *Analytics) NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent {
+	return TrackEvent{
+		Event: strings.Join([]string{eventNamePrefix, "CONNECTION_INITIALIZED"}, "_"),
+		Properties: connectionInitializedProperties{
+			baseProperties: a.getBaseProperties(),
+			Neo4jVersion:   connInfo.Neo4jVersion,
+			Edition:        connInfo.Edition,
+			CypherVersion:  connInfo.CypherVersion,
+		},
+	}
+}
+
+// NewToolsEvent creates a tool usage event (STDIO mode - without DB context)
 func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{
 			baseProperties: a.getBaseProperties(),
 			ToolUsed:       toolsUsed,
+		},
+	}
+}
+
+// NewToolEventWithContext creates a tool usage event with DB context (HTTP mode only)
+func (a *Analytics) NewToolEventWithContext(toolsUsed string, connInfo ConnectionEventInfo) TrackEvent {
+	return TrackEvent{
+		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
+		Properties: toolsWithContextProperties{
+			baseProperties: a.getBaseProperties(),
+			ToolUsed:       toolsUsed,
+			Neo4jVersion:   connInfo.Neo4jVersion,
+			Edition:        connInfo.Edition,
+			CypherVersion:  connInfo.CypherVersion,
 		},
 	}
 }

@@ -87,7 +87,7 @@ func getAnalyticsMock(t *testing.T) *analytics.MockService {
 	analyticsService.EXPECT().Enable().AnyTimes()
 	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
 	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
 	analyticsService.EXPECT().NewToolsEvent(gomock.Any()).AnyTimes()
 
 	return analyticsService

@@ -13,8 +13,10 @@ type Service interface {
 	EmitEvent(event TrackEvent)
 	NewGDSProjCreatedEvent() TrackEvent
 	NewGDSProjDropEvent() TrackEvent
-	NewStartupEvent(startupEventInfo StartupEventInfo) TrackEvent
+	NewStartupEvent() TrackEvent
+	NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent
 	NewToolsEvent(toolsUsed string) TrackEvent
+	NewToolEventWithContext(toolsUsed string, connInfo ConnectionEventInfo) TrackEvent
 }
 
 // dummy http client interface for our testing purposes
