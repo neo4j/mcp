@@ -75,7 +75,11 @@ func (s *Neo4jMCPServer) Start() error {
 		return err
 	}
 
-	s.emitStartupEvent()
+	// Only emit startup event for STDIO mode
+	// For HTTP mode, the event is emitted on first request via httpMetricsMiddleware
+	if s.config.TransportMode != config.TransportModeHTTP {
+		s.emitStartupEvent()
+	}
 
 	// Register tools
 	if err := s.registerTools(); err != nil {
