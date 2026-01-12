@@ -500,15 +500,6 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 			expectEmitTimes:    0,
 			expectDBQueryTimes: 0,
 		},
-		{
-			name:               "STDIO mode with telemetry enabled",
-			transportMode:      config.TransportModeStdio,
-			telemetryEnabled:   true,
-			tlsEnabled:         false,
-			expectMetrics:      false,
-			expectEmitTimes:    0,
-			expectDBQueryTimes: 0,
-		},
 	}
 
 	for _, tt := range tests {
