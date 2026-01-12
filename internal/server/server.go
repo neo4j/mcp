@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
@@ -22,42 +23,33 @@ import (
 )
 
 const (
-	protocolHTTP  = "http"
-	protocolHTTPS = "https"
-	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
-	serverHTTPReadHeaderTimeout = 5 * time.Second  // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
-	serverHTTPReadTimeout       = 15 * time.Second // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
-	serverHTTPWriteTimeout      = 60 * time.Second // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
+	protocolHTTP                = "http"
+	protocolHTTPS               = "https"
+	serverHTTPShutdownTimeout   = 65 * time.Second  // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
+	serverHTTPReadHeaderTimeout = 5 * time.Second   // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
+	serverHTTPReadTimeout       = 15 * time.Second  // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
+	serverHTTPWriteTimeout      = 60 * time.Second  // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
 	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 )
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer       *server.MCPServer
-	httpServer      *http.Server
-	httpServerReady chan struct{}
-	shutdownChan    chan struct{}
-	config          *config.Config
-	dbService       database.Service
-	version         string
-	anService       analytics.Service
-	gdsInstalled    bool
-	httpMetricsSent sync.Once // Ensures HTTP mode metrics are sent exactly once
+	MCPServer              *server.MCPServer
+	httpServer             *http.Server
+	httpServerReady        chan struct{}
+	shutdownChan           chan struct{}
+	config                 *config.Config
+	dbService              database.Service
+	version                string
+	anService              analytics.Service
+	gdsInstalled           bool
+	httpConnectionInitSent sync.Once // Ensures connection initialized event is sent only once in HTTP mode
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
 func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
-	mcpServer := server.NewMCPServer(
-		"neo4j-mcp",
-		version,
-		server.WithToolCapabilities(true),
-		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
-			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
-	)
-
-	return &Neo4jMCPServer{
-		MCPServer:       mcpServer,
+	neo4jServer := &Neo4jMCPServer{
 		httpServerReady: make(chan struct{}),
 		shutdownChan:    make(chan struct{}),
 		config:          cfg,
@@ -66,19 +58,37 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		anService:       anService,
 		gdsInstalled:    false,
 	}
+
+	// Configure hooks for tool call tracking
+	hooks := neo4jServer.configureHooks()
+
+	mcpServer := server.NewMCPServer(
+		"neo4j-mcp",
+		version,
+		server.WithToolCapabilities(true),
+		server.WithHooks(hooks),
+		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
+			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
+	)
+
+	neo4jServer.MCPServer = mcpServer
+	return neo4jServer
 }
 
 // Start initializes and starts the MCP server
 func (s *Neo4jMCPServer) Start() error {
-	err := s.verifyRequirements()
-	if err != nil {
-		return err
-	}
+	// Emit server startup event FIRST (before any DB operations) for both modes
+	s.emitServerStartupEvent()
 
-	// Only emit startup event for STDIO mode
-	// For HTTP mode, the event is emitted on first request via httpMetricsMiddleware
-	if s.config.TransportMode != config.TransportModeHTTP {
-		s.emitStartupEvent()
+	// Verify requirements (includes DB queries) and emit connection event for STDIO mode
+	// For HTTP mode: skip verification (no credentials yet)
+	if s.config.TransportMode == config.TransportModeStdio {
+		err := s.verifyRequirements()
+		if err != nil {
+			return err
+		}
+		// Emit connection initialized event after successful verification
+		s.emitConnectionInitializedEvent(context.Background())
 	}
 
 	// Register tools
@@ -179,40 +189,47 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 	return nil
 }
 
-func (s *Neo4jMCPServer) emitStartupEvent() {
-	var startupInfo analytics.StartupEventInfo
-
-	// In HTTP mode, skip database query since credentials come from per-request Basic Auth headers
-	if s.config.TransportMode == config.TransportModeHTTP {
-		startupInfo = analytics.StartupEventInfo{
-			Neo4jVersion:  "unknown-http-mode",
-			Edition:       "unknown-http-mode",
-			CypherVersion: []string{"unknown-http-mode"},
-			McpVersion:    s.version,
-		}
-	} else {
-		// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
-		records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
-
-		if err != nil {
-			slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
-			return
-		}
-
-		startupInfo = recordsToStartupEventInfo(records, s.version)
-	}
-
-	// track startup event
-	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
+// emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
+func (s *Neo4jMCPServer) emitServerStartupEvent() {
+	s.anService.EmitEvent(s.anService.NewStartupEvent())
 }
 
-func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analytics.StartupEventInfo {
-	startupInfo := analytics.StartupEventInfo{
+// emitConnectionInitializedEvent emits the connection initialized event with DB information (STDIO mode only)
+func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
+	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
+	if err != nil {
+		slog.Debug("Failed to collect connection metadata", "error", err.Error())
+		return
+	}
+
+	connInfo := recordsToConnectionEventInfo(records)
+	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
+}
+
+// collectConnectionInfo queries the database for connection information (HTTP mode - per tool call)
+func (s *Neo4jMCPServer) collectConnectionInfo(ctx context.Context) analytics.ConnectionEventInfo {
+	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
+	if err != nil {
+		slog.Debug("Failed to collect connection info for tool event", "error", err.Error())
+		// Return default values on error (graceful degradation)
+		return analytics.ConnectionEventInfo{
+			Neo4jVersion:  "unknown",
+			Edition:       "unknown",
+			CypherVersion: []string{"unknown"},
+		}
+	}
+
+	return recordsToConnectionEventInfo(records)
+}
+
+// recordsToConnectionEventInfo converts dbms.components() records to ConnectionEventInfo
+func recordsToConnectionEventInfo(records []*neo4j.Record) analytics.ConnectionEventInfo {
+	connInfo := analytics.ConnectionEventInfo{
 		Neo4jVersion:  "not-found",
 		Edition:       "not-found",
 		CypherVersion: []string{"not-found"},
-		McpVersion:    mcpVersion,
 	}
+
 	for _, record := range records {
 		nameRaw, ok := record.Get("name")
 		if !ok {
@@ -235,6 +252,7 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 			slog.Debug("invalid 'edition' type in dbms.components record")
 			continue
 		}
+
 		versionsRaw, ok := record.Get("versions")
 		if !ok {
 			slog.Debug("missing 'versions' column in dbms.components record")
@@ -248,14 +266,12 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 
 		switch name {
 		case "Neo4j Kernel":
-			// versions can be an array, e,g. Cypher can have multiple versions. "Cypher": ["5", "25"]
 			if len(versions) > 0 {
 				if v, ok := versions[0].(string); ok {
-					startupInfo.Neo4jVersion = v
+					connInfo.Neo4jVersion = v
 				}
 			}
-
-			startupInfo.Edition = edition
+			connInfo.Edition = edition
 		case "Cypher":
 			var stringVersions []string
 			for _, v := range versions {
@@ -263,32 +279,10 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 					stringVersions = append(stringVersions, s)
 				}
 			}
-
-			startupInfo.CypherVersion = stringVersions
+			connInfo.CypherVersion = stringVersions
 		}
 	}
-	return startupInfo
-}
-
-// collectAndEmitHTTPMetrics collects and emits metrics for HTTP mode on first request.
-// This method is called via httpMetricsSent.Do() to ensure it runs exactly once.
-// It queries Neo4j for database information and sends a startup event with the collected metrics.
-func (s *Neo4jMCPServer) collectAndEmitHTTPMetrics(ctx context.Context) {
-	slog.Info("Collecting HTTP mode metrics on first request")
-
-	// Query dbms.components() to collect meta information about the database
-	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
-	if err != nil {
-		slog.Error("Failed to collect HTTP mode metrics", "error", err.Error())
-		// Don't block request on metrics failure - metrics are best-effort
-		return
-	}
-
-	startupInfo := recordsToStartupEventInfo(records, s.version)
-
-	// Emit startup event with collected metrics
-	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
-	slog.Info("HTTP mode metrics collected and sent successfully")
+	return connInfo
 }
 
 // buildTLSConfig creates a TLS configuration with security best practices
@@ -405,5 +399,73 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	case <-s.shutdownChan:
 		// Server was stopped via Stop() method
 		return nil
+	}
+}
+
+// configureHooks sets up MCP SDK hooks for tool call tracking
+func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
+	hooks := &server.Hooks{}
+	hooks.AddAfterCallTool(s.handleToolCallComplete)
+	return hooks
+}
+
+// handleToolCallComplete is called after every tool call completes
+func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, request *mcp.CallToolRequest, result *mcp.CallToolResult) {
+	if s.anService == nil {
+		return
+	}
+
+	toolName := request.Params.Name
+
+	// For HTTP mode: collect DB info per request and include with tool event
+	// For STDIO mode: emit tool event without DB info (already sent at startup)
+	if s.config.TransportMode == config.TransportModeHTTP {
+		connInfo := s.collectConnectionInfo(ctx)
+
+		// Emit connection initialized event only once per session (on first successful tool call with DB connection)
+		// Note: We emit this even if the tool call failed, as long as we could connect to the DB to get connection info
+		if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "not-found" {
+			s.httpConnectionInitSent.Do(func() {
+				s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
+			})
+		}
+
+		// Always emit tool event with DB context (credentials may differ per request in multi-tenant scenarios)
+		s.anService.EmitEvent(s.anService.NewToolEventWithContext(toolName, connInfo))
+	} else {
+		s.anService.EmitEvent(s.anService.NewToolsEvent(toolName))
+	}
+
+	// Handle GDS events for cypher tools
+	if toolName == "read-cypher" || toolName == "write-cypher" {
+		s.emitGDSEventsIfNeeded(request)
+	}
+}
+
+// emitGDSEventsIfNeeded checks if the cypher query contains GDS calls and emits appropriate events
+func (s *Neo4jMCPServer) emitGDSEventsIfNeeded(request *mcp.CallToolRequest) {
+	// Type assert Arguments to map[string]any
+	args, ok := request.Params.Arguments.(map[string]any)
+	if !ok {
+		return
+	}
+
+	// Extract query from arguments
+	queryRaw, ok := args["query"]
+	if !ok {
+		return
+	}
+
+	queryStr, ok := queryRaw.(string)
+	if !ok {
+		return
+	}
+
+	lowerQuery := strings.ToLower(queryStr)
+	if strings.Contains(lowerQuery, "call gds.graph.project") {
+		s.anService.EmitEvent(s.anService.NewGDSProjCreatedEvent())
+	}
+	if strings.Contains(lowerQuery, "call gds.graph.drop") {
+		s.anService.EmitEvent(s.anService.NewGDSProjDropEvent())
 	}
 }
