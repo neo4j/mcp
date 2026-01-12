@@ -416,6 +416,7 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 	}
 
 	toolName := request.Params.Name
+	success := !result.IsError
 
 	// For HTTP mode: collect DB info per request and include with tool event
 	// For STDIO mode: emit tool event without DB info (already sent at startup)
@@ -431,9 +432,9 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 		}
 
 		// Always emit tool event with DB context (credentials may differ per request in multi-tenant scenarios)
-		s.anService.EmitEvent(s.anService.NewToolEventWithContext(toolName, connInfo))
+		s.anService.EmitEvent(s.anService.NewToolEventWithContext(toolName, connInfo, success))
 	} else {
-		s.anService.EmitEvent(s.anService.NewToolsEvent(toolName))
+		s.anService.EmitEvent(s.anService.NewToolsEvent(toolName, success))
 	}
 
 	// Handle GDS events for cypher tools

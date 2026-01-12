@@ -303,17 +303,17 @@ func (c *MockServiceNewStartupEventCall) DoAndReturn(f func() analytics.TrackEve
 }
 
 // NewToolEventWithContext mocks base method.
-func (m *MockService) NewToolEventWithContext(toolsUsed string, connInfo analytics.ConnectionEventInfo) analytics.TrackEvent {
+func (m *MockService) NewToolEventWithContext(toolsUsed string, connInfo analytics.ConnectionEventInfo, success bool) analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewToolEventWithContext", toolsUsed, connInfo)
+	ret := m.ctrl.Call(m, "NewToolEventWithContext", toolsUsed, connInfo, success)
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
 // NewToolEventWithContext indicates an expected call of NewToolEventWithContext.
-func (mr *MockServiceMockRecorder) NewToolEventWithContext(toolsUsed, connInfo any) *MockServiceNewToolEventWithContextCall {
+func (mr *MockServiceMockRecorder) NewToolEventWithContext(toolsUsed, connInfo, success any) *MockServiceNewToolEventWithContextCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEventWithContext", reflect.TypeOf((*MockService)(nil).NewToolEventWithContext), toolsUsed, connInfo)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEventWithContext", reflect.TypeOf((*MockService)(nil).NewToolEventWithContext), toolsUsed, connInfo, success)
 	return &MockServiceNewToolEventWithContextCall{Call: call}
 }
 
@@ -329,29 +329,29 @@ func (c *MockServiceNewToolEventWithContextCall) Return(arg0 analytics.TrackEven
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewToolEventWithContextCall) Do(f func(string, analytics.ConnectionEventInfo) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
+func (c *MockServiceNewToolEventWithContextCall) Do(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewToolEventWithContextCall) DoAndReturn(f func(string, analytics.ConnectionEventInfo) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
+func (c *MockServiceNewToolEventWithContextCall) DoAndReturn(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventWithContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // NewToolsEvent mocks base method.
-func (m *MockService) NewToolsEvent(toolsUsed string) analytics.TrackEvent {
+func (m *MockService) NewToolsEvent(toolsUsed string, success bool) analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewToolsEvent", toolsUsed)
+	ret := m.ctrl.Call(m, "NewToolsEvent", toolsUsed, success)
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
 // NewToolsEvent indicates an expected call of NewToolsEvent.
-func (mr *MockServiceMockRecorder) NewToolsEvent(toolsUsed any) *MockServiceNewToolsEventCall {
+func (mr *MockServiceMockRecorder) NewToolsEvent(toolsUsed, success any) *MockServiceNewToolsEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolsEvent", reflect.TypeOf((*MockService)(nil).NewToolsEvent), toolsUsed)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolsEvent", reflect.TypeOf((*MockService)(nil).NewToolsEvent), toolsUsed, success)
 	return &MockServiceNewToolsEventCall{Call: call}
 }
 
@@ -367,13 +367,13 @@ func (c *MockServiceNewToolsEventCall) Return(arg0 analytics.TrackEvent) *MockSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewToolsEventCall) Do(f func(string) analytics.TrackEvent) *MockServiceNewToolsEventCall {
+func (c *MockServiceNewToolsEventCall) Do(f func(string, bool) analytics.TrackEvent) *MockServiceNewToolsEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewToolsEventCall) DoAndReturn(f func(string) analytics.TrackEvent) *MockServiceNewToolsEventCall {
+func (c *MockServiceNewToolsEventCall) DoAndReturn(f func(string, bool) analytics.TrackEvent) *MockServiceNewToolsEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

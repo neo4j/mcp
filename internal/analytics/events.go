@@ -44,6 +44,7 @@ type connectionInitializedProperties struct {
 type toolsProperties struct {
 	baseProperties
 	ToolUsed string `json:"tools_used"`
+	Success  bool   `json:"success"`
 }
 
 // toolsWithContextProperties is used for HTTP mode to include DB context with each tool call
@@ -53,6 +54,7 @@ type toolsWithContextProperties struct {
 	Neo4jVersion  string   `json:"neo4j_version"`
 	Edition       string   `json:"edition"`
 	CypherVersion []string `json:"cypher_version"`
+	Success       bool     `json:"success"`
 }
 
 type TrackEvent struct {
@@ -115,18 +117,19 @@ func (a *Analytics) NewConnectionInitializedEvent(connInfo ConnectionEventInfo) 
 }
 
 // NewToolsEvent creates a tool usage event (STDIO mode - without DB context)
-func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
+func (a *Analytics) NewToolsEvent(toolsUsed string, success bool) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsProperties{
 			baseProperties: a.getBaseProperties(),
 			ToolUsed:       toolsUsed,
+			Success:        success,
 		},
 	}
 }
 
 // NewToolEventWithContext creates a tool usage event with DB context (HTTP mode only)
-func (a *Analytics) NewToolEventWithContext(toolsUsed string, connInfo ConnectionEventInfo) TrackEvent {
+func (a *Analytics) NewToolEventWithContext(toolsUsed string, connInfo ConnectionEventInfo, success bool) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolsWithContextProperties{
@@ -135,6 +138,7 @@ func (a *Analytics) NewToolEventWithContext(toolsUsed string, connInfo Connectio
 			Neo4jVersion:   connInfo.Neo4jVersion,
 			Edition:        connInfo.Edition,
 			CypherVersion:  connInfo.CypherVersion,
+			Success:        success,
 		},
 	}
 }

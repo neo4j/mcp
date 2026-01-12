@@ -151,8 +151,7 @@ func TestGetSchemaHandler(t *testing.T) {
 func TestGetSchemaProcessing(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	analyticsService := analytics.NewMockService(ctrl)
-	analyticsService.EXPECT().NewToolsEvent("get-schema").AnyTimes()
-	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	// Note: Handlers no longer emit events directly - events are emitted via hooks in server.go
 	defer ctrl.Finish()
 
 	testCases := []struct {

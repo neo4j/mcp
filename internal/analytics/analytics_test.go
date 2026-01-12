@@ -200,13 +200,16 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewToolsEvent", func(t *testing.T) {
-		event := analyticsService.NewToolsEvent("gds")
+		event := analyticsService.NewToolsEvent("gds", true)
 		if event.Event != "MCP4NEO4J_TOOL_USED" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_TOOL_USED")
 		}
 		props := assertBaseProperties(t, event.Properties)
 		if props["tools_used"] != "gds" {
 			t.Errorf("unexpected tools_used: got %v, want %v", props["tools_used"], "gds")
+		}
+		if props["success"] != true {
+			t.Errorf("unexpected success: got %v, want %v", props["success"], true)
 		}
 	})
 

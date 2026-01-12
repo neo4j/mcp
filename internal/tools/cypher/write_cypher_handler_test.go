@@ -17,8 +17,7 @@ import (
 func TestWriteCypherHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	analyticsService := analytics.NewMockService(ctrl)
-	analyticsService.EXPECT().NewToolsEvent("write-cypher").AnyTimes()
-	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	// Note: Handlers no longer emit events directly - events are emitted via hooks in server.go
 	defer ctrl.Finish()
 
 	t.Run("successful cypher execution with parameters", func(t *testing.T) {
