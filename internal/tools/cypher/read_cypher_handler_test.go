@@ -295,7 +295,7 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "CREATE (n:Test)", gomock.Nil()).
-			Return(neo4j.QueryTypeReadOnly, nil)
+			Return(neo4j.QueryTypeWriteOnly, nil)
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
