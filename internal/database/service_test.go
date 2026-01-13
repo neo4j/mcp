@@ -114,7 +114,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 
 func TestNewNeo4jService(t *testing.T) {
 	t.Run("nil driver error", func(t *testing.T) {
-		service, err := database.NewNeo4jService(nil, "", config.TransportModeStdio)
+		service, err := database.NewNeo4jService(nil, "", config.TransportModeStdio, "test-version")
 
 		if err == nil {
 			t.Errorf("expected error when driver is nil, got nil")

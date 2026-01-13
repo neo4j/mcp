@@ -12,23 +12,27 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+const appName string = "MCP4NEO4J"
+
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver        neo4j.DriverWithContext
-	database      string
-	transportMode string // Transport mode (stdio or http)
+	driver          neo4j.DriverWithContext
+	database        string
+	transportMode   string // Transport mode (stdio or http)
+	neo4jMCPVersion string
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportMode string) (*Neo4jService, error) {
+func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportMode string, neo4jMCPVersion string) (*Neo4jService, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
 
 	return &Neo4jService{
-		driver:        driver,
-		database:      database,
-		transportMode: transportMode,
+		driver:          driver,
+		database:        database,
+		transportMode:   transportMode,
+		neo4jMCPVersion: neo4jMCPVersion,
 	}, nil
 }
 
@@ -38,9 +42,14 @@ func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportM
 // If credentials are absent, they are not added to the query options (driver defaults apply).
 // For STDIO mode: uses driver's built-in credentials (no auth token added).
 // The baseOptions parameter allows adding routing-specific options (readers/writers).
+// TxMetadata is added to recognize queries coming from Neo4j MCP.
 func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
+
+	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
+
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
 		neo4j.ExecuteQueryWithDatabase(s.database),
+		neo4j.ExecuteQueryWithTransactionConfig(txMetadata),
 	}
 
 	// Add any base options (routing, etc.)
