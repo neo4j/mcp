@@ -63,7 +63,7 @@ func main() {
 		authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
 	}
 
-	driver, err := neo4j.NewDriverWithContext(cfg.URI, authToken)
+	driver, err := neo4j.NewDriver(cfg.URI, authToken)
 	if err != nil {
 		slog.Error("Failed to create Neo4j driver", "error", err)
 		os.Exit(1)

@@ -14,13 +14,13 @@ import (
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver        neo4j.DriverWithContext
+	driver        neo4j.Driver
 	database      string
 	transportMode string // Transport mode (stdio or http)
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportMode string) (*Neo4jService, error) {
+func NewNeo4jService(driver neo4j.Driver, database string, transportMode string) (*Neo4jService, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
@@ -99,7 +99,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
-func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
+func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error) {
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 
 	queryOptions := s.buildQueryOptions(ctx)
@@ -108,16 +108,16 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
 		slog.Error("Error during GetQueryType", "error", wrappedErr)
-		return neo4j.StatementTypeUnknown, wrappedErr
+		return neo4j.QueryTypeUnknown, wrappedErr
 	}
 
 	if res.Summary == nil {
 		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
 		slog.Error("Error during GetQueryType", "error", err)
-		return neo4j.StatementTypeUnknown, err
+		return neo4j.QueryTypeUnknown, err
 	}
 
-	return res.Summary.StatementType(), nil
+	return res.Summary.QueryType(), nil
 
 }
 

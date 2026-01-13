@@ -19,7 +19,7 @@ type QueryExecutor interface {
 
 	// GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 	// This allows read-only tools to determine if a query is safe to run in read-only context.
-	GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error)
+	GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error)
 }
 
 // RecordFormatter defines the interface for formatting Neo4j records
