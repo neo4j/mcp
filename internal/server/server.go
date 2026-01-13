@@ -17,6 +17,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
+	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -210,10 +211,25 @@ func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
 
 // collectConnectionInfo queries the database for connection information (HTTP mode - per tool call)
 func (s *Neo4jMCPServer) collectConnectionInfo(ctx context.Context) analytics.ConnectionEventInfo {
+	// In HTTP mode, verify auth is present in context before attempting DB query
+	if s.config.TransportMode == config.TransportModeHTTP {
+		_, _, hasAuth := auth.GetBasicAuthCredentials(ctx) // TODO: expand this to include Bearer auth when its implemented
+		if !hasAuth {
+			slog.Error("Auth credentials not found in context for HTTP mode DB query",
+				"operation", "collectConnectionInfo")
+			return analytics.ConnectionEventInfo{
+				Neo4jVersion:  "unknown",
+				Edition:       "unknown",
+				CypherVersion: []string{"unknown"},
+			}
+		}
+	}
+
 	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
 	if err != nil {
-		slog.Debug("Failed to collect connection info for tool event", "error", err.Error())
-		// Return default values on error (graceful degradation)
+		slog.Warn("Failed to collect connection info for tool event",
+			"error", err.Error(),
+			"mode", s.config.TransportMode)
 		return analytics.ConnectionEventInfo{
 			Neo4jVersion:  "unknown",
 			Edition:       "unknown",
