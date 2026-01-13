@@ -78,7 +78,7 @@ func main() {
 	}()
 
 	// Create database service
-	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.TransportMode)
+	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.TransportMode, Version)
 	if err != nil {
 		slog.Error("Failed to create database service", "error", err)
 		return
