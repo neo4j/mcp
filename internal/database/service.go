@@ -82,7 +82,6 @@ func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
 	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
 
-	neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer)
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
