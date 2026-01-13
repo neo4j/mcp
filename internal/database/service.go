@@ -12,7 +12,7 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-const APP_NAME string = "MCP4NEO4J"
+const appName string = "MCP4NEO4J"
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
@@ -45,7 +45,7 @@ func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportM
 // TxMetadata is added to recognize queries coming from Neo4j MCP.
 func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
 
-	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{APP_NAME, s.neo4jMCPVersion}, "/")})
+	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
 
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
 		neo4j.ExecuteQueryWithDatabase(s.database),
