@@ -34,3 +34,10 @@ func GetBearerToken(ctx context.Context) (string, bool) {
 	token, ok := ctx.Value(bearerTokenKey).(string)
 	return token, ok
 }
+
+// HasAuth checks if either basic auth or bearer token is present in the context
+func HasAuth(ctx context.Context) bool {
+	_, _, okBasic := GetBasicAuthCredentials(ctx)
+	_, okBearer := GetBearerToken(ctx)
+	return okBasic || okBearer
+}

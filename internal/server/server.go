@@ -213,8 +213,7 @@ func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
 func (s *Neo4jMCPServer) collectConnectionInfo(ctx context.Context) analytics.ConnectionEventInfo {
 	// In HTTP mode, verify auth is present in context before attempting DB query
 	if s.config.TransportMode == config.TransportModeHTTP {
-		_, _, hasAuth := auth.GetBasicAuthCredentials(ctx) // TODO: expand this to include Bearer auth when its implemented
-		if !hasAuth {
+		if !auth.HasAuth(ctx) {
 			slog.Error("Auth credentials not found in context for HTTP mode DB query",
 				"operation", "collectConnectionInfo")
 			return analytics.ConnectionEventInfo{
