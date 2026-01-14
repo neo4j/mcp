@@ -10,7 +10,7 @@ import (
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -27,7 +27,7 @@ func TestReadCypherHandler(t *testing.T) {
 			Return([]*neo4j.Record{}, nil)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n:Person {name: $name}) RETURN n", map[string]any{"name": "Alice"}).
-			Return(neo4j.StatementTypeReadOnly, nil)
+			Return(neo4j.QueryTypeReadOnly, nil)
 		mockDB.EXPECT().
 			Neo4jRecordsToJSON(gomock.Any()).
 			Return(`[{"n": {"name": "Alice"}}]`, nil)
@@ -61,7 +61,7 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil()).
-			Return(neo4j.StatementTypeReadOnly, nil)
+			Return(neo4j.QueryTypeReadOnly, nil)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN count(n)", gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
@@ -225,7 +225,7 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "INVALID CYPHER", gomock.Nil()).
-			Return(neo4j.StatementTypeReadOnly, nil)
+			Return(neo4j.QueryTypeReadOnly, nil)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "INVALID CYPHER", gomock.Nil()).
 			Return(nil, errors.New("syntax error"))
@@ -258,7 +258,7 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil()).
-			Return(neo4j.StatementTypeReadOnly, nil)
+			Return(neo4j.QueryTypeReadOnly, nil)
 		mockDB.EXPECT().
 			ExecuteReadQuery(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil()).
 			Return([]*neo4j.Record{}, nil)
@@ -294,7 +294,7 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "CREATE (n:Test)", gomock.Nil()).
-			Return(neo4j.StatementTypeWriteOnly, nil)
+			Return(neo4j.QueryTypeWriteOnly, nil)
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,
@@ -323,7 +323,7 @@ func TestReadCypherHandler(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().
 			GetQueryType(gomock.Any(), "MATCH (n) RETURN n", gomock.Nil()).
-			Return(neo4j.StatementTypeUnknown, errors.New("driver error"))
+			Return(neo4j.QueryTypeUnknown, errors.New("driver error"))
 
 		deps := &tools.ToolDependencies{
 			DBService:        mockDB,

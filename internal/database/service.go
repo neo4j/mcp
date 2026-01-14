@@ -9,38 +9,48 @@ import (
 
 	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
+
+const appName string = "MCP4NEO4J"
 
 // Neo4jService is the concrete implementation of DatabaseService
 type Neo4jService struct {
-	driver        neo4j.DriverWithContext
-	database      string
-	transportMode string // Transport mode (stdio or http)
+	driver          neo4j.Driver
+	database        string
+	transportMode   string // Transport mode (stdio or http)
+	neo4jMCPVersion string
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.DriverWithContext, database string, transportMode string) (*Neo4jService, error) {
+func NewNeo4jService(driver neo4j.Driver, database string, transportMode string, neo4jMCPVersion string) (*Neo4jService, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
 
 	return &Neo4jService{
-		driver:        driver,
-		database:      database,
-		transportMode: transportMode,
+		driver:          driver,
+		database:        database,
+		transportMode:   transportMode,
+		neo4jMCPVersion: neo4jMCPVersion,
 	}, nil
 }
 
 // buildQueryOptions builds Neo4j query options based on transport mode.
 // For HTTP mode: extracts credentials from context and uses impersonation.
-// Note: HTTP mode requires Basic Auth via middleware, so credentials are always present.
+// Supports both Bearer token auth (preferred for SSO/OAuth) and Basic Auth (fallback).
+// Bearer tokens are passed directly to Neo4j for SSO/OAuth scenarios.
 // If credentials are absent, they are not added to the query options (driver defaults apply).
 // For STDIO mode: uses driver's built-in credentials (no auth token added).
 // The baseOptions parameter allows adding routing-specific options (readers/writers).
+// TxMetadata is added to recognize queries coming from Neo4j MCP.
 func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
+
+	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
+
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
 		neo4j.ExecuteQueryWithDatabase(s.database),
+		neo4j.ExecuteQueryWithTransactionConfig(txMetadata),
 	}
 
 	// Add any base options (routing, etc.)
@@ -48,8 +58,12 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 
 	// For HTTP mode, extract credentials from context and use impersonation
 	if s.transportMode == config.TransportModeHTTP {
-		username, password, hasAuth := auth.GetBasicAuthCredentials(ctx)
-		if hasAuth {
+		// Try bearer token first (preferred for SSO/OAuth)
+		if token, hasBearerToken := auth.GetBearerToken(ctx); hasBearerToken {
+			authToken := neo4j.BearerAuth(token)
+			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
+		} else if username, password, hasBasicAuth := auth.GetBasicAuthCredentials(ctx); hasBasicAuth {
+			// Fall back to basic auth
 			authToken := neo4j.BasicAuth(username, password, "")
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
 		}
@@ -99,7 +113,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 
 // GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
 // This allows read-only tools to determine if a query is safe to run in read-only context.
-func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
+func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error) {
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 
 	queryOptions := s.buildQueryOptions(ctx)
@@ -108,16 +122,16 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
 		slog.Error("Error during GetQueryType", "error", wrappedErr)
-		return neo4j.StatementTypeUnknown, wrappedErr
+		return neo4j.QueryTypeUnknown, wrappedErr
 	}
 
 	if res.Summary == nil {
 		err := fmt.Errorf("error during GetQueryType: no summary returned for explained query")
 		slog.Error("Error during GetQueryType", "error", err)
-		return neo4j.StatementTypeUnknown, err
+		return neo4j.QueryTypeUnknown, err
 	}
 
-	return res.Summary.StatementType(), nil
+	return res.Summary.QueryType(), nil
 
 }
 

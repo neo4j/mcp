@@ -65,14 +65,14 @@ Should print the installed version.
 The Neo4j MCP server supports two transport modes:
 
 - **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients (Claude Desktop, VSCode)
-- **HTTP**: RESTful HTTP server with per-request Basic Authentication for web-based clients and multi-tenant scenarios
+- **HTTP**: RESTful HTTP server with per-request Bearer token or Basic Authentication for web-based clients and multi-tenant scenarios
 
 ### Key Differences
 
 | Aspect               | STDIO                                                      | HTTP                                                                       |
 | -------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Startup Verification | Required - server verifies APOC, connectivity, queries     | Skipped - server starts immediately                                        |
-| Credentials          | Set via environment variables                              | Per-request via Basic Auth headers                                         |
+| Credentials          | Set via environment variables                              | Per-request via Bearer token or Basic Auth headers                         |
 | Telemetry            | Collects Neo4j version, edition, Cypher version at startup | Reports "unknown-http-mode" - actual version info not available at startup |
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.

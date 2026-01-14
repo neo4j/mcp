@@ -13,13 +13,14 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
-// go build -C cmd/neo4j-mcp -o ../../bin/ -ldflags "-X 'main.Version=9999' -X 'main.MixPanelEndpoint=https://api-eu.mixpanel.com' -X 'main.MixPanelToken=your-mixpanel-token'"
+// go build -C cmd/neo4j-mcp -o ../../bin/ -ldflags "-X 'main.Version=9999'"
 var Version = "development"
-var MixPanelEndpoint = ""
-var MixPanelToken = ""
+
+const MixPanelEndpoint = "https://api.mixpanel.com"
+const MixPanelToken = "4bfb2414ab973c741b6f067bf06d5575" // #nosec G101 -- MixPanel tokens are safe to be public
 
 func main() {
 	// Handle CLI arguments (version, help, etc.)
@@ -62,7 +63,7 @@ func main() {
 		authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
 	}
 
-	driver, err := neo4j.NewDriverWithContext(cfg.URI, authToken)
+	driver, err := neo4j.NewDriver(cfg.URI, authToken)
 	if err != nil {
 		slog.Error("Failed to create Neo4j driver", "error", err)
 		os.Exit(1)
@@ -77,7 +78,7 @@ func main() {
 	}()
 
 	// Create database service
-	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.TransportMode)
+	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.TransportMode, Version)
 	if err != nil {
 		slog.Error("Failed to create database service", "error", err)
 		return
@@ -85,8 +86,8 @@ func main() {
 
 	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI, cfg.TransportMode, cfg.HTTPTLSEnabled, Version)
 
-	// Enable telemetry only when user has opted in AND the required tokens are present
-	if cfg.Telemetry && MixPanelEndpoint != "" && MixPanelToken != "" {
+	// Enable telemetry only when user has opted in AND Version is different from "development", which is changed via ldflags at build time.
+	if cfg.Telemetry && Version != "development" {
 		anService.Enable()
 		log.Println("Telemetry is enabled to help us improve the product by collecting anonymous usage data such as: tools being used, the operating system, and CPU architecture.")
 		log.Println("To disable telemetry, set the NEO4J_TELEMETRY environment variable to \"false\".")

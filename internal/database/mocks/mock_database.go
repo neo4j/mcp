@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	neo4j "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	neo4j "github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -72,10 +72,10 @@ func (mr *MockServiceMockRecorder) ExecuteWriteQuery(ctx, cypher, params any) *g
 }
 
 // GetQueryType mocks base method.
-func (m *MockService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.StatementType, error) {
+func (m *MockService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetQueryType", ctx, cypher, params)
-	ret0, _ := ret[0].(neo4j.StatementType)
+	ret0, _ := ret[0].(neo4j.QueryType)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
