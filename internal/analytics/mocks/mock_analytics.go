@@ -341,17 +341,17 @@ func (c *MockServiceNewStartupEventCall) DoAndReturn(f func() analytics.TrackEve
 }
 
 // NewToolEvent mocks base method.
-func (m *MockService) NewToolEvent(toolsUsed string, connInfo analytics.ConnectionEventInfo, success bool) analytics.TrackEvent {
+func (m *MockService) NewToolEvent(toolsUsed string, success bool) analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewToolEvent", toolsUsed, connInfo, success)
+	ret := m.ctrl.Call(m, "NewToolEvent", toolsUsed, success)
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
 // NewToolEvent indicates an expected call of NewToolEvent.
-func (mr *MockServiceMockRecorder) NewToolEvent(toolsUsed, connInfo, success any) *MockServiceNewToolEventCall {
+func (mr *MockServiceMockRecorder) NewToolEvent(toolsUsed, success any) *MockServiceNewToolEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEvent", reflect.TypeOf((*MockService)(nil).NewToolEvent), toolsUsed, connInfo, success)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewToolEvent", reflect.TypeOf((*MockService)(nil).NewToolEvent), toolsUsed, success)
 	return &MockServiceNewToolEventCall{Call: call}
 }
 
@@ -367,13 +367,13 @@ func (c *MockServiceNewToolEventCall) Return(arg0 analytics.TrackEvent) *MockSer
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewToolEventCall) Do(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventCall {
+func (c *MockServiceNewToolEventCall) Do(f func(string, bool) analytics.TrackEvent) *MockServiceNewToolEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewToolEventCall) DoAndReturn(f func(string, analytics.ConnectionEventInfo, bool) analytics.TrackEvent) *MockServiceNewToolEventCall {
+func (c *MockServiceNewToolEventCall) DoAndReturn(f func(string, bool) analytics.TrackEvent) *MockServiceNewToolEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

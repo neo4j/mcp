@@ -82,8 +82,8 @@ func TestCollectConnectionInfo_STDIOModeIgnoresAuth(t *testing.T) {
 	// Call collectConnectionInfo - should proceed with DB query
 	connInfo := srv.collectConnectionInfo(ctx)
 
-	// Verify default values are returned (since we returned empty records)
-	if connInfo.Neo4jVersion != "not-found" {
-		t.Errorf("Expected Neo4jVersion to be 'not-found' for empty records, got '%s'", connInfo.Neo4jVersion)
+	// Verify default "unknown" value is returned (since we returned empty records)
+	if connInfo.Neo4jVersion != "unknown" {
+		t.Errorf("Expected Neo4jVersion to be 'unknown' for empty records, got '%s'", connInfo.Neo4jVersion)
 	}
 }

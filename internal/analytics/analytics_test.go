@@ -200,12 +200,7 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewToolEvent", func(t *testing.T) {
-		connInfo := analytics.ConnectionEventInfo{
-			Neo4jVersion:  "5.18.0",
-			Edition:       "enterprise",
-			CypherVersion: []string{"5"},
-		}
-		event := analyticsService.NewToolEvent("gds", connInfo, true)
+		event := analyticsService.NewToolEvent("gds", true)
 		if event.Event != "MCP4NEO4J_TOOL_USED" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_TOOL_USED")
 		}
@@ -213,15 +208,10 @@ func TestEventCreation(t *testing.T) {
 		if props["tools_used"] != "gds" {
 			t.Errorf("unexpected tools_used: got %v, want %v", props["tools_used"], "gds")
 		}
-		if props["neo4j_version"] != "5.18.0" {
-			t.Errorf("unexpected neo4j_version: got %v, want %v", props["neo4j_version"], "5.18.0")
-		}
-		if props["edition"] != "enterprise" {
-			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
-		}
 		if props["success"] != true {
 			t.Errorf("unexpected success: got %v, want %v", props["success"], true)
 		}
+		// Note: Neo4j connection info (version, edition, cypher version) is sent separately in CONNECTION_INITIALIZED event
 	})
 
 	t.Run("NewStartupEvent", func(t *testing.T) {

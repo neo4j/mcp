@@ -41,14 +41,12 @@ type connectionInitializedProperties struct {
 	CypherVersion []string `json:"cypher_version"`
 }
 
-// toolProperties contains all tool event properties (used for both STDIO and HTTP modes)
+// toolProperties contains tool event properties (used for both STDIO and HTTP modes)
+// Note: Neo4j connection info (version, edition, cypher version) is sent once in CONNECTION_INITIALIZED event
 type toolProperties struct {
 	baseProperties
-	ToolUsed      string   `json:"tools_used"`
-	Neo4jVersion  string   `json:"neo4j_version"`
-	Edition       string   `json:"edition"`
-	CypherVersion []string `json:"cypher_version"`
-	Success       bool     `json:"success"`
+	ToolUsed string `json:"tools_used"`
+	Success  bool   `json:"success"`
 }
 
 type TrackEvent struct {
@@ -110,16 +108,14 @@ func (a *Analytics) NewConnectionInitializedEvent(connInfo ConnectionEventInfo) 
 	}
 }
 
-// NewToolEvent creates a tool usage event with DB context (used for both STDIO and HTTP modes)
-func (a *Analytics) NewToolEvent(toolsUsed string, connInfo ConnectionEventInfo, success bool) TrackEvent {
+// NewToolEvent creates a tool usage event (used for both STDIO and HTTP modes)
+// Note: Connection info (Neo4j version, edition) is sent separately in CONNECTION_INITIALIZED event
+func (a *Analytics) NewToolEvent(toolsUsed string, success bool) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
 		Properties: toolProperties{
 			baseProperties: a.getBaseProperties(),
 			ToolUsed:       toolsUsed,
-			Neo4jVersion:   connInfo.Neo4jVersion,
-			Edition:        connInfo.Edition,
-			CypherVersion:  connInfo.CypherVersion,
 			Success:        success,
 		},
 	}

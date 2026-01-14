@@ -245,10 +245,11 @@ func (s *Neo4jMCPServer) collectConnectionInfo(ctx context.Context) analytics.Co
 
 // recordsToConnectionEventInfo converts dbms.components() records to ConnectionEventInfo
 func recordsToConnectionEventInfo(records []*neo4j.Record) analytics.ConnectionEventInfo {
+	// Default to "unknown" for all failure cases (empty records, malformed data, etc.)
 	connInfo := analytics.ConnectionEventInfo{
-		Neo4jVersion:  "not-found",
-		Edition:       "not-found",
-		CypherVersion: []string{"not-found"},
+		Neo4jVersion:  "unknown",
+		Edition:       "unknown",
+		CypherVersion: []string{"unknown"},
 	}
 
 	for _, record := range records {
@@ -439,29 +440,28 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 	toolName := request.Params.Name
 	success := !result.IsError
 
-	// Use cached connection info if available (both STDIO and HTTP modes)
-	connInfo := s.connectionInfo
-
-	// If not cached yet, collect and cache it (happens in HTTP mode on first tool call)
-	if connInfo.Neo4jVersion == "" {
-		connInfo = s.collectConnectionInfo(ctx)
-		if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "unknown" {
-			s.connectionInfo = connInfo // Cache for future tool calls
-		}
-	}
-
 	// HTTP mode only: emit connection initialized event on first successful tool call
 	// (STDIO mode emits this at startup instead)
 	if s.config.TransportMode == config.TransportModeHTTP {
-		if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "not-found" {
+		// Collect connection info once for CONNECTION_INITIALIZED event
+		if s.connectionInfo.Neo4jVersion == "" {
+			connInfo := s.collectConnectionInfo(ctx)
+			// Only cache if we got valid connection info (not empty, not "unknown")
+			if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "unknown" {
+				s.connectionInfo = connInfo // Cache for future tool calls
+			}
+		}
+
+		// Emit connection initialized event only once per session if we have valid connection info
+		if s.connectionInfo.Neo4jVersion != "" && s.connectionInfo.Neo4jVersion != "unknown" {
 			s.httpConnectionInitSent.Do(func() {
-				s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
+				s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(s.connectionInfo))
 			})
 		}
 	}
 
-	// Emit tool event with DB context (both modes use the same event now for consistency)
-	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, connInfo, success))
+	// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
+	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, success))
 
 	// Handle GDS events for cypher tools
 	if toolName == "read-cypher" || toolName == "write-cypher" {

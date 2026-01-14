@@ -16,7 +16,7 @@ type Service interface {
 	NewGDSProjDropEvent() TrackEvent
 	NewStartupEvent() TrackEvent
 	NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent
-	NewToolEvent(toolsUsed string, connInfo ConnectionEventInfo, success bool) TrackEvent
+	NewToolEvent(toolsUsed string, success bool) TrackEvent
 }
 
 // dummy http client interface for our testing purposes
