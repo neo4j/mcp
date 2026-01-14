@@ -82,6 +82,7 @@ func getAnalyticsMock(t *testing.T) *analytics.MockService {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().Disable().AnyTimes()
 	analyticsService.EXPECT().Enable().AnyTimes()
