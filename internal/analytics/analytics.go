@@ -94,6 +94,10 @@ func (a *Analytics) Disable() {
 	a.disabled = true
 }
 
+func (a *Analytics) IsEnabled() bool {
+	return !a.disabled
+}
+
 func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {

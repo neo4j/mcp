@@ -198,6 +198,10 @@ func (s *Neo4jMCPServer) emitServerStartupEvent() {
 
 // emitConnectionInitializedEvent emits the connection initialized event with DB information (STDIO mode only)
 func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
+	if !s.anService.IsEnabled() {
+		return
+	}
+
 	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
 	if err != nil {
 		slog.Debug("Failed to collect connection metadata", "error", err.Error())
@@ -428,7 +432,7 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 
 // handleToolCallComplete is called after every tool call completes
 func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, request *mcp.CallToolRequest, result *mcp.CallToolResult) {
-	if s.anService == nil {
+	if s.anService == nil || !s.anService.IsEnabled() {
 		return
 	}
 

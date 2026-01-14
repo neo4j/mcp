@@ -150,6 +150,44 @@ func (c *MockServiceEnableCall) DoAndReturn(f func()) *MockServiceEnableCall {
 	return c
 }
 
+// IsEnabled mocks base method.
+func (m *MockService) IsEnabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsEnabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsEnabled indicates an expected call of IsEnabled.
+func (mr *MockServiceMockRecorder) IsEnabled() *MockServiceIsEnabledCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEnabled", reflect.TypeOf((*MockService)(nil).IsEnabled))
+	return &MockServiceIsEnabledCall{Call: call}
+}
+
+// MockServiceIsEnabledCall wrap *gomock.Call
+type MockServiceIsEnabledCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServiceIsEnabledCall) Return(arg0 bool) *MockServiceIsEnabledCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServiceIsEnabledCall) Do(f func() bool) *MockServiceIsEnabledCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServiceIsEnabledCall) DoAndReturn(f func() bool) *MockServiceIsEnabledCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NewConnectionInitializedEvent mocks base method.
 func (m *MockService) NewConnectionInitializedEvent(connInfo analytics.ConnectionEventInfo) analytics.TrackEvent {
 	m.ctrl.T.Helper()

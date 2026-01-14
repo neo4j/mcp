@@ -10,6 +10,7 @@ import (
 type Service interface {
 	Disable()
 	Enable()
+	IsEnabled() bool
 	EmitEvent(event TrackEvent)
 	NewGDSProjCreatedEvent() TrackEvent
 	NewGDSProjDropEvent() TrackEvent

@@ -17,6 +17,7 @@ func TestToolRegister(t *testing.T) {
 	defer ctrl.Finish()
 
 	aService := analytics.NewMockService(ctrl)
+	aService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent().AnyTimes()
 	aService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
