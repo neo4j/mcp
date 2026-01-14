@@ -1,5 +1,5 @@
 kind: Patch
 body: |
   Added HTTP mode telemetry that collects and emits startup metrics (transport mode, TLS status, Neo4j version) on the first HTTP request when telemetry is enabled. Includes comprehensive test coverage with proper goroutine synchronization using testing/synctest.
-  Install CA certificates in Dockerfile to support HTTPS connections.
-time: 2025-12-19T15:21:24.0517Z
+  Added bearer token support for MCP server.
+time: 2026-01-14T13:24:30.339498Z
