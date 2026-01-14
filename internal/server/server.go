@@ -44,7 +44,7 @@ type Neo4jMCPServer struct {
 	version                string
 	anService              analytics.Service
 	gdsInstalled           bool
-	connectionInfo         analytics.ConnectionEventInfo // Cached connection info (STDIO: set at startup, HTTP: collected per request)
+	connectionInfo         analytics.ConnectionEventInfo // Cached connection info (STDIO: set at startup, HTTP: cached after first tool call)
 	httpConnectionInitSent sync.Once                     // Ensures connection initialized event is sent only once in HTTP mode
 }
 
@@ -439,22 +439,25 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 	toolName := request.Params.Name
 	success := !result.IsError
 
-	// Collect connection info based on transport mode
-	var connInfo analytics.ConnectionEventInfo
-	if s.config.TransportMode == config.TransportModeHTTP {
-		// HTTP mode: collect DB info per request (credentials may differ per request in multi-tenant scenarios)
-		connInfo = s.collectConnectionInfo(ctx)
+	// Use cached connection info if available (both STDIO and HTTP modes)
+	connInfo := s.connectionInfo
 
-		// Emit connection initialized event only once per session (on first successful tool call with DB connection)
-		// Note: We emit this even if the tool call failed, as long as we could connect to the DB to get connection info
+	// If not cached yet, collect and cache it (happens in HTTP mode on first tool call)
+	if connInfo.Neo4jVersion == "" {
+		connInfo = s.collectConnectionInfo(ctx)
+		if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "unknown" {
+			s.connectionInfo = connInfo // Cache for future tool calls
+		}
+	}
+
+	// HTTP mode only: emit connection initialized event on first successful tool call
+	// (STDIO mode emits this at startup instead)
+	if s.config.TransportMode == config.TransportModeHTTP {
 		if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "not-found" {
 			s.httpConnectionInitSent.Do(func() {
 				s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 			})
 		}
-	} else {
-		// STDIO mode: use cached connection info from startup
-		connInfo = s.connectionInfo
 	}
 
 	// Emit tool event with DB context (both modes use the same event now for consistency)
