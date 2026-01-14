@@ -49,6 +49,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	// For HTTP mode, extract credentials from context and use impersonation
 	if s.transportMode == config.TransportModeHTTP {
 		username, password, hasAuth := auth.GetBasicAuthCredentials(ctx)
+
 		if hasAuth {
 			authToken := neo4j.BasicAuth(username, password, "")
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
@@ -61,6 +62,20 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 
 // VerifyConnectivity checks the driver can establish a valid connection with a Neo4j instance;
 func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
+	// For HTTP mode, extract credentials from context and use impersonation
+	if s.transportMode == config.TransportModeHTTP {
+		username, password, hasAuth := auth.GetBasicAuthCredentials(ctx)
+
+		if hasAuth {
+			authToken := neo4j.BasicAuth(username, password, "")
+			// Verify database connectivity
+			if err := s.driver.VerifyAuthentication(ctx, &authToken); err != nil {
+				slog.Error("Failed to verify database connectivity", "error", err.Error())
+				return err
+			}
+			return nil
+		}
+	}
 	// Verify database connectivity
 	if err := s.driver.VerifyConnectivity(ctx); err != nil {
 		slog.Error("Failed to verify database connectivity", "error", err.Error())
@@ -77,6 +92,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
 		slog.Error("Error in ExecuteReadQuery", "error", wrappedErr)
+
 		return nil, wrappedErr
 	}
 

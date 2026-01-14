@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
@@ -21,71 +22,96 @@ import (
 )
 
 const (
-	protocolHTTP  = "http"
-	protocolHTTPS = "https"
-	serverHTTPShutdownTimeout   = 65 * time.Second // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
-	serverHTTPReadHeaderTimeout = 5 * time.Second  // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
-	serverHTTPReadTimeout       = 15 * time.Second // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
-	serverHTTPWriteTimeout      = 60 * time.Second // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
+	protocolHTTP                = "http"
+	protocolHTTPS               = "https"
+	serverHTTPShutdownTimeout   = 65 * time.Second  // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
+	serverHTTPReadHeaderTimeout = 5 * time.Second   // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
+	serverHTTPReadTimeout       = 15 * time.Second  // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
+	serverHTTPWriteTimeout      = 60 * time.Second  // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
 	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 )
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer       *server.MCPServer
-	httpServer      *http.Server
-	httpServerReady chan struct{}
-	shutdownChan    chan struct{}
-	config          *config.Config
-	dbService       database.Service
-	version         string
-	anService       analytics.Service
-	gdsInstalled    bool
+	MCPServer              *server.MCPServer
+	httpServer             *http.Server
+	httpServerReady        chan struct{}
+	shutdownChan           chan struct{}
+	config                 *config.Config
+	dbService              database.Service
+	version                string
+	anService              analytics.Service
+	gdsInstalled           bool
+	httpConnectionVerified bool
+	hooks                  *server.Hooks
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
 func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
+	hooks := &server.Hooks{}
 	mcpServer := server.NewMCPServer(
 		"neo4j-mcp",
 		version,
 		server.WithToolCapabilities(true),
 		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
 			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
+		server.WithHooks(hooks),
 	)
 
 	return &Neo4jMCPServer{
-		MCPServer:       mcpServer,
-		httpServerReady: make(chan struct{}),
-		shutdownChan:    make(chan struct{}),
-		config:          cfg,
-		dbService:       dbService,
-		version:         version,
-		anService:       anService,
-		gdsInstalled:    false,
+		MCPServer:              mcpServer,
+		httpServerReady:        make(chan struct{}),
+		shutdownChan:           make(chan struct{}),
+		config:                 cfg,
+		dbService:              dbService,
+		version:                version,
+		anService:              anService,
+		gdsInstalled:           false,
+		httpConnectionVerified: false,
+		hooks:                  hooks,
 	}
 }
 
 // Start initializes and starts the MCP server
 func (s *Neo4jMCPServer) Start() error {
-	err := s.verifyRequirements()
-	if err != nil {
-		return err
-	}
-
-	s.emitStartupEvent()
-
-	// Register tools
-	if err := s.registerTools(); err != nil {
-		return fmt.Errorf("failed to register tools: %w", err)
-	}
-
 	switch s.config.TransportMode {
 	case config.TransportModeHTTP:
+		// in case of http mode, the initialization process is delayed until the credentials are available.
+		// when the first client is performing the initialize request then the server perform
+		s.hooks.AddBeforeInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest) {
+			// if the connection is already verified does not perform the check anymore.
+			if s.httpConnectionVerified == true {
+				return
+			}
+			s.httpConnectionVerified = true
+			slog.Info("Verify server requirements")
+			if err := s.verifyRequirements(ctx); err != nil {
+				slog.Error("Server error", "error", err)
+			}
+			slog.Info("Registering server tools")
+			if err := s.registerTools(); err != nil {
+				slog.Error("Server error", "error", err)
+			}
+			s.emitStartupEvent(ctx)
+
+		})
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:
-		slog.Info("Starting stdio server")
-		return server.ServeStdio(s.MCPServer)
+		{
+			err := s.verifyRequirements(context.Background())
+			if err != nil {
+				return err
+			}
+
+			// Register tools
+			if err := s.registerTools(); err != nil {
+				return fmt.Errorf("failed to register tools: %w", err)
+			}
+			s.emitStartupEvent(context.Background())
+
+			return server.ServeStdio(s.MCPServer)
+		}
 	default:
 		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
 	}
@@ -115,20 +141,13 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
 // - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
-// Note: In HTTP mode, these checks are skipped at startup since credentials come from per-request Basic Auth headers.
-func (s *Neo4jMCPServer) verifyRequirements() error {
-	// Skip verification in HTTP mode - credentials come from per-request Basic Auth headers
-	if s.config.TransportMode == config.TransportModeHTTP {
-		slog.Info("Skipping startup verification in HTTP mode (credentials required per-request)")
-		return nil
-	}
-
-	err := s.dbService.VerifyConnectivity(context.Background())
+func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
+	err := s.dbService.VerifyConnectivity(ctx)
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
 	}
-	// Perform a dummy query to verify correctness of the connection, VerifyConnectivity is not exhaustive.
-	records, err := s.dbService.ExecuteReadQuery(context.Background(), "RETURN 1 as first", map[string]any{})
+	// Perform a dummy query to verify correctness of the connection.
+	records, err := s.dbService.ExecuteReadQuery(ctx, "RETURN 1 as first", map[string]any{})
 
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
@@ -144,7 +163,7 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
 
 	// Check for apoc.meta.schema availability
-	records, err = s.dbService.ExecuteReadQuery(context.Background(), checkApocMetaSchemaQuery, nil)
+	records, err = s.dbService.ExecuteReadQuery(ctx, checkApocMetaSchemaQuery, nil)
 	if err != nil {
 		return fmt.Errorf("failed to check for APOC availability: %w", err)
 	}
@@ -156,7 +175,7 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
 	}
 	// Call gds.version procedure to determine if GDS is installed
-	records, err = s.dbService.ExecuteReadQuery(context.Background(), "RETURN gds.version() as gdsVersion", nil)
+	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
 		// GDS is optional, so we log a warning and continue, assuming it's not installed.
 		log.Print("Impossible to verify GDS installation.")
@@ -173,28 +192,18 @@ func (s *Neo4jMCPServer) verifyRequirements() error {
 	return nil
 }
 
-func (s *Neo4jMCPServer) emitStartupEvent() {
+func (s *Neo4jMCPServer) emitStartupEvent(ctx context.Context) {
 	var startupInfo analytics.StartupEventInfo
 
-	// In HTTP mode, skip database query since credentials come from per-request Basic Auth headers
-	if s.config.TransportMode == config.TransportModeHTTP {
-		startupInfo = analytics.StartupEventInfo{
-			Neo4jVersion:  "unknown-http-mode",
-			Edition:       "unknown-http-mode",
-			CypherVersion: []string{"unknown-http-mode"},
-			McpVersion:    s.version,
-		}
-	} else {
-		// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
-		records, err := s.dbService.ExecuteReadQuery(context.Background(), "CALL dbms.components()", map[string]any{})
+	// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
+	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
 
-		if err != nil {
-			slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
-			return
-		}
-
-		startupInfo = recordsToStartupEventInfo(records, s.version)
+	if err != nil {
+		slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
+		return
 	}
+
+	startupInfo = recordsToStartupEventInfo(records, s.version)
 
 	// track startup event
 	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
