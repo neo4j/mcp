@@ -38,7 +38,8 @@ func NewNeo4jService(driver neo4j.Driver, database string, transportMode string,
 
 // buildQueryOptions builds Neo4j query options based on transport mode.
 // For HTTP mode: extracts credentials from context and uses impersonation.
-// Note: HTTP mode requires Basic Auth via middleware, so credentials are always present.
+// Supports both Bearer token auth (preferred for SSO/OAuth) and Basic Auth (fallback).
+// Bearer tokens are passed directly to Neo4j for SSO/OAuth scenarios.
 // If credentials are absent, they are not added to the query options (driver defaults apply).
 // For STDIO mode: uses driver's built-in credentials (no auth token added).
 // The baseOptions parameter allows adding routing-specific options (readers/writers).
@@ -57,8 +58,12 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 
 	// For HTTP mode, extract credentials from context and use impersonation
 	if s.transportMode == config.TransportModeHTTP {
-		username, password, hasAuth := auth.GetBasicAuthCredentials(ctx)
-		if hasAuth {
+		// Try bearer token first (preferred for SSO/OAuth)
+		if token, hasBearerToken := auth.GetBearerToken(ctx); hasBearerToken {
+			authToken := neo4j.BearerAuth(token)
+			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
+		} else if username, password, hasBasicAuth := auth.GetBasicAuthCredentials(ctx); hasBasicAuth {
+			// Fall back to basic auth
 			authToken := neo4j.BasicAuth(username, password, "")
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
 		}
