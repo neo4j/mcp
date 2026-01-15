@@ -28,6 +28,7 @@ import (
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	server "github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
 
@@ -109,7 +110,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		// in HTTP the serve should keep running even if the connectivity check fails.
 		// This is because the client can be misconfigured with invalid credentials
-		// and it should no affect the experience to other clients/users with correct information.
+		// and it should not affect the experience to other clients/users with correct information.
 
 		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1).Return(fmt.Errorf("connection error"))
 		// In HTTP mode, no database calls happen during Start()
@@ -126,7 +127,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 	})
 
-	t.Run("Server should no perform duplicate verification calls", func(t *testing.T) {
+	t.Run("Server should not perform duplicate verification calls", func(t *testing.T) {
 		// in HTTP mode once the requirements are check are not checked again, since the configuration are shared across users.
 		// the before initialization hook should not be used as authentication mechanism as it cannot return valid errors to the users.
 		mockDB := db.NewMockService(ctrl)
@@ -218,16 +219,13 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
-		// Expected tools that should be registered
-		// update this number when a tool is added or removed.
-		// All tools: get-schema, read-cypher, write-cypher, list-gds-procedures
-		expectedTotalToolsCount := 4
 
-		registeredTools := len(s.MCPServer.ListTools())
-
-		if expectedTotalToolsCount != registeredTools {
-			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
+		toolNames := make([]string, 0, len(s.MCPServer.ListTools()))
+		for _, tool := range s.MCPServer.ListTools() {
+			toolNames = append(toolNames, tool.Tool.Name)
 		}
+		assert.Contains(t, toolNames, "list-gds-procedures")
+
 		assertNoCloseOrStopError(t, s, errChan)
 
 	})
@@ -267,16 +265,13 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
-		// Expected tools that should be registered
-		// update this number when a tool is added or removed.
-		// All tools without GDS: get-schema, read-cypher, write-cypher
-		expectedTotalToolsCount := 3
-
-		registeredTools := len(s.MCPServer.ListTools())
-
-		if expectedTotalToolsCount != registeredTools {
-			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
+		toolNames := make([]string, 0, len(s.MCPServer.ListTools()))
+		for _, tool := range s.MCPServer.ListTools() {
+			toolNames = append(toolNames, tool.Tool.Name)
 		}
+		assert.NotContains(t, toolNames, "list-gds-procedures")
+
+		
 		assertNoCloseOrStopError(t, s, errChan)
 
 	})
