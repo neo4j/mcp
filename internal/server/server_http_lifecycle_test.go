@@ -55,41 +55,9 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// In HTTP mode, no DB verification should happen at startup
 		mockDB := db.NewMockService(ctrl)
 		// No expectations for DB calls during Start() in HTTP mode
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
-
-		// Start HTTP server in goroutine since it's blocking
-		errChan := make(chan error, 1)
-		go func() {
-			err := s.Start()
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Give the server a moment to start
-		time.Sleep(100 * time.Millisecond)
-
-		// Stop the server
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err := s.Stop(ctx)
-		if err != nil {
-			t.Errorf("Stop() unexpected error = %v", err)
-		}
-
-		// Check if there were any startup errors
-		select {
-		case err := <-errChan:
-			t.Errorf("Start() unexpected error = %v", err)
-		default:
-			// No error, which is expected
-		}
+		assertNoCloseOrStopError(t, s, errChan)
 	})
 
 	t.Run("Server triggers verification on first initialize request", func(t *testing.T) {
@@ -126,47 +94,14 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		// In HTTP mode, NO database operations should happen during Start()
 		// The hook is registered but not executed until a real client request
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
-
-		// Start HTTP server in goroutine
-		errChan := make(chan error, 1)
-		go func() {
-			err := s.Start()
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Give the server a moment to start
-		time.Sleep(100 * time.Millisecond)
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
-		// Stop the server
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err = s.Stop(stopCtx)
-		if err != nil {
-			t.Errorf("Stop() unexpected error = %v", err)
-		}
-
-		// Check if there were any startup errors
-		select {
-		case err := <-errChan:
-			if err != nil {
-				t.Errorf("Start() unexpected error = %v", err)
-			}
-		default:
-			// No error is fine
-		}
+		assertNoCloseOrStopError(t, s, errChan)
 
 	})
 
@@ -180,47 +115,15 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// In HTTP mode, no database calls happen during Start()
 		// The hook will handle errors when actually triggered by a client request
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
-
-		// Start HTTP server in goroutine
-		errChan := make(chan error, 1)
-		go func() {
-			err := s.Start()
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Give the server a moment to start
-		time.Sleep(100 * time.Millisecond)
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		assertNoCloseOrStopError(t, s, errChan)
 
-		// Stop the server
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err = s.Stop(stopCtx)
-		if err != nil {
-			t.Errorf("Stop() unexpected error = %v", err)
-		}
-
-		// Verify server started without error (errors in hooks are handled gracefully)
-		select {
-		case err := <-errChan:
-			if err != nil {
-				t.Errorf("Start() should not fail due to hook errors = %v", err)
-			}
-		default:
-			// No error is expected
-		}
 	})
 
 	t.Run("Server should no perform duplicate verification calls", func(t *testing.T) {
@@ -257,23 +160,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
-
-		// Start HTTP server in goroutine
-		errChan := make(chan error, 1)
-		go func() {
-			err := s.Start()
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Give the server a moment to start
-		time.Sleep(100 * time.Millisecond)
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
@@ -286,25 +173,8 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		assertNoCloseOrStopError(t, s, errChan)
 
-		// Stop the server
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err = s.Stop(stopCtx)
-		if err != nil {
-			t.Errorf("Stop() unexpected error = %v", err)
-		}
-
-		// Check startup was successful
-		select {
-		case err := <-errChan:
-			if err != nil {
-				t.Errorf("Start() unexpected error = %v", err)
-			}
-		default:
-			// No error is expected
-		}
 	})
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
@@ -341,23 +211,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		// In HTTP mode, NO database operations should happen during Start()
 		// The hook is registered but not executed until a real client request
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
-
-		// Start HTTP server in goroutine
-		errChan := make(chan error, 1)
-		go func() {
-			err := s.Start()
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Give the server a moment to start
-		time.Sleep(100 * time.Millisecond)
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
@@ -374,24 +228,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		if expectedTotalToolsCount != registeredTools {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
-		// Stop the server
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err = s.Stop(stopCtx)
-		if err != nil {
-			t.Errorf("Stop() unexpected error = %v", err)
-		}
-
-		// Check if there were any startup errors
-		select {
-		case err := <-errChan:
-			if err != nil {
-				t.Errorf("Start() unexpected error = %v", err)
-			}
-		default:
-			// No error is fine
-		}
+		assertNoCloseOrStopError(t, s, errChan)
 
 	})
 
@@ -423,23 +260,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		// In HTTP mode, NO database operations should happen during Start()
 		// The hook is registered but not executed until a real client request
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
-
-		// Start HTTP server in goroutine
-		errChan := make(chan error, 1)
-		go func() {
-			err := s.Start()
-			if err != nil {
-				errChan <- err
-			}
-		}()
-
-		// Give the server a moment to start
-		time.Sleep(100 * time.Millisecond)
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
@@ -456,24 +277,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		if expectedTotalToolsCount != registeredTools {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
-		// Stop the server
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err = s.Stop(stopCtx)
-		if err != nil {
-			t.Errorf("Stop() unexpected error = %v", err)
-		}
-
-		// Check if there were any startup errors
-		select {
-		case err := <-errChan:
-			if err != nil {
-				t.Errorf("Start() unexpected error = %v", err)
-			}
-		default:
-			// No error is fine
-		}
+		assertNoCloseOrStopError(t, s, errChan)
 
 	})
 }
@@ -495,4 +299,43 @@ func createStreamableHTTPClient(url string) *client.Client {
 	}
 	c := client.NewClient(httpTransport)
 	return c
+}
+
+func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, analyticsService *analytics.MockService) (*server.Neo4jMCPServer, chan error) {
+	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
+
+	if s == nil {
+		t.Fatal("NewNeo4jMCPServer() returned nil")
+	}
+
+	// Start HTTP server in goroutine since it's blocking
+	errChan := make(chan error, 1)
+	go func() {
+		err := s.Start()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+	// wait for HttpServerReady to be closed
+	for range s.HttpServerReady {
+	}
+	return s, errChan
+}
+
+func assertNoCloseOrStopError(t *testing.T, s *server.Neo4jMCPServer, errChan chan error) {
+	// Stop the server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := s.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() unexpected error = %v", err)
+	}
+
+	// Check if there were any startup errors
+	select {
+	case err := <-errChan:
+		t.Errorf("Start() unexpected error = %v", err)
+	default:
+		// No error, which is expected
+	}
 }
