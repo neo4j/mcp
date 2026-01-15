@@ -77,6 +77,10 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 func (s *Neo4jMCPServer) Start() error {
 	switch s.config.TransportMode {
 	case config.TransportModeHTTP:
+		slog.Info("Registering server tools")
+		if err := s.registerTools(); err != nil {
+			return err
+		}
 		// in case of http mode, the initialization process is delayed until the credentials are available.
 		// when the first client is performing the initialize request then the server perform
 		s.hooks.AddBeforeInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest) {
@@ -84,17 +88,17 @@ func (s *Neo4jMCPServer) Start() error {
 			if s.httpConnectionVerified == true {
 				return
 			}
-			s.httpConnectionVerified = true
-			slog.Info("Verify server requirements")
+
+			slog.Info("Verify server requirements...")
 			if err := s.verifyRequirements(ctx); err != nil {
-				slog.Error("Server error", "error", err)
+				slog.Error("Error during the requirements verification:", "error", err)
+				return
 			}
-			slog.Info("Registering server tools")
-			if err := s.registerTools(); err != nil {
-				slog.Error("Server error", "error", err)
+			if s.gdsInstalled {
+				s.addGDSTools()
 			}
 			s.emitStartupEvent(ctx)
-
+			s.httpConnectionVerified = true
 		})
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:

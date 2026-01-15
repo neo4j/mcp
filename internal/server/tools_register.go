@@ -34,6 +34,26 @@ type ToolDefinition struct {
 	readonly   bool
 }
 
+func (s *Neo4jMCPServer) addGDSTools() error {
+	deps := &tools.ToolDependencies{
+		DBService:        s.dbService,
+		AnalyticsService: s.anService,
+	}
+	toolDefs := s.getAllToolsDefs(deps)
+	toolDefinition := make([]server.ServerTool, 0)
+	GDSTools := make([]ToolDefinition, 0, len(toolDefs))
+	for _, t := range toolDefs {
+		if t.category == gdsCategory {
+			GDSTools = append(GDSTools, t)
+		}
+	}
+	for _, toolDef := range GDSTools {
+		toolDefinition = append(toolDefinition, toolDef.definition)
+	}
+	s.MCPServer.AddTools(toolDefinition...)
+	return nil
+}
+
 func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 	filters := make([]toolFilter, 0)
 
