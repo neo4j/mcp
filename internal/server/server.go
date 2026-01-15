@@ -83,9 +83,9 @@ func (s *Neo4jMCPServer) Start() error {
 		}
 		// in case of http mode, the initialization process is delayed until the credentials are available.
 		// when the first client is performing the initialize request then the server perform
-		s.hooks.AddBeforeInitialize(func(ctx context.Context, id any, message *mcp.InitializeRequest) {
+		s.hooks.AddBeforeInitialize(func(ctx context.Context, _ any, _ *mcp.InitializeRequest) {
 			// if the connection is already verified does not perform the check anymore.
-			if s.httpConnectionVerified == true {
+			if s.httpConnectionVerified {
 				return
 			}
 

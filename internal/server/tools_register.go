@@ -34,7 +34,7 @@ type ToolDefinition struct {
 	readonly   bool
 }
 
-func (s *Neo4jMCPServer) addGDSTools() error {
+func (s *Neo4jMCPServer) addGDSTools() {
 	deps := &tools.ToolDependencies{
 		DBService:        s.dbService,
 		AnalyticsService: s.anService,
@@ -51,7 +51,6 @@ func (s *Neo4jMCPServer) addGDSTools() error {
 		toolDefinition = append(toolDefinition, toolDef.definition)
 	}
 	s.MCPServer.AddTools(toolDefinition...)
-	return nil
 }
 
 func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
