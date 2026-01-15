@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -44,9 +45,8 @@ type Neo4jMCPServer struct {
 	version                string
 	anService              analytics.Service
 	gdsInstalled           bool
-	connectionInfo         analytics.ConnectionEventInfo // Cached connection info (STDIO: set at startup, HTTP: cached after first tool call)
-	connectionInfoMu       sync.RWMutex                  // Protects connectionInfo from concurrent access
-	httpConnectionInitSent sync.Once                     // Ensures connection initialized event is sent only once in HTTP mode
+	connectionInfo         atomic.Value // stores analytics.ConnectionEventInfo; cached connection info (STDIO: set at startup, HTTP: cached after first tool call)
+	httpConnectionInitSent sync.Once    // Ensures connection initialized event is sent only once in HTTP mode
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -210,9 +210,7 @@ func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
 	}
 
 	connInfo := recordsToConnectionEventInfo(records)
-	s.connectionInfoMu.Lock()
-	s.connectionInfo = connInfo // Cache for use in tool events
-	s.connectionInfoMu.Unlock()
+	s.connectionInfo.Store(connInfo) // Cache for use in tool events
 	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 }
 
@@ -446,32 +444,34 @@ func (s *Neo4jMCPServer) handleToolCallComplete(ctx context.Context, _ any, requ
 	// HTTP mode only: emit connection initialized event on first successful tool call
 	// (STDIO mode emits this at startup instead)
 	if s.config.TransportMode == config.TransportModeHTTP {
-		// Check if connection info is already cached (read lock)
-		s.connectionInfoMu.RLock()
-		needsCollection := s.connectionInfo.Neo4jVersion == ""
-		s.connectionInfoMu.RUnlock()
+		// Check if connection info is already cached
+		loaded := s.connectionInfo.Load()
+		var needsCollection bool
+		if loaded == nil {
+			needsCollection = true
+		} else if cachedInfo, ok := loaded.(analytics.ConnectionEventInfo); ok {
+			needsCollection = cachedInfo.Neo4jVersion == ""
+		}
 
 		// Collect connection info once for CONNECTION_INITIALIZED event
 		if needsCollection {
 			connInfo := s.collectConnectionInfo(ctx)
 			// Only cache if we got valid connection info (not empty, not "unknown")
 			if connInfo.Neo4jVersion != "" && connInfo.Neo4jVersion != "unknown" {
-				s.connectionInfoMu.Lock()
-				s.connectionInfo = connInfo // Cache for future tool calls
-				s.connectionInfoMu.Unlock()
+				s.connectionInfo.Store(connInfo) // Cache for future tool calls
 			}
 		}
 
 		// Emit connection initialized event only once per session if we have valid connection info
-		s.connectionInfoMu.RLock()
-		hasValidConnectionInfo := s.connectionInfo.Neo4jVersion != "" && s.connectionInfo.Neo4jVersion != "unknown"
-		connInfoSnapshot := s.connectionInfo // Capture snapshot under read lock
-		s.connectionInfoMu.RUnlock()
-
-		if hasValidConnectionInfo {
-			s.httpConnectionInitSent.Do(func() {
-				s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfoSnapshot))
-			})
+		if loaded := s.connectionInfo.Load(); loaded != nil {
+			if connInfoSnapshot, ok := loaded.(analytics.ConnectionEventInfo); ok {
+				hasValidConnectionInfo := connInfoSnapshot.Neo4jVersion != "" && connInfoSnapshot.Neo4jVersion != "unknown"
+				if hasValidConnectionInfo {
+					s.httpConnectionInitSent.Do(func() {
+						s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfoSnapshot))
+					})
+				}
+			}
 		}
 	}
 
