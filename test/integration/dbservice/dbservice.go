@@ -5,6 +5,7 @@ package dbservice
 import (
 	"context"
 	"log"
+	"sync"
 
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/test/integration/containerrunner"
@@ -12,7 +13,8 @@ import (
 )
 
 type dbService struct {
-	driver       *neo4j.DriverWithContext
+	driver       *neo4j.Driver
+	driverMu     sync.Mutex // Protects driver from concurrent access
 	useContainer bool
 }
 
@@ -37,7 +39,10 @@ func (dbs *dbService) Stop(ctx context.Context) {
 	}
 }
 
-func (dbs *dbService) GetDriver() *neo4j.DriverWithContext {
+func (dbs *dbService) GetDriver() *neo4j.Driver {
+	dbs.driverMu.Lock()
+	defer dbs.driverMu.Unlock()
+
 	if dbs.driver != nil {
 		return dbs.driver
 	}
