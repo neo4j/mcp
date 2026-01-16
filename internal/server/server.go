@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -33,17 +35,19 @@ const (
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer              *server.MCPServer
-	httpServer             *http.Server
-	HttpServerReady        chan struct{}
-	shutdownChan           chan struct{}
-	config                 *config.Config
-	dbService              database.Service
-	version                string
-	anService              analytics.Service
-	gdsInstalled           bool
-	httpConnectionVerified bool
-	hooks                  *server.Hooks
+	MCPServer          *server.MCPServer
+	httpServer         *http.Server
+	HttpServerReady    chan struct{}
+	shutdownChan       chan struct{}
+	config             *config.Config
+	dbService          database.Service
+	version            string
+	anService          analytics.Service
+	gdsInstalled       bool
+	hooks              *server.Hooks
+	initState          int // not started,
+	initMu             sync.Mutex
+	connectionVerified atomic.Bool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -60,16 +64,15 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return &Neo4jMCPServer{
-		MCPServer:              mcpServer,
-		HttpServerReady:        make(chan struct{}),
-		shutdownChan:           make(chan struct{}),
-		config:                 cfg,
-		dbService:              dbService,
-		version:                version,
-		anService:              anService,
-		gdsInstalled:           false,
-		httpConnectionVerified: false,
-		hooks:                  hooks,
+		MCPServer:       mcpServer,
+		HttpServerReady: make(chan struct{}),
+		shutdownChan:    make(chan struct{}),
+		config:          cfg,
+		dbService:       dbService,
+		version:         version,
+		anService:       anService,
+		gdsInstalled:    false,
+		hooks:           hooks,
 	}
 }
 
@@ -83,22 +86,33 @@ func (s *Neo4jMCPServer) Start() error {
 		}
 		// in case of http mode, the initialization process is delayed until the credentials are available.
 		// when the first client is performing the initialize request then the server perform
+
 		s.hooks.AddBeforeInitialize(func(ctx context.Context, _ any, _ *mcp.InitializeRequest) {
-			// if the connection is already verified does not perform the check anymore.
-			if s.httpConnectionVerified {
+			// if requirements and events are already verified/sent return
+			if s.connectionVerified.Load() {
+				return
+			}
+			// lock
+			s.initMu.Lock()
+			defer s.initMu.Unlock()
+
+			// cover edge case "connectionVerified" stored in between check and lock
+			if s.connectionVerified.Load() {
 				return
 			}
 
 			slog.Info("Verify server requirements...")
 			if err := s.verifyRequirements(ctx); err != nil {
-				slog.Error("Error during the requirements verification:", "error", err)
+				slog.Error("Error during verification", "error", err)
 				return
 			}
+
 			if s.gdsInstalled {
 				s.addGDSTools()
 			}
 			s.emitStartupEvent(ctx)
-			s.httpConnectionVerified = true
+
+			s.connectionVerified.Store(true)
 		})
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:
