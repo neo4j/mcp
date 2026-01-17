@@ -18,7 +18,7 @@ import (
 
 var (
 	container testcontainers.Container
-	driver    *neo4j.DriverWithContext
+	driver    *neo4j.Driver
 	cfg       *config.Config
 	once      sync.Once
 )
@@ -31,7 +31,7 @@ func Start(ctx context.Context) {
 }
 
 // GetDriver get a driver associated with the instance created
-func GetDriver() *neo4j.DriverWithContext {
+func GetDriver() *neo4j.Driver {
 	if driver == nil {
 		log.Fatal("driver is not initialized")
 	}

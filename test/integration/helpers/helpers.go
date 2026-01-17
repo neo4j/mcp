@@ -41,7 +41,7 @@ type TestContext struct {
 }
 
 // NewTestContext creates a new test context with automatic cleanup
-func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext {
+func NewTestContext(t *testing.T, driver *neo4j.Driver) *TestContext {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
