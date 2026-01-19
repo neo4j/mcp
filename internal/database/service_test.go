@@ -8,7 +8,7 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	db "github.com/neo4j/mcp/internal/database/mocks"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"go.uber.org/mock/gomock"
 )
 
@@ -114,7 +114,7 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 
 func TestNewNeo4jService(t *testing.T) {
 	t.Run("nil driver error", func(t *testing.T) {
-		service, err := database.NewNeo4jService(nil, "", config.TransportModeStdio)
+		service, err := database.NewNeo4jService(nil, "", config.TransportModeStdio, "test-version")
 
 		if err == nil {
 			t.Errorf("expected error when driver is nil, got nil")

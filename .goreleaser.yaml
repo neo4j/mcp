@@ -10,8 +10,6 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -X "main.Version={{.Env.GORELEASER_CURRENT_TAG}}"
-      - -X "main.MixPanelEndpoint=https://api.mixpanel.com"
-      - -X "main.MixPanelToken=4bfb2414ab973c741b6f067bf06d5575"
     goos:
       - linux
       - windows

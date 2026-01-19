@@ -12,7 +12,7 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/test/integration/helpers"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 func TestServerLifecycle(t *testing.T) {
@@ -74,7 +74,7 @@ func TestServerLifecycle(t *testing.T) {
 				}
 			}()
 
-			dbService, err := database.NewNeo4jService(driver, tc.config.Database, tc.config.TransportMode)
+			dbService, err := database.NewNeo4jService(driver, tc.config.Database, tc.config.TransportMode, "test-version")
 			if err != nil {
 				t.Fatalf("failed to create database service: %v", err)
 				return
@@ -131,7 +131,7 @@ func TestServerLifecycle(t *testing.T) {
 			}
 		}()
 
-		dbService, err := database.NewNeo4jService(driver, testCFG.Database, testCFG.TransportMode)
+		dbService, err := database.NewNeo4jService(driver, testCFG.Database, testCFG.TransportMode, "test-version")
 		if err != nil {
 			t.Fatalf("failed to create database service: %v", err)
 		}

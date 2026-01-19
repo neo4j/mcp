@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/neo4j/mcp/internal/config"
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,7 +56,7 @@ func NewE2ETestContext(t *testing.T, driver *neo4j.DriverWithContext) *E2ETestCo
 		cancel()     // Release context resources immediately
 	})
 
-	databaseService, err := database.NewNeo4jService(*driver, "neo4j", config.TransportModeStdio)
+	databaseService, err := database.NewNeo4jService(*driver, "neo4j", config.TransportModeStdio, "test-version")
 	if err != nil {
 		t.Fatalf("failed to create Neo4j service for E2E test: %v", err)
 	}
