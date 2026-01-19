@@ -1,5 +1,5 @@
-kind: Patch
+kind: Minor
 body: |
-  Added HTTP mode telemetry that collects and emits startup metrics (transport mode, TLS status, Neo4j version) on the first HTTP request when telemetry is enabled. Includes comprehensive test coverage with proper goroutine synchronization using testing/synctest.
   Added bearer token support for MCP server.
+  Analytics events now also emitted when the server is executed in HTTP mode; previously, only STDIO mode supported Telemetry. (needs to be enabled explicitly)
 time: 2026-01-14T13:24:30.339498Z
