@@ -7,7 +7,7 @@
 // - STDIO mode: Verification and tool registration happen immediately during Start()
 //
 // The HTTP mode uses hooks to defer the initialization process because:
-// - Database credentials are provided per-request via Basic Auth headers
+// - Database credentials are provided per-request via Basic Auth headers or Bearer Token
 // - No credentials are available at server startup time
 // - The server must start immediately to serve HTTP requests
 package server_test
