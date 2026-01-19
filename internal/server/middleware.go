@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/neo4j/mcp/internal/auth"
 )
@@ -15,7 +16,7 @@ const (
 // chainMiddleware chains together all HTTP middleware
 func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	// Chain middleware in reverse order (last added = first to execute)
-	// Execution order: PathValidator -> CORS -> BasicAuth -> Logging -> Handler
+	// Execution order: PathValidator -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 
 	// Start with the actual handler
 	handler := next
@@ -23,8 +24,8 @@ func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	// Add basic auth middleware (always requires credentials if header present)
-	handler = basicAuthMiddleware()(handler)
+	// Add auth middleware (supports both Bearer and Basic authentication)
+	handler = authMiddleware()(handler)
 
 	// Add CORS middleware (if configured)
 	handler = corsMiddleware(allowedOrigins)(handler)
@@ -35,21 +36,51 @@ func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	return handler
 }
 
-// basicAuthMiddleware enforces HTTP Basic Authentication for all requests in HTTP mode.
+// authMiddleware enforces HTTP authentication (Bearer token or Basic Auth) for all requests in HTTP mode.
+// Tries Bearer token first (from Authorization: Bearer header), then falls back to Basic Auth.
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func basicAuthMiddleware() func(http.Handler) http.Handler {
+func authMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+
+			// Try bearer token first
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				token := strings.TrimPrefix(authHeader, "Bearer ")
+				token = strings.TrimSpace(token)
+
+				if token == "" {
+					w.Header().Set("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
+					http.Error(w, "Unauthorized: Bearer token is empty", http.StatusUnauthorized)
+					return
+				}
+
+				// Bearer token provided - store in context
+				ctx := auth.WithBearerToken(r.Context(), token)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
 				// No credentials provided - reject request
-				w.Header().Set("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
-				http.Error(w, "Unauthorized: Basic authentication required", http.StatusUnauthorized)
+				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
+				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
+				http.Error(w, "Unauthorized: Basic or Bearer authentication required", http.StatusUnauthorized)
 				return
 			}
-			// Credentials provided - store in context
+
+			// Validate credentials are not empty (consistent with bearer token validation)
+			if user == "" || pass == "" {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
+				http.Error(w, "Unauthorized: Username and password cannot be empty", http.StatusUnauthorized)
+				return
+			}
+
+			// Basic auth credentials provided - store in context
 			ctx := auth.WithBasicAuth(r.Context(), user, pass)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

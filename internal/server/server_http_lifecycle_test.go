@@ -27,7 +27,7 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	server "github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -271,7 +271,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		}
 		assert.NotContains(t, toolNames, "list-gds-procedures")
 
-		
 		assertNoCloseOrStopError(t, s, errChan)
 
 	})
