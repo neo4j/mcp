@@ -44,7 +44,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		Database:      "neo4j",
 		TransportMode: config.TransportModeHTTP,
 		HTTPHost:      "127.0.0.1",
-		HTTPPort:      "8080",
+		HTTPPort:      "3000",
 	}
 	uri := fmt.Sprintf("http://%s:%s/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
