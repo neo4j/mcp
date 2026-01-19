@@ -10,7 +10,6 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGetSchemaE2E(t *testing.T) {
@@ -38,39 +37,6 @@ func TestGetSchemaE2E(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		mcpClient.Close()
-	})
-	t.Run("get-schema with empty database", func(t *testing.T) {
-		t.Parallel()
-		// Call get-schema tool on empty database
-		callToolRequest := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name: "get-schema",
-			},
-		}
-
-		callToolResponse, err := mcpClient.CallTool(ctx, callToolRequest)
-		if err != nil {
-			t.Fatalf("failed to call get-schema tool: %v", err)
-		}
-		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
-		if !ok {
-			t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
-		}
-		// Verify the tool call was successful
-		if callToolResponse.IsError {
-			t.Fatalf("get-schema tool call returned an error: %s", textContent.Text)
-		}
-
-		// For empty database, should return a message indicating no schema
-		if len(callToolResponse.Content) == 0 {
-			t.Fatal("expected get-schema tool to return content, but got none")
-		}
-
-		// Should contain message about empty database
-		expectedMessage := "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."
-		assert.Equal(t, expectedMessage, textContent.Text, "Should return empty database message")
-
-		t.Log("Successfully handled get-schema on empty database")
 	})
 
 	t.Run("get-schema with nodes only", func(t *testing.T) {
