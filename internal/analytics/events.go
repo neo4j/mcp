@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/neo4j/mcp/internal/config"
 )
 
 const eventNamePrefix = "MCP4NEO4J"
@@ -28,9 +29,9 @@ type baseProperties struct {
 // serverStartupProperties contains server-level information available at startup (no DB query required)
 type serverStartupProperties struct {
 	baseProperties
-	McpVersion    string `json:"mcp_version"`
-	TransportMode string `json:"transport_mode"`
-	TLSEnabled    *bool  `json:"tls_enabled,omitempty"` // Only for HTTP mode, pointer allows explicit false
+	McpVersion    string               `json:"mcp_version"`
+	TransportMode config.TransportMode `json:"transport_mode"`
+	TLSEnabled    *bool                `json:"tls_enabled,omitempty"` // Only for HTTP mode, pointer allows explicit false
 }
 
 // connectionInitializedProperties contains Neo4j-specific information (requires DB query)
@@ -76,15 +77,15 @@ type ConnectionEventInfo struct {
 }
 
 // NewStartupEvent creates a server startup event with information available immediately (no DB query)
-func (a *Analytics) NewStartupEvent() TrackEvent {
+func (a *Analytics) NewStartupEvent(transportMode config.TransportMode) TrackEvent {
 	props := serverStartupProperties{
 		baseProperties: a.getBaseProperties(),
 		McpVersion:     a.cfg.mcpVersion,
-		TransportMode:  a.cfg.transportMode,
+		TransportMode:  transportMode,
 	}
 
 	// Only include TLS field for HTTP mode (omitted for STDIO via omitempty tag with nil pointer)
-	if a.cfg.transportMode == "http" {
+	if props.TransportMode == config.TransportModeHTTP {
 		tlsEnabled := a.cfg.tlsEnabled
 		props.TLSEnabled = &tlsEnabled
 	}

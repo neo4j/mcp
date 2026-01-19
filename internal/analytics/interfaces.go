@@ -4,6 +4,8 @@ package analytics
 import (
 	"io"
 	"net/http"
+
+	"github.com/neo4j/mcp/internal/config"
 )
 
 // Service
@@ -14,7 +16,7 @@ type Service interface {
 	EmitEvent(event TrackEvent)
 	NewGDSProjCreatedEvent() TrackEvent
 	NewGDSProjDropEvent() TrackEvent
-	NewStartupEvent() TrackEvent
+	NewStartupEvent(transportMode config.TransportMode) TrackEvent
 	NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent
 	NewToolEvent(toolsUsed string, success bool) TrackEvent
 }

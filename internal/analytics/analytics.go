@@ -23,7 +23,6 @@ type analyticsConfig struct {
 	startupTime      int64
 	client           HTTPClient
 	isAura           bool
-	transportMode    string
 	tlsEnabled       bool
 	mcpVersion       string
 }
@@ -34,8 +33,8 @@ type Analytics struct {
 }
 
 // for testing purposes - enables dependency injection of http client
-func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string, transportMode string, tlsEnabled bool, mcpVersion string) *Analytics {
-	distinctID := getDistinctID()
+func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string, tlsEnabled bool, mcpVersion string) *Analytics {
+	distinctID := GetDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
@@ -43,7 +42,6 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 		startupTime:      time.Now().Unix(),
 		client:           client,
 		isAura:           isAura(uri),
-		transportMode:    transportMode,
 		tlsEnabled:       tlsEnabled,
 		mcpVersion:       mcpVersion,
 	}
@@ -51,8 +49,8 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 	return &Analytics{cfg: cfg, disabled: false}
 }
 
-func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string, transportMode string, tlsEnabled bool, mcpVersion string) *Analytics {
-	distinctID := getDistinctID()
+func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string, tlsEnabled bool, mcpVersion string) *Analytics {
+	distinctID := GetDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
@@ -60,7 +58,6 @@ func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string, tra
 		startupTime:      time.Now().Unix(),
 		client:           http.DefaultClient,
 		isAura:           isAura(uri),
-		transportMode:    transportMode,
 		tlsEnabled:       tlsEnabled,
 		mcpVersion:       mcpVersion,
 	}
@@ -127,7 +124,7 @@ func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	return nil
 }
 
-func getDistinctID() string {
+func GetDistinctID() string {
 	distinctID, err := uuid.NewV6()
 	if err != nil {
 		slog.Error("Error while generating distinct ID for analytics", "error", err.Error())

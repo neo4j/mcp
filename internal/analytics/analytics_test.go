@@ -10,13 +10,14 @@ import (
 
 	"github.com/neo4j/mcp/internal/analytics"
 	amocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
 	"go.uber.org/mock/gomock"
 )
 
 // newTestAnalytics creates an analytics service for testing
 func newTestAnalytics(t *testing.T, token, endpoint string, client analytics.HTTPClient, uri string) *analytics.Analytics {
 	t.Helper()
-	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri, "stdio", false, "1.0.0")
+	return analytics.NewAnalyticsWithClient(token, endpoint, client, uri, false, "1.0.0")
 }
 
 func TestAnalytics(t *testing.T) {
@@ -215,7 +216,7 @@ func TestEventCreation(t *testing.T) {
 	})
 
 	t.Run("NewStartupEvent", func(t *testing.T) {
-		event := analyticsService.NewStartupEvent()
+		event := analyticsService.NewStartupEvent(config.TransportModeStdio)
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
 		}
@@ -265,7 +266,7 @@ func TestEventCreation(t *testing.T) {
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
 		auraAnalytics := newTestAnalytics(t, "test-token", "http://localhost", nil, "bolt://mydb.databases.neo4j.io")
-		event := auraAnalytics.NewStartupEvent()
+		event := auraAnalytics.NewStartupEvent(config.TransportModeHTTP)
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -291,11 +292,10 @@ func TestEventCreation(t *testing.T) {
 			"http://localhost",
 			nil,
 			"bolt://localhost:7687",
-			"stdio",
 			false,
 			"1.0.0",
 		)
-		event := stdioAnalytics.NewStartupEvent()
+		event := stdioAnalytics.NewStartupEvent(config.TransportModeStdio)
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -320,11 +320,10 @@ func TestEventCreation(t *testing.T) {
 			"http://localhost",
 			nil,
 			"bolt://localhost:7687",
-			"http",
 			true,
 			"1.0.0",
 		)
-		event := httpAnalytics.NewStartupEvent()
+		event := httpAnalytics.NewStartupEvent(config.TransportModeHTTP)
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -352,11 +351,10 @@ func TestEventCreation(t *testing.T) {
 			"http://localhost",
 			nil,
 			"bolt://localhost:7687",
-			"http",
 			false,
 			"1.0.0",
 		)
-		event := httpAnalytics.NewStartupEvent()
+		event := httpAnalytics.NewStartupEvent(config.TransportModeHTTP)
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")

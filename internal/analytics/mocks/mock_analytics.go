@@ -15,6 +15,7 @@ import (
 	reflect "reflect"
 
 	analytics "github.com/neo4j/mcp/internal/analytics"
+	config "github.com/neo4j/mcp/internal/config"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -303,17 +304,17 @@ func (c *MockServiceNewGDSProjDropEventCall) DoAndReturn(f func() analytics.Trac
 }
 
 // NewStartupEvent mocks base method.
-func (m *MockService) NewStartupEvent() analytics.TrackEvent {
+func (m *MockService) NewStartupEvent(transportMode config.TransportMode) analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewStartupEvent")
+	ret := m.ctrl.Call(m, "NewStartupEvent", transportMode)
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
 // NewStartupEvent indicates an expected call of NewStartupEvent.
-func (mr *MockServiceMockRecorder) NewStartupEvent() *MockServiceNewStartupEventCall {
+func (mr *MockServiceMockRecorder) NewStartupEvent(transportMode any) *MockServiceNewStartupEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStartupEvent", reflect.TypeOf((*MockService)(nil).NewStartupEvent))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStartupEvent", reflect.TypeOf((*MockService)(nil).NewStartupEvent), transportMode)
 	return &MockServiceNewStartupEventCall{Call: call}
 }
 
@@ -329,13 +330,13 @@ func (c *MockServiceNewStartupEventCall) Return(arg0 analytics.TrackEvent) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewStartupEventCall) Do(f func() analytics.TrackEvent) *MockServiceNewStartupEventCall {
+func (c *MockServiceNewStartupEventCall) Do(f func(config.TransportMode) analytics.TrackEvent) *MockServiceNewStartupEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewStartupEventCall) DoAndReturn(f func() analytics.TrackEvent) *MockServiceNewStartupEventCall {
+func (c *MockServiceNewStartupEventCall) DoAndReturn(f func(config.TransportMode) analytics.TrackEvent) *MockServiceNewStartupEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

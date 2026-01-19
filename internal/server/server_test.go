@@ -28,7 +28,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent().AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
 	t.Run("starts server successfully", func(t *testing.T) {
@@ -294,7 +294,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 
 	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
 		analyticsService.EXPECT().IsEnabled().Times(1).Return(true)
-		analyticsService.EXPECT().NewStartupEvent().Times(1)
+		analyticsService.EXPECT().NewStartupEvent(gomock.Any()).Times(1)
 		analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).Times(1)
 		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(2) // startup + connection events
 

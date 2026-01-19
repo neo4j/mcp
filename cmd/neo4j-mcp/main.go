@@ -84,7 +84,7 @@ func main() {
 		return
 	}
 
-	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI, cfg.TransportMode, cfg.HTTPTLSEnabled, Version)
+	anService := analytics.NewAnalytics(MixPanelToken, MixPanelEndpoint, cfg.URI, cfg.HTTPTLSEnabled, Version)
 
 	// Enable telemetry only when user has opted in AND Version is different from "development", which is changed via ldflags at build time.
 	if cfg.Telemetry && Version != "development" {

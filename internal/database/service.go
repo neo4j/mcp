@@ -18,12 +18,12 @@ const appName string = "MCP4NEO4J"
 type Neo4jService struct {
 	driver          neo4j.Driver
 	database        string
-	transportMode   string // Transport mode (stdio or http)
+	transportMode   config.TransportMode // Transport mode (stdio or http)
 	neo4jMCPVersion string
 }
 
 // NewNeo4jService creates a new Neo4jService instance
-func NewNeo4jService(driver neo4j.Driver, database string, transportMode string, neo4jMCPVersion string) (*Neo4jService, error) {
+func NewNeo4jService(driver neo4j.Driver, database string, transportMode config.TransportMode, neo4jMCPVersion string) (*Neo4jService, error) {
 	if driver == nil {
 		return nil, fmt.Errorf("driver cannot be nil")
 	}
