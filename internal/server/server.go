@@ -37,7 +37,7 @@ const (
 type Neo4jMCPServer struct {
 	MCPServer          *server.MCPServer
 	httpServer         *http.Server
-	HttpServerReady    chan struct{}
+	HTTPServerReady    chan struct{}
 	shutdownChan       chan struct{}
 	config             *config.Config
 	dbService          database.Service
@@ -45,7 +45,6 @@ type Neo4jMCPServer struct {
 	anService          analytics.Service
 	gdsInstalled       bool
 	hooks              *server.Hooks
-	initState          int // not started,
 	initMu             sync.Mutex
 	connectionVerified atomic.Bool
 }
@@ -65,7 +64,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 	return &Neo4jMCPServer{
 		MCPServer:       mcpServer,
-		HttpServerReady: make(chan struct{}),
+		HTTPServerReady: make(chan struct{}),
 		shutdownChan:    make(chan struct{}),
 		config:          cfg,
 		dbService:       dbService,
@@ -366,7 +365,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	}
 
 	// Signal that httpServer is ready for reading
-	close(s.HttpServerReady)
+	close(s.HTTPServerReady)
 
 	// Channel to receive server errors
 	errChan := make(chan error, 1)

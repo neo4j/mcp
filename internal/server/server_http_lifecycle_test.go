@@ -115,7 +115,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1).Return(fmt.Errorf("connection error"))
 		// In HTTP mode, no database calls happen during Start()
 		// The hook will handle errors when actually triggered by a client request
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
@@ -311,7 +310,7 @@ func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, 
 		}
 	}()
 	// wait for HttpServerReady to be closed
-	for range s.HttpServerReady {
+	for range s.HTTPServerReady { //nolint:all // Waiting for channel to close
 	}
 	return s, errChan
 }
