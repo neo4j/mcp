@@ -387,12 +387,14 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	errChan := make(chan error, 1)
 	go func() {
 		var err error
+
 		if s.config.HTTPTLSEnabled {
 			// Use empty strings for cert/key files since they're already loaded in TLSConfig
 			err = s.httpServer.ListenAndServeTLS("", "")
 		} else {
 			err = s.httpServer.ListenAndServe()
 		}
+
 		if err != nil && err != http.ErrServerClosed {
 			errChan <- fmt.Errorf("HTTP server failed: %w", err)
 		}
