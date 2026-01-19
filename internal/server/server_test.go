@@ -70,6 +70,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		}
 
 		err := s.Start()
+
 		if err != nil {
 			t.Errorf("Start() unexpected error = %v", err)
 		}
@@ -91,7 +92,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 	t.Run("starts server should fail when test query returns unexpected result", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Return(nil)
+		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys:   []string{"first"},

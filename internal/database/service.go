@@ -45,7 +45,6 @@ func NewNeo4jService(driver neo4j.Driver, database string, transportMode config.
 // The baseOptions parameter allows adding routing-specific options (readers/writers).
 // TxMetadata is added to recognize queries coming from Neo4j MCP.
 func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
-
 	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
 
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
@@ -58,27 +57,45 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 
 	// For HTTP mode, extract credentials from context and use impersonation
 	if s.transportMode == config.TransportModeHTTP {
-		// Try bearer token first (preferred for SSO/OAuth)
-		if token, hasBearerToken := auth.GetBearerToken(ctx); hasBearerToken {
-			authToken := neo4j.BearerAuth(token)
-			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
-		} else if username, password, hasBasicAuth := auth.GetBasicAuthCredentials(ctx); hasBasicAuth {
-			// Fall back to basic auth
-			authToken := neo4j.BasicAuth(username, password, "")
-			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(authToken))
+		authToken := s.getHTTPAuthToken(ctx)
+		if authToken != nil {
+			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(*authToken))
 		}
 	}
 	// For STDIO mode, driver's built-in credentials are used automatically (no auth token needed)
-
 	return queryOptions
 }
 
 // VerifyConnectivity checks the driver can establish a valid connection with a Neo4j instance;
 func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
+	// For HTTP mode, extract credentials from context
+	if s.transportMode == config.TransportModeHTTP {
+		authToken := s.getHTTPAuthToken(ctx)
+		if authToken != nil {
+			if err := s.driver.VerifyAuthentication(ctx, authToken); err != nil {
+				slog.Error("Failed to verify database connectivity", "error", err.Error())
+				return err
+			}
+			return nil
+		}
+	}
 	// Verify database connectivity
 	if err := s.driver.VerifyConnectivity(ctx); err != nil {
 		slog.Error("Failed to verify database connectivity", "error", err.Error())
 		return err
+	}
+	return nil
+}
+
+// Collect HTTP Auth token from Context.
+func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
+	if token, hasBearerToken := auth.GetBearerToken(ctx); hasBearerToken {
+		authToken := neo4j.BearerAuth(token)
+		return &authToken
+	} else if username, password, hasBasicAuth := auth.GetBasicAuthCredentials(ctx); hasBasicAuth {
+		// Fall back to basic auth
+		authToken := neo4j.BasicAuth(username, password, "")
+		return &authToken
 	}
 	return nil
 }
@@ -91,6 +108,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
 		slog.Error("Error in ExecuteReadQuery", "error", wrappedErr)
+
 		return nil, wrappedErr
 	}
 
