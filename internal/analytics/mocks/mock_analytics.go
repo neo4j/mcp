@@ -304,17 +304,17 @@ func (c *MockServiceNewGDSProjDropEventCall) DoAndReturn(f func() analytics.Trac
 }
 
 // NewStartupEvent mocks base method.
-func (m *MockService) NewStartupEvent(transportMode config.TransportMode) analytics.TrackEvent {
+func (m *MockService) NewStartupEvent(transportMode config.TransportMode, tlsEnabled bool, mcpServer string) analytics.TrackEvent {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewStartupEvent", transportMode)
+	ret := m.ctrl.Call(m, "NewStartupEvent", transportMode, tlsEnabled, mcpServer)
 	ret0, _ := ret[0].(analytics.TrackEvent)
 	return ret0
 }
 
 // NewStartupEvent indicates an expected call of NewStartupEvent.
-func (mr *MockServiceMockRecorder) NewStartupEvent(transportMode any) *MockServiceNewStartupEventCall {
+func (mr *MockServiceMockRecorder) NewStartupEvent(transportMode, tlsEnabled, mcpServer any) *MockServiceNewStartupEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStartupEvent", reflect.TypeOf((*MockService)(nil).NewStartupEvent), transportMode)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStartupEvent", reflect.TypeOf((*MockService)(nil).NewStartupEvent), transportMode, tlsEnabled, mcpServer)
 	return &MockServiceNewStartupEventCall{Call: call}
 }
 
@@ -330,13 +330,13 @@ func (c *MockServiceNewStartupEventCall) Return(arg0 analytics.TrackEvent) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceNewStartupEventCall) Do(f func(config.TransportMode) analytics.TrackEvent) *MockServiceNewStartupEventCall {
+func (c *MockServiceNewStartupEventCall) Do(f func(config.TransportMode, bool, string) analytics.TrackEvent) *MockServiceNewStartupEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceNewStartupEventCall) DoAndReturn(f func(config.TransportMode) analytics.TrackEvent) *MockServiceNewStartupEventCall {
+func (c *MockServiceNewStartupEventCall) DoAndReturn(f func(config.TransportMode, bool, string) analytics.TrackEvent) *MockServiceNewStartupEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -16,7 +16,7 @@ type Service interface {
 	EmitEvent(event TrackEvent)
 	NewGDSProjCreatedEvent() TrackEvent
 	NewGDSProjDropEvent() TrackEvent
-	NewStartupEvent(transportMode config.TransportMode) TrackEvent
+	NewStartupEvent(transportMode config.TransportMode, tlsEnabled bool, mcpServer string) TrackEvent
 	NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent
 	NewToolEvent(toolsUsed string, success bool) TrackEvent
 }

@@ -77,16 +77,15 @@ type ConnectionEventInfo struct {
 }
 
 // NewStartupEvent creates a server startup event with information available immediately (no DB query)
-func (a *Analytics) NewStartupEvent(transportMode config.TransportMode) TrackEvent {
+func (a *Analytics) NewStartupEvent(transportMode config.TransportMode, tlsEnabled bool, mcpVersion string) TrackEvent {
 	props := serverStartupProperties{
 		baseProperties: a.getBaseProperties(),
-		McpVersion:     a.cfg.mcpVersion,
+		McpVersion:     mcpVersion,
 		TransportMode:  transportMode,
 	}
 
 	// Only include TLS field for HTTP mode (omitted for STDIO via omitempty tag with nil pointer)
 	if props.TransportMode == config.TransportModeHTTP {
-		tlsEnabled := a.cfg.tlsEnabled
 		props.TLSEnabled = &tlsEnabled
 	}
 
