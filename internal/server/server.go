@@ -209,7 +209,6 @@ func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
 	}
 
 	connInfo := recordsToConnectionEventInfo(records)
-	// s.connectionInfo.Store(connInfo) // Cache for use in tool events
 	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 }
 
