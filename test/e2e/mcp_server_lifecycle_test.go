@@ -11,7 +11,7 @@ import (
 	"github.com/neo4j/mcp/test/e2e/helpers"
 )
 
-func TestSeverLifecycleMCP(t *testing.T) {
+func TestSeverLifecycleMCPE2E(t *testing.T) {
 	t.Parallel()
 
 	t.Run("lifecycle test (MCPServer -> MCP Client -> Initialize Req -> List Tools -> Call Tool -> Stop)", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestSeverLifecycleMCP(t *testing.T) {
 		if len(callToolResponse.Content) == 0 {
 			t.Fatal("expected get-schema tool to return content, but got none")
 		}
-		mcpClient.Close()
+		defer mcpClient.Close()
 		t.Logf("Server started successfully with %d tools available", len(listToolsResponse.Tools))
 		t.Logf("Successfully called get-schema tool and received %d content items", len(callToolResponse.Content))
 
