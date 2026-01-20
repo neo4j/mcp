@@ -1,0 +1,3 @@
+kind: Minor
+body: Telemetry events are now also emitted when the server is executed in HTTP mode. Previously only STDIO mode supported telemetry.
+time: 2026-01-20T13:33:10.245291Z
