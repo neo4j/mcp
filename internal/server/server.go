@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -380,21 +381,25 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		slog.Info("TLS configuration applied", "minVersion", "TLS 1.2 (allows TLS 1.3 negotiation)")
 	}
 
-	// Signal that httpServer is ready for reading
+	// Explicitly create the listener to bind to the port
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to start listener: %w", err)
+	}
+
+	// Port is now bound - signal that server is ready
 	close(s.HTTPServerReady)
+
+	// Wrap listener with TLS if needed
+	if s.config.HTTPTLSEnabled {
+		listener = tls.NewListener(listener, s.httpServer.TLSConfig)
+	}
 
 	// Channel to receive server errors
 	errChan := make(chan error, 1)
 	go func() {
-		var err error
-
-		if s.config.HTTPTLSEnabled {
-			// Use empty strings for cert/key files since they're already loaded in TLSConfig
-			err = s.httpServer.ListenAndServeTLS("", "")
-		} else {
-			err = s.httpServer.ListenAndServe()
-		}
-
+		// Use Serve() instead of ListenAndServe() since we already have a listener
+		err := s.httpServer.Serve(listener)
 		if err != nil && err != http.ErrServerClosed {
 			errChan <- fmt.Errorf("HTTP server failed: %w", err)
 		}
