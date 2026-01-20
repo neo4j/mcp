@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || e2e
 
 package dbservice
 
@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/test/integration/containerrunner"
+	"github.com/neo4j/mcp/test/containerrunner"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 

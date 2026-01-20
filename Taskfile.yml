@@ -33,6 +33,9 @@ tasks:
   test:int:
     cmds:
       - go test -tags=integration ./test/integration/... {{.CLI_ARGS}}
+  test:e2e:
+    cmds:
+      - go test -tags=e2e ./test/e2e/... {{.CLI_ARGS}}
   test:clean:
     cmds:
       - go clean -testcache
@@ -42,3 +45,6 @@ tasks:
   inspect:
     cmds:
       - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
+  interactive-client:
+    cmds:
+      - go run ./client/... bin/neo4j-mcp
