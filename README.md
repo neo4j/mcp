@@ -13,6 +13,8 @@ Official Model Context Protocol (MCP) server for Neo4j.
 - APOC plugin installed in the Neo4j instance.
 - Any MCP-compatible client (e.g. [VSCode](https://code.visualstudio.com/) with [MCP support](https://code.visualstudio.com/docs/copilot/customization/mcp-servers))
 
+> **⚠️ Known Issue**: Neo4j version **5.26.18** has a bug in APOC that causes the `get-schema` tool to fail. This issue is fixed in version **5.26.19** and above. If you're using 5.26.18, please upgrade to 5.26.19 or later. See [#136](https://github.com/neo4j/mcp/issues/136) for details.
+
 ## Startup Checks & Adaptive Operation
 
 The server performs several pre-flight checks at startup to ensure your environment is correctly configured.

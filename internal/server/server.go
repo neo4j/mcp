@@ -44,7 +44,6 @@ type Neo4jMCPServer struct {
 	version            string
 	anService          analytics.Service
 	gdsInstalled       bool
-	hooks              *server.Hooks
 	initMu             sync.Mutex
 	connectionVerified atomic.Bool
 }
@@ -52,18 +51,8 @@ type Neo4jMCPServer struct {
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
 func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
-	hooks := &server.Hooks{}
-	mcpServer := server.NewMCPServer(
-		"neo4j-mcp",
-		version,
-		server.WithToolCapabilities(true),
-		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
-			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
-		server.WithHooks(hooks),
-	)
 
-	return &Neo4jMCPServer{
-		MCPServer:       mcpServer,
+	neo4jServer := &Neo4jMCPServer{
 		HTTPServerReady: make(chan struct{}),
 		shutdownChan:    make(chan struct{}),
 		config:          cfg,
@@ -71,12 +60,27 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		version:         version,
 		anService:       anService,
 		gdsInstalled:    false,
-		hooks:           hooks,
 	}
+
+	hooks := neo4jServer.configureHooks()
+
+	mcpServer := server.NewMCPServer(
+		"neo4j-mcp",
+		version,
+		server.WithToolCapabilities(true),
+		server.WithHooks(hooks),
+		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
+			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
+	)
+
+	neo4jServer.MCPServer = mcpServer
+
+	return neo4jServer
 }
 
 // Start initializes and starts the MCP server
 func (s *Neo4jMCPServer) Start() error {
+
 	switch s.config.TransportMode {
 	case config.TransportModeHTTP:
 		slog.Info("Registering server tools")
@@ -86,33 +90,8 @@ func (s *Neo4jMCPServer) Start() error {
 		// in case of http mode, the initialization process is delayed until the credentials are available.
 		// when the first client is performing the initialize request then the server perform
 
-		s.hooks.AddBeforeInitialize(func(ctx context.Context, _ any, _ *mcp.InitializeRequest) {
-			// if requirements and events are already verified/sent return
-			if s.connectionVerified.Load() {
-				return
-			}
-			// lock
-			s.initMu.Lock()
-			defer s.initMu.Unlock()
+		s.emitServerStartupEvent()
 
-			// cover edge case "connectionVerified" stored in between check and lock
-			if s.connectionVerified.Load() {
-				return
-			}
-
-			slog.Info("Verify server requirements...")
-			if err := s.verifyRequirements(ctx); err != nil {
-				slog.Error("Error during verification", "error", err)
-				return
-			}
-
-			if s.gdsInstalled {
-				s.addGDSTools()
-			}
-			s.emitStartupEvent(ctx)
-
-			s.connectionVerified.Store(true)
-		})
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:
 		{
@@ -125,7 +104,9 @@ func (s *Neo4jMCPServer) Start() error {
 			if err := s.registerTools(); err != nil {
 				return fmt.Errorf("failed to register tools: %w", err)
 			}
-			s.emitStartupEvent(context.Background())
+
+			s.emitServerStartupEvent()
+			s.emitConnectionInitializedEvent(context.Background())
 
 			return server.ServeStdio(s.MCPServer)
 		}
@@ -209,30 +190,36 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	return nil
 }
 
-func (s *Neo4jMCPServer) emitStartupEvent(ctx context.Context) {
-	var startupInfo analytics.StartupEventInfo
+// emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
+func (s *Neo4jMCPServer) emitServerStartupEvent() {
+	s.anService.EmitEvent(s.anService.NewStartupEvent(s.config.TransportMode, s.config.HTTPTLSEnabled, s.config.MCPVersion))
+}
 
-	// CALL dbms.components() to collect meta information about the database such version, edition, Cypher version supported
-	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
-
-	if err != nil {
-		slog.Debug("Impossible to collect information using DBMS component, dbms.components() query failed")
+// emitConnectionInitializedEvent emits the connection initialized event with DB information (STDIO mode only)
+func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
+	if !s.anService.IsEnabled() {
 		return
 	}
 
-	startupInfo = recordsToStartupEventInfo(records, s.version)
+	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
+	if err != nil {
+		slog.Debug("Failed to collect connection metadata", "error", err.Error())
+		return
+	}
 
-	// track startup event
-	s.anService.EmitEvent(s.anService.NewStartupEvent(startupInfo))
+	connInfo := recordsToConnectionEventInfo(records)
+	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 }
 
-func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analytics.StartupEventInfo {
-	startupInfo := analytics.StartupEventInfo{
-		Neo4jVersion:  "not-found",
-		Edition:       "not-found",
-		CypherVersion: []string{"not-found"},
-		McpVersion:    mcpVersion,
+// recordsToConnectionEventInfo converts dbms.components() records to ConnectionEventInfo
+func recordsToConnectionEventInfo(records []*neo4j.Record) analytics.ConnectionEventInfo {
+	// Default to "unknown" for all failure cases (empty records, malformed data, etc.)
+	connInfo := analytics.ConnectionEventInfo{
+		Neo4jVersion:  "unknown",
+		Edition:       "unknown",
+		CypherVersion: []string{"unknown"},
 	}
+
 	for _, record := range records {
 		nameRaw, ok := record.Get("name")
 		if !ok {
@@ -255,12 +242,13 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 			slog.Debug("invalid 'edition' type in dbms.components record")
 			continue
 		}
+
 		versionsRaw, ok := record.Get("versions")
 		if !ok {
 			slog.Debug("missing 'versions' column in dbms.components record")
 			continue
 		}
-		versions, ok := versionsRaw.([]interface{})
+		versions, ok := versionsRaw.([]any)
 		if !ok {
 			slog.Debug("invalid 'versions' type in dbms.components record")
 			continue
@@ -268,14 +256,12 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 
 		switch name {
 		case "Neo4j Kernel":
-			// versions can be an array, e,g. Cypher can have multiple versions. "Cypher": ["5", "25"]
 			if len(versions) > 0 {
 				if v, ok := versions[0].(string); ok {
-					startupInfo.Neo4jVersion = v
+					connInfo.Neo4jVersion = v
 				}
 			}
-
-			startupInfo.Edition = edition
+			connInfo.Edition = edition
 		case "Cypher":
 			var stringVersions []string
 			for _, v := range versions {
@@ -283,11 +269,10 @@ func recordsToStartupEventInfo(records []*neo4j.Record, mcpVersion string) analy
 					stringVersions = append(stringVersions, s)
 				}
 			}
-
-			startupInfo.CypherVersion = stringVersions
+			connInfo.CypherVersion = stringVersions
 		}
 	}
-	return startupInfo
+	return connInfo
 }
 
 // buildTLSConfig creates a TLS configuration with security best practices
@@ -346,7 +331,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Wrap handler with middleware and create HTTP server
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: chainMiddleware(allowedOrigins, mcpServerHTTP),
+		Handler: s.chainMiddleware(allowedOrigins, mcpServerHTTP),
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       serverHTTPReadTimeout,
 		WriteTimeout:      serverHTTPWriteTimeout,
@@ -371,12 +356,14 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	errChan := make(chan error, 1)
 	go func() {
 		var err error
+
 		if s.config.HTTPTLSEnabled {
 			// Use empty strings for cert/key files since they're already loaded in TLSConfig
 			err = s.httpServer.ListenAndServeTLS("", "")
 		} else {
 			err = s.httpServer.ListenAndServe()
 		}
+
 		if err != nil && err != http.ErrServerClosed {
 			errChan <- fmt.Errorf("HTTP server failed: %w", err)
 		}
@@ -404,5 +391,90 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	case <-s.shutdownChan:
 		// Server was stopped via Stop() method
 		return nil
+	}
+}
+
+// configureHooks sets up MCP SDK hooks for tool call tracking
+func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
+	hooks := &server.Hooks{}
+
+	hooks.AddAfterCallTool(s.handleToolCallComplete)
+	if s.config.TransportMode == config.TransportModeHTTP {
+		hooks.AddBeforeInitialize(func(ctx context.Context, _ any, _ *mcp.InitializeRequest) {
+			// if requirements and events are already verified/sent return
+			if s.connectionVerified.Load() {
+				return
+			}
+			// lock
+			s.initMu.Lock()
+			defer s.initMu.Unlock()
+
+			// cover edge case "connectionVerified" stored in between check and lock
+			if s.connectionVerified.Load() {
+				return
+			}
+
+			slog.Info("Verify server requirements...")
+			if err := s.verifyRequirements(ctx); err != nil {
+				slog.Error("Error during verification", "error", err)
+				return
+			}
+
+			if s.gdsInstalled {
+				s.addGDSTools()
+			}
+
+			s.emitConnectionInitializedEvent(ctx)
+
+			s.connectionVerified.Store(true)
+		})
+	}
+
+	return hooks
+}
+
+// handleToolCallComplete is called after every tool call completes
+func (s *Neo4jMCPServer) handleToolCallComplete(_ context.Context, _ any, request *mcp.CallToolRequest, result *mcp.CallToolResult) {
+	if s.anService == nil || !s.anService.IsEnabled() {
+		return
+	}
+
+	toolName := request.Params.Name
+	success := !result.IsError
+
+	// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
+	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, success))
+
+	// Handle GDS events for cypher tools
+	if toolName == "read-cypher" || toolName == "write-cypher" {
+		s.emitGDSEventsIfNeeded(request)
+	}
+}
+
+// emitGDSEventsIfNeeded checks if the cypher query contains GDS calls and emits appropriate events
+func (s *Neo4jMCPServer) emitGDSEventsIfNeeded(request *mcp.CallToolRequest) {
+	// Type assert Arguments to map[string]any
+	args, ok := request.Params.Arguments.(map[string]any)
+	if !ok {
+		return
+	}
+
+	// Extract query from arguments
+	queryRaw, ok := args["query"]
+	if !ok {
+		return
+	}
+
+	queryStr, ok := queryRaw.(string)
+	if !ok {
+		return
+	}
+
+	lowerQuery := strings.ToLower(queryStr)
+	if strings.Contains(lowerQuery, "call gds.graph.project") {
+		s.anService.EmitEvent(s.anService.NewGDSProjCreatedEvent())
+	}
+	if strings.Contains(lowerQuery, "call gds.graph.drop") {
+		s.anService.EmitEvent(s.anService.NewGDSProjDropEvent())
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/gds"
@@ -16,9 +15,6 @@ import (
 
 func TestListGdsProceduresHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	analyticsService := analytics.NewMockService(ctrl)
-	analyticsService.EXPECT().NewToolsEvent("list-gds-procedures").AnyTimes()
-	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	defer ctrl.Finish()
 
 	t.Run("successful list-gds-procedures", func(t *testing.T) {
@@ -31,8 +27,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 			Return("", nil)
 
 		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: analyticsService,
+			DBService: mockDB,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -50,8 +45,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 
 	t.Run("nil database service", func(t *testing.T) {
 		deps := &tools.ToolDependencies{
-			DBService:        nil,
-			AnalyticsService: analyticsService,
+			DBService: nil,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -66,23 +60,6 @@ func TestListGdsProceduresHandler(t *testing.T) {
 			t.Error("Expected error result for nil database service")
 		}
 	})
-	t.Run("nil analytics service", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: nil,
-		}
-
-		handler := gds.ListGdsProceduresHandler(deps)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
-
-		if err != nil {
-			t.Errorf("Expected no error from handler, got: %v", err)
-		}
-		if result == nil || !result.IsError {
-			t.Error("Expected error result for nil analytics service")
-		}
-	})
 
 	t.Run("database query execution failure", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
@@ -91,8 +68,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 			Return(nil, errors.New("Invalid Cypher"))
 
 		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: analyticsService,
+			DBService: mockDB,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
@@ -119,8 +95,7 @@ func TestListGdsProceduresHandler(t *testing.T) {
 			Return("", errors.New("JSON marshaling failed"))
 
 		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: analyticsService,
+			DBService: mockDB,
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)

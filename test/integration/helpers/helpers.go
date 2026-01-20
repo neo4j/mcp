@@ -41,7 +41,7 @@ type TestContext struct {
 }
 
 // NewTestContext creates a new test context with automatic cleanup
-func NewTestContext(t *testing.T, driver *neo4j.DriverWithContext) *TestContext {
+func NewTestContext(t *testing.T, driver *neo4j.Driver) *TestContext {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -82,13 +82,14 @@ func getAnalyticsMock(t *testing.T) *analytics.MockService {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().Disable().AnyTimes()
 	analyticsService.EXPECT().Enable().AnyTimes()
 	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
-	analyticsService.EXPECT().NewGDSProjCreatedEvent().AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().NewToolsEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewToolEvent(gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
 	return analyticsService
 }

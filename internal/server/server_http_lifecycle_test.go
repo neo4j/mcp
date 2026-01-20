@@ -16,7 +16,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -32,11 +34,28 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// getFreePort finds and returns an available port
+func getFreePort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+	addr := listener.Addr().(*net.TCPAddr)
+	return addr.Port, nil
+}
+
 // TestNeo4jMCPServerHTTPMode tests the HTTP mode lifecycle where initialization is delayed
 // until the first client performs an initialize request via hooks
 func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	// Find a free port for the test
+	port, err := getFreePort()
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
 
 	// Base configuration for HTTP mode
 	cfg := &config.Config{
@@ -44,13 +63,15 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		Database:      "neo4j",
 		TransportMode: config.TransportModeHTTP,
 		HTTPHost:      "127.0.0.1",
-		HTTPPort:      "3000",
+		HTTPPort:      strconv.Itoa(port),
 	}
 	uri := fmt.Sprintf("http://%s:%s/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
+	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
 	t.Run("HTTP mode starts without verification and registers hook", func(t *testing.T) {
 		// In HTTP mode, no DB verification should happen at startup
@@ -96,6 +117,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// In HTTP mode, NO database operations should happen during Start()
 		// The hook is registered but not executed until a real client request
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+		// Signal that server is ready to accept requests
 
 		mcpClient := createStreamableHTTPClient(uri)
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
@@ -312,6 +334,11 @@ func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, 
 	// wait for HttpServerReady to be closed
 	for range s.HTTPServerReady { //nolint:all // Waiting for channel to close
 	}
+
+	// Give the server a moment to actually bind to the port
+	// The HTTPServerReady channel closes before ListenAndServe() is called
+	time.Sleep(100 * time.Millisecond)
+
 	return s, errChan
 }
 

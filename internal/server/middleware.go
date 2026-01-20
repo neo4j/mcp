@@ -13,8 +13,8 @@ const (
 	corsMaxAgeSeconds = "86400" // 24 hours
 )
 
-// chainMiddleware chains together all HTTP middleware
-func chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+// chainMiddleware chains together all HTTP middleware for this server instance
+func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	// Chain middleware in reverse order (last added = first to execute)
 	// Execution order: PathValidator -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 

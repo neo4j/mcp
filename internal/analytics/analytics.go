@@ -32,7 +32,7 @@ type Analytics struct {
 
 // for testing purposes - enables dependency injection of http client
 func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, client HTTPClient, uri string) *Analytics {
-	distinctID := getDistinctID()
+	distinctID := GetDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
@@ -46,7 +46,7 @@ func NewAnalyticsWithClient(mixPanelToken string, mixpanelEndpoint string, clien
 }
 
 func NewAnalytics(mixPanelToken string, mixpanelEndpoint string, uri string) *Analytics {
-	distinctID := getDistinctID()
+	distinctID := GetDistinctID()
 	cfg := analyticsConfig{
 		token:            mixPanelToken,
 		mixpanelEndpoint: mixpanelEndpoint,
@@ -85,6 +85,10 @@ func (a *Analytics) Disable() {
 	a.disabled = true
 }
 
+func (a *Analytics) IsEnabled() bool {
+	return !a.disabled
+}
+
 func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	b, err := json.Marshal(events)
 	if err != nil {
@@ -114,7 +118,7 @@ func (a *Analytics) sendTrackEvent(events []TrackEvent) error {
 	return nil
 }
 
-func getDistinctID() string {
+func GetDistinctID() string {
 	distinctID, err := uuid.NewV6()
 	if err != nil {
 		slog.Error("Error while generating distinct ID for analytics", "error", err.Error())

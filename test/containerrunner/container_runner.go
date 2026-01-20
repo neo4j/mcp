@@ -18,7 +18,7 @@ import (
 
 var (
 	container testcontainers.Container
-	driver    *neo4j.DriverWithContext
+	driver    *neo4j.Driver
 	cfg       *config.Config
 	once      sync.Once
 )
@@ -31,7 +31,7 @@ func Start(ctx context.Context) {
 }
 
 // GetDriver get a driver associated with the instance created
-func GetDriver() *neo4j.DriverWithContext {
+func GetDriver() *neo4j.Driver {
 	if driver == nil {
 		log.Fatal("driver is not initialized")
 	}
@@ -62,10 +62,10 @@ func startOnce(ctx context.Context) {
 		URI:           boltURI,
 		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
 		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
-		TransportMode: config.GetEnvWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio),
+		TransportMode: config.GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio),
 	}
 
-	drv, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
+	drv, err := neo4j.NewDriver(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
 	driver = &drv
 	if err != nil {
 		_ = ctr.Terminate(ctx)

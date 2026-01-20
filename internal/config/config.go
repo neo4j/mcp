@@ -11,15 +11,17 @@ import (
 	"github.com/neo4j/mcp/internal/logger"
 )
 
+type TransportMode string
+
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize int32  = 100
-	TransportModeStdio      string = "stdio"
-	TransportModeHTTP       string = "http"
+	DefaultSchemaSampleSize int32         = 100
+	TransportModeStdio      TransportMode = "stdio"
+	TransportModeHTTP       TransportMode = "http"
 )
 
 // ValidTransportModes defines the allowed transport mode values
-var ValidTransportModes = []string{TransportModeStdio, TransportModeHTTP}
+var ValidTransportModes = []TransportMode{TransportModeStdio, TransportModeHTTP}
 
 // Config holds the application configuration
 type Config struct {
@@ -32,13 +34,14 @@ type Config struct {
 	LogLevel           string
 	LogFormat          string
 	SchemaSampleSize   int32
-	TransportMode      string // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort           string // HTTP server port (default: "443" with TLS, "80" without TLS)
-	HTTPHost           string // HTTP server host (default: "127.0.0.1")
-	HTTPAllowedOrigins string // Comma-separated list of allowed CORS origins (optional, "*" for all)
-	HTTPTLSEnabled     bool   // If true, enables TLS/HTTPS for HTTP server (default: false)
-	HTTPTLSCertFile    string // Path to TLS certificate file (required if HTTPTLSEnabled is true)
-	HTTPTLSKeyFile     string // Path to TLS private key file (required if HTTPTLSEnabled is true)
+	TransportMode      TransportMode // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort           string        // HTTP server port (default: "443" with TLS, "80" without TLS)
+	HTTPHost           string        // HTTP server host (default: "127.0.0.1")
+	HTTPAllowedOrigins string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPTLSEnabled     bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
+	HTTPTLSCertFile    string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
+	HTTPTLSKeyFile     string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
+	MCPVersion         string        // MCP version string
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -140,7 +143,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogLevel:           logLevel,
 		LogFormat:          logFormat,
 		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:      GetEnvWithDefault("NEO4J_MCP_TRANSPORT", "stdio"),
+		TransportMode:      GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio),
 		HTTPPort:           GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
 		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
@@ -170,7 +173,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
 		}
 		if cliOverrides.TransportMode != "" {
-			cfg.TransportMode = cliOverrides.TransportMode
+			cfg.TransportMode = TransportMode(cliOverrides.TransportMode)
 		}
 		if cliOverrides.Port != "" {
 			cfg.HTTPPort = cliOverrides.Port
@@ -219,6 +222,14 @@ func GetEnv(key string) string {
 func GetEnvWithDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+// GetTransportModeWithDefault returns the value of an environment variable or a default value
+func GetTransportModeWithDefault(key, defaultValue TransportMode) TransportMode {
+	if value := os.Getenv(string(key)); value != "" {
+		return TransportMode(value)
 	}
 	return defaultValue
 }

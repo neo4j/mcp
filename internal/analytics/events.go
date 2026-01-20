@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/neo4j/mcp/internal/config"
 )
 
 const eventNamePrefix = "MCP4NEO4J"
@@ -25,17 +26,28 @@ type baseProperties struct {
 	IsAura     bool   `json:"isAura"`
 }
 
-type startupProperties struct {
+// serverStartupProperties contains server-level information available at startup (no DB query required)
+type serverStartupProperties struct {
+	baseProperties
+	McpVersion    string               `json:"mcp_version"`
+	TransportMode config.TransportMode `json:"transport_mode"`
+	TLSEnabled    *bool                `json:"tls_enabled,omitempty"` // Only for HTTP mode, pointer allows explicit false
+}
+
+// connectionInitializedProperties contains Neo4j-specific information (requires DB query)
+type connectionInitializedProperties struct {
 	baseProperties
 	Neo4jVersion  string   `json:"neo4j_version"`
 	Edition       string   `json:"edition"`
 	CypherVersion []string `json:"cypher_version"`
-	McpVersion    string   `json:"mcp_version"`
 }
 
-type toolsProperties struct {
+// toolProperties contains tool event properties (used for both STDIO and HTTP modes)
+// Note: Neo4j connection info (version, edition, cypher version) is sent once in CONNECTION_INITIALIZED event
+type toolProperties struct {
 	baseProperties
 	ToolUsed string `json:"tools_used"`
+	Success  bool   `json:"success"`
 }
 
 type TrackEvent struct {
@@ -57,32 +69,54 @@ func (a *Analytics) NewGDSProjDropEvent() TrackEvent {
 	}
 }
 
-type StartupEventInfo struct {
+// ConnectionEventInfo contains Neo4j connection information obtained from database queries
+type ConnectionEventInfo struct {
 	Neo4jVersion  string
 	Edition       string
 	CypherVersion []string
-	McpVersion    string
 }
 
-func (a *Analytics) NewStartupEvent(startupInfoEvent StartupEventInfo) TrackEvent {
+// NewStartupEvent creates a server startup event with information available immediately (no DB query)
+func (a *Analytics) NewStartupEvent(transportMode config.TransportMode, tlsEnabled bool, mcpVersion string) TrackEvent {
+	props := serverStartupProperties{
+		baseProperties: a.getBaseProperties(),
+		McpVersion:     mcpVersion,
+		TransportMode:  transportMode,
+	}
+
+	// Only include TLS field for HTTP mode (omitted for STDIO via omitempty tag with nil pointer)
+	if props.TransportMode == config.TransportModeHTTP {
+		props.TLSEnabled = &tlsEnabled
+	}
+
 	return TrackEvent{
-		Event: strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
-		Properties: startupProperties{
+		Event:      strings.Join([]string{eventNamePrefix, "MCP_STARTUP"}, "_"),
+		Properties: props,
+	}
+}
+
+// NewConnectionInitializedEvent creates a connection initialized event with DB information (STDIO mode only)
+func (a *Analytics) NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent {
+	return TrackEvent{
+		Event: strings.Join([]string{eventNamePrefix, "CONNECTION_INITIALIZED"}, "_"),
+		Properties: connectionInitializedProperties{
 			baseProperties: a.getBaseProperties(),
-			Neo4jVersion:   startupInfoEvent.Neo4jVersion,
-			Edition:        startupInfoEvent.Edition,
-			CypherVersion:  startupInfoEvent.CypherVersion,
-			McpVersion:     startupInfoEvent.McpVersion,
+			Neo4jVersion:   connInfo.Neo4jVersion,
+			Edition:        connInfo.Edition,
+			CypherVersion:  connInfo.CypherVersion,
 		},
 	}
 }
 
-func (a *Analytics) NewToolsEvent(toolsUsed string) TrackEvent {
+// NewToolEvent creates a tool usage event (used for both STDIO and HTTP modes)
+// Note: Connection info (Neo4j version, edition) is sent separately in CONNECTION_INITIALIZED event
+func (a *Analytics) NewToolEvent(toolsUsed string, success bool) TrackEvent {
 	return TrackEvent{
 		Event: strings.Join([]string{eventNamePrefix, "TOOL_USED"}, "_"),
-		Properties: toolsProperties{
+		Properties: toolProperties{
 			baseProperties: a.getBaseProperties(),
 			ToolUsed:       toolsUsed,
+			Success:        success,
 		},
 	}
 }

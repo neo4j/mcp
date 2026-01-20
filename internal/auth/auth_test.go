@@ -73,3 +73,31 @@ func TestGetBasicAuthCredentials_Missing(t *testing.T) {
 		t.Errorf("Expected empty password when no credentials, got %q", pass)
 	}
 }
+
+func TestHasAuthCredentials(t *testing.T) {
+	t.Run("with basic auth", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = WithBasicAuth(ctx, "user", "pass")
+
+		if !HasAuth(ctx) {
+			t.Error("Expected HasAuthCredentials to return true for basic auth, got false")
+		}
+	})
+
+	t.Run("with bearer token", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = WithBearerToken(ctx, "token")
+
+		if !HasAuth(ctx) {
+			t.Error("Expected HasAuthCredentials to return true for bearer token, got false")
+		}
+	})
+
+	t.Run("with no auth", func(t *testing.T) {
+		ctx := context.Background()
+
+		if HasAuth(ctx) {
+			t.Error("Expected HasAuthCredentials to return false for no auth, got true")
+		}
+	})
+}

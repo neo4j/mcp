@@ -10,6 +10,7 @@ import (
 
 	"github.com/neo4j/mcp/internal/analytics"
 	amocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
 	"go.uber.org/mock/gomock"
 )
 
@@ -199,8 +200,8 @@ func TestEventCreation(t *testing.T) {
 		assertBaseProperties(t, event.Properties)
 	})
 
-	t.Run("NewToolsEvent", func(t *testing.T) {
-		event := analyticsService.NewToolsEvent("gds")
+	t.Run("NewToolEvent", func(t *testing.T) {
+		event := analyticsService.NewToolEvent("gds", true)
 		if event.Event != "MCP4NEO4J_TOOL_USED" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_TOOL_USED")
 		}
@@ -208,15 +209,14 @@ func TestEventCreation(t *testing.T) {
 		if props["tools_used"] != "gds" {
 			t.Errorf("unexpected tools_used: got %v, want %v", props["tools_used"], "gds")
 		}
+		if props["success"] != true {
+			t.Errorf("unexpected success: got %v, want %v", props["success"], true)
+		}
+		// Note: Neo4j connection info (version, edition, cypher version) is sent separately in CONNECTION_INITIALIZED event
 	})
 
 	t.Run("NewStartupEvent", func(t *testing.T) {
-		event := analyticsService.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "2025.09.01",
-			CypherVersion: []string{"5", "25"},
-			Edition:       "enterprise",
-			McpVersion:    "1.0.0",
-		})
+		event := analyticsService.NewStartupEvent(config.TransportModeStdio, false, "1.0.0")
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
 		}
@@ -230,15 +230,29 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == true {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], false)
 		}
+		if props["mcp_version"] != "1.0.0" {
+			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
+		}
+		if props["transport_mode"] != "stdio" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "stdio")
+		}
+	})
+
+	t.Run("NewConnectionInitializedEvent", func(t *testing.T) {
+		event := analyticsService.NewConnectionInitializedEvent(analytics.ConnectionEventInfo{
+			Neo4jVersion:  "2025.09.01",
+			CypherVersion: []string{"5", "25"},
+			Edition:       "enterprise",
+		})
+		if event.Event != "MCP4NEO4J_CONNECTION_INITIALIZED" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_CONNECTION_INITIALIZED")
+		}
+		props := assertBaseProperties(t, event.Properties)
 		if props["neo4j_version"] != "2025.09.01" {
 			t.Errorf("unexpected Neo4jVersion: got %v, want %v", props["neo4j_version"], "2025.09.01")
 		}
 		if props["edition"] != "enterprise" {
 			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
-		}
-
-		if props["mcp_version"] != "1.0.0" {
-			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
 		}
 
 		cypherVersion, ok := props["cypher_version"].([]interface{})
@@ -252,12 +266,7 @@ func TestEventCreation(t *testing.T) {
 
 	t.Run("NewStartupEvent with Aura database", func(t *testing.T) {
 		auraAnalytics := newTestAnalytics(t, "test-token", "http://localhost", nil, "bolt://mydb.databases.neo4j.io")
-		event := auraAnalytics.NewStartupEvent(analytics.StartupEventInfo{
-			Neo4jVersion:  "2025.09.01",
-			CypherVersion: []string{"5", "25"},
-			Edition:       "enterprise",
-			McpVersion:    "1.0.0",
-		})
+		event := auraAnalytics.NewStartupEvent(config.TransportModeHTTP, false, "1.0.0")
 
 		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
 			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
@@ -272,22 +281,92 @@ func TestEventCreation(t *testing.T) {
 		if props["isAura"] == false {
 			t.Errorf("unexpected aura: got %v, want %v", props["isAura"], true)
 		}
-		if props["neo4j_version"] != "2025.09.01" {
-			t.Errorf("unexpected Neo4jVersion: got %v, want %v", props["neo4j_version"], "2025.09.01")
-		}
-		if props["edition"] != "enterprise" {
-			t.Errorf("unexpected edition: got %v, want %v", props["edition"], "enterprise")
-		}
 		if props["mcp_version"] != "1.0.0" {
 			t.Errorf("unexpected mcp_version: got %v, want %v", props["mcp_version"], "1.0.0")
 		}
+	})
 
-		cypherVersion, ok := props["cypher_version"].([]interface{})
-		if !ok {
-			t.Fatalf("cypher_version is not a []interface{}")
+	t.Run("NewStartupEvent with STDIO transport mode", func(t *testing.T) {
+		stdioAnalytics := analytics.NewAnalyticsWithClient(
+			"test-token",
+			"http://localhost",
+			nil,
+			"bolt://localhost:7687",
+		)
+		event := stdioAnalytics.NewStartupEvent(config.TransportModeStdio, false, "1.0.0")
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
 		}
-		if len(cypherVersion) != 2 || cypherVersion[0] != "5" || cypherVersion[1] != "25" {
-			t.Errorf("unexpected cypher_version: got %v, want %v", props["cypher_version"], []string{"5", "25"})
+
+		props := assertBaseProperties(t, event.Properties)
+
+		// Verify transport_mode is set to "stdio"
+		if props["transport_mode"] != "stdio" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "stdio")
+		}
+
+		// Verify tls_enabled is NOT present in STDIO mode (uses omitempty)
+		if _, exists := props["tls_enabled"]; exists {
+			t.Errorf("tls_enabled should not be present in STDIO mode, but found: %v", props["tls_enabled"])
+		}
+	})
+
+	t.Run("NewStartupEvent with HTTP transport mode and TLS enabled", func(t *testing.T) {
+		httpAnalytics := analytics.NewAnalyticsWithClient(
+			"test-token",
+			"http://localhost",
+			nil,
+			"bolt://localhost:7687",
+		)
+		event := httpAnalytics.NewStartupEvent(config.TransportModeHTTP, true, "1.0.0")
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+
+		props := assertBaseProperties(t, event.Properties)
+
+		// Verify transport_mode is set to "http"
+		if props["transport_mode"] != "http" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "http")
+		}
+
+		// Verify tls_enabled is present and set to true in HTTP mode
+		tlsEnabled, exists := props["tls_enabled"]
+		if !exists {
+			t.Errorf("tls_enabled should be present in HTTP mode")
+		} else if tlsEnabled != true {
+			t.Errorf("unexpected tls_enabled: got %v, want %v", tlsEnabled, true)
+		}
+	})
+
+	t.Run("NewStartupEvent with HTTP transport mode and TLS disabled", func(t *testing.T) {
+		httpAnalytics := analytics.NewAnalyticsWithClient(
+			"test-token",
+			"http://localhost",
+			nil,
+			"bolt://localhost:7687",
+		)
+		event := httpAnalytics.NewStartupEvent(config.TransportModeHTTP, false, "1.0.0")
+
+		if event.Event != "MCP4NEO4J_MCP_STARTUP" {
+			t.Errorf("unexpected event name: got %s, want %s", event.Event, "MCP4NEO4J_MCP_STARTUP")
+		}
+
+		props := assertBaseProperties(t, event.Properties)
+
+		// Verify transport_mode is set to "http"
+		if props["transport_mode"] != "http" {
+			t.Errorf("unexpected transport_mode: got %v, want %v", props["transport_mode"], "http")
+		}
+
+		// Verify tls_enabled is present and set to false in HTTP mode
+		tlsEnabled, exists := props["tls_enabled"]
+		if !exists {
+			t.Errorf("tls_enabled should be present in HTTP mode")
+		} else if tlsEnabled != false {
+			t.Errorf("unexpected tls_enabled: got %v, want %v", tlsEnabled, false)
 		}
 	})
 

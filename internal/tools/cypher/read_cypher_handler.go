@@ -3,7 +3,6 @@ package cypher
 import (
 	"context"
 	"log/slog"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
@@ -17,19 +16,11 @@ func ReadCypherHandler(deps *tools.ToolDependencies) func(context.Context, mcp.C
 }
 
 func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *tools.ToolDependencies) (*mcp.CallToolResult, error) {
-	if deps.AnalyticsService == nil {
-		errMessage := "Analytics service is not initialized"
-		slog.Error(errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
-
 	if deps.DBService == nil {
 		errMessage := "Database service is not initialized"
 		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-
-	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("read-cypher"))
 
 	var args ReadCypherInput
 
@@ -41,15 +32,6 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	Params := args.Params
 
 	slog.Info("executing read cypher query", "query", Query)
-
-	lowerCaseQuery := strings.ToLower(Query)
-	if strings.Contains(lowerCaseQuery, "call gds.graph.project") {
-		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjCreatedEvent())
-	}
-
-	if strings.Contains(lowerCaseQuery, "call gds.graph.drop") {
-		deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewGDSProjDropEvent())
-	}
 
 	// Validate that query is not empty
 	if Query == "" {

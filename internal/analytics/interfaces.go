@@ -4,17 +4,21 @@ package analytics
 import (
 	"io"
 	"net/http"
+
+	"github.com/neo4j/mcp/internal/config"
 )
 
 // Service
 type Service interface {
 	Disable()
 	Enable()
+	IsEnabled() bool
 	EmitEvent(event TrackEvent)
 	NewGDSProjCreatedEvent() TrackEvent
 	NewGDSProjDropEvent() TrackEvent
-	NewStartupEvent(startupEventInfo StartupEventInfo) TrackEvent
-	NewToolsEvent(toolsUsed string) TrackEvent
+	NewStartupEvent(transportMode config.TransportMode, tlsEnabled bool, mcpServer string) TrackEvent
+	NewConnectionInitializedEvent(connInfo ConnectionEventInfo) TrackEvent
+	NewToolEvent(toolsUsed string, success bool) TrackEvent
 }
 
 // dummy http client interface for our testing purposes

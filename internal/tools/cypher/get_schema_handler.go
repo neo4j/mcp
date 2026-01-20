@@ -36,14 +36,7 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSa
 		slog.Error(errMessage)
 		return mcp.NewToolResultError(errMessage), nil
 	}
-	// Emit analytics event
-	if deps.AnalyticsService == nil {
-		errMessage := "analytics service is not initialized"
-		slog.Error(errMessage)
-		return mcp.NewToolResultError(errMessage), nil
-	}
 
-	deps.AnalyticsService.EmitEvent(deps.AnalyticsService.NewToolsEvent("get-schema"))
 	slog.Info("retrieving schema from the database")
 
 	// Execute the APOC schema query
