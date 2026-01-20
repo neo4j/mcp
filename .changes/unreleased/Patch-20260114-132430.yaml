@@ -1,5 +1,0 @@
-kind: Minor
-body: |
-  Added bearer token support for MCP server.
-  Analytics events now also emitted when the server is executed in HTTP mode; previously, only STDIO mode supported Telemetry. (needs to be enabled explicitly)
-time: 2026-01-14T13:24:30.339498Z
