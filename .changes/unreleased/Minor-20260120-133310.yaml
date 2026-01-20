@@ -1,0 +1,3 @@
+kind: Minor
+body: Analytics events now also emitted when the server is executed in HTTP mode; previously, only STDIO mode supported Telemetry. (needs to be enabled explicit
+time: 2026-01-20T13:33:10.245291Z
