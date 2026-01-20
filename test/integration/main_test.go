@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/neo4j/mcp/test/integration/dbservice"
+	"github.com/neo4j/mcp/test/dbservice"
 )
 
 var dbs = dbservice.NewDBService()
