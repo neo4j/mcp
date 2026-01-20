@@ -18,7 +18,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/analytics"
-	"github.com/neo4j/mcp/internal/auth"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
@@ -212,36 +211,6 @@ func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
 	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
 }
 
-// collectConnectionInfo queries the database for connection information (HTTP mode - per tool call)
-func (s *Neo4jMCPServer) collectConnectionInfo(ctx context.Context) analytics.ConnectionEventInfo {
-	// In HTTP mode, verify auth is present in context before attempting DB query
-	if s.config.TransportMode == config.TransportModeHTTP {
-		if !auth.HasAuth(ctx) {
-			slog.Error("Auth credentials not found in context for HTTP mode DB query",
-				"operation", "collectConnectionInfo")
-			return analytics.ConnectionEventInfo{
-				Neo4jVersion:  "unknown",
-				Edition:       "unknown",
-				CypherVersion: []string{"unknown"},
-			}
-		}
-	}
-
-	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
-	if err != nil {
-		slog.Warn("Failed to collect connection info for tool event",
-			"error", err.Error(),
-			"mode", s.config.TransportMode)
-		return analytics.ConnectionEventInfo{
-			Neo4jVersion:  "unknown",
-			Edition:       "unknown",
-			CypherVersion: []string{"unknown"},
-		}
-	}
-
-	return recordsToConnectionEventInfo(records)
-}
-
 // recordsToConnectionEventInfo converts dbms.components() records to ConnectionEventInfo
 func recordsToConnectionEventInfo(records []*neo4j.Record) analytics.ConnectionEventInfo {
 	// Default to "unknown" for all failure cases (empty records, malformed data, etc.)
@@ -279,7 +248,7 @@ func recordsToConnectionEventInfo(records []*neo4j.Record) analytics.ConnectionE
 			slog.Debug("missing 'versions' column in dbms.components record")
 			continue
 		}
-		versions, ok := versionsRaw.([]interface{})
+		versions, ok := versionsRaw.([]any)
 		if !ok {
 			slog.Debug("invalid 'versions' type in dbms.components record")
 			continue
