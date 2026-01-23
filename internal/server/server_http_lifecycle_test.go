@@ -332,12 +332,9 @@ func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, 
 		}
 	}()
 	// wait for HttpServerReady to be closed
+	// Once closed, the port is guaranteed to be bound and listening
 	for range s.HTTPServerReady { //nolint:all // Waiting for channel to close
 	}
-
-	// Give the server a moment to actually bind to the port
-	// The HTTPServerReady channel closes before ListenAndServe() is called
-	time.Sleep(100 * time.Millisecond)
 
 	return s, errChan
 }
