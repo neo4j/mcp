@@ -143,7 +143,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogLevel:           logLevel,
 		LogFormat:          logFormat,
 		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:      GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio),
+		TransportMode:      GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio)),
 		HTTPPort:           GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
 		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
