@@ -25,15 +25,46 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = loggingMiddleware()(handler)
 
 	// Add auth middleware (supports both Bearer and Basic authentication)
+	// Use configured header name (fallback to Authorization)
+	header := "Authorization"
+	if s != nil && s.config != nil && s.config.AuthHeaderName != "" {
+		header = s.config.AuthHeaderName
+	}
+
 	handler = authMiddleware()(handler)
 
-	// Add CORS middleware (if configured)
+	// Add a middleware that rewrites the configured auth header into the standard
+	// "Authorization" header so that code which relies on the standard header
+	// (for example, r.BasicAuth()) can find credentials provided via the
+	// custom header. Do not overwrite an existing Authorization header.
+	handler = rewriteAuthHeaderMiddleware(header)(handler)
+
+	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins)(handler)
 
 	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
 	handler = pathValidationMiddleware()(handler)
 
 	return handler
+}
+
+// rewriteAuthHeaderMiddleware copies the value from the configured header into
+// the standard "Authorization" header if present and if Authorization is not
+// already set. This preserves existing Authorization headers and enables Basic
+// auth parsing for credentials sent in a custom header.
+func rewriteAuthHeaderMiddleware(headerName string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if headerName != "" && headerName != "Authorization" && r.Header.Get("Authorization") == "" {
+				val := r.Header.Get(headerName)
+				if val != "" {
+					r.Header.Set("Authorization", val)
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // authMiddleware enforces HTTP authentication (Bearer token or Basic Auth) for all requests in HTTP mode.
