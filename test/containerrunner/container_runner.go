@@ -62,7 +62,7 @@ func startOnce(ctx context.Context) {
 		URI:           boltURI,
 		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
 		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
-		TransportMode: config.GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio),
+		TransportMode: config.GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", config.GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio)),
 	}
 
 	drv, err := neo4j.NewDriver(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))

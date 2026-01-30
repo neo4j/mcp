@@ -38,7 +38,7 @@ export NEO4J_SCHEMA_SAMPLE_SIZE="100"       # Default: 100
 
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_MCP_TRANSPORT="http"
+export NEO4J_TRANSPORT_MODE="http"
 ```
 
 **Important:** Do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD` for HTTP mode. Credentials come from per-request headers (Bearer token or Basic Auth).
@@ -134,7 +134,7 @@ First, start your Neo4j MCP server in HTTP mode:
 
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_MCP_TRANSPORT="http"
+export NEO4j_TRANSPORT_MODE="http"
 neo4j-mcp
 ```
 
