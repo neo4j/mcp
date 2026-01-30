@@ -43,6 +43,7 @@ type Config struct {
 	HTTPTLSCertFile    string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
 	HTTPTLSKeyFile     string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
 	MCPVersion         string        // MCP version string
+	AuthHeaderName     string        // HTTP header name to read auth credentials from (default: "Authorization")
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -113,6 +114,7 @@ type CLIOverrides struct {
 	TLSEnabled     string
 	TLSCertFile    string
 	TLSKeyFile     string
+	AuthHeaderName string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -155,6 +157,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		HTTPTLSEnabled:     ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
 		HTTPTLSCertFile:    GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
 		HTTPTLSKeyFile:     GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
+		AuthHeaderName:     GetEnvWithDefault("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "Authorization"),
 	}
 
 	// Apply CLI overrides if provided
@@ -197,6 +200,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.TLSKeyFile != "" {
 			cfg.HTTPTLSKeyFile = cliOverrides.TLSKeyFile
+		}
+		if cliOverrides.AuthHeaderName != "" {
+			cfg.AuthHeaderName = cliOverrides.AuthHeaderName
 		}
 	}
 

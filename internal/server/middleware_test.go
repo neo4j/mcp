@@ -218,6 +218,24 @@ func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
 	}
 }
 
+func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
+	// Create a mock server with custom auth header name
+	mock := mockNeo4jMCPServer(t)
+	mock.config.AuthHeaderName = "X-Test-Auth"
+
+	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "custom-token-789"))
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	req.Header.Set("X-Test-Auth", "Bearer custom-token-789")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+}
+
 func TestCORSMiddleware_NoConfiguration(t *testing.T) {
 	handler := corsMiddleware([]string{})(mockHandler())
 
