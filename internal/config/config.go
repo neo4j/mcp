@@ -15,9 +15,10 @@ type TransportMode string
 
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize int32         = 100
-	TransportModeStdio      TransportMode = "stdio"
-	TransportModeHTTP       TransportMode = "http"
+	DefaultSchemaSampleSize   int32         = 100
+	TransportModeStdio        TransportMode = "stdio"
+	TransportModeHTTP         TransportMode = "http"
+	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
 )
 
 // ValidTransportModes defines the allowed transport mode values
@@ -131,6 +132,10 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	if !slices.Contains(logger.ValidLogFormats, logFormat) {
 		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
 		logFormat = "text"
+	}
+
+	if GetEnv("NEO4J_MCP_TRANSPORT") != "" {
+		fmt.Fprintf(os.Stderr, DeprecatedVariableMessage, "NEO4J_MCP_TRANSPORT", "NEO4J_TRANSPORT_MODE")
 	}
 
 	cfg := &Config{
