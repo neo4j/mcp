@@ -118,12 +118,6 @@ curl -X POST http://localhost:8080/mcp \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```
 
-### Authentication Precedence
-
-If both `Authorization: Bearer` and `Authorization: Basic` headers are present in the same request, the Bearer token takes precedence.
-
-**For detailed client configuration examples**, see the [Client Setup Guide](docs/CLIENT_SETUP.md#authentication).
-
 ## TLS/HTTPS Configuration
 
 When using HTTP transport mode, you can enable TLS/HTTPS for secure communication:
