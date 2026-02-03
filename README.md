@@ -98,7 +98,7 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_MCP_TRANSPORT="http"
+export NEO4J_TRANSPORT_MODE="http"
 export NEO4J_MCP_HTTP_TLS_ENABLED="true"
 export NEO4J_MCP_HTTP_TLS_CERT_FILE="/path/to/cert.pem"
 export NEO4J_MCP_HTTP_TLS_KEY_FILE="/path/to/key.pem"
@@ -141,7 +141,7 @@ Available flags:
 - `--neo4j-read-only` - Enable read-only mode: `true` or `false` (overrides NEO4J_READ_ONLY)
 - `--neo4j-telemetry` - Enable telemetry: `true` or `false` (overrides NEO4J_TELEMETRY)
 - `--neo4j-schema-sample-size` - Modify the sample size used to infer the Neo4j schema
-- `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_MCP_TRANSPORT)
+- `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_TRANSPORT_MODE)
 - `--neo4j-http-host` - HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
 - `--neo4j-http-port` - HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
 - `--neo4j-http-tls-enabled` - Enable TLS/HTTPS: `true` or `false` (overrides NEO4J_MCP_HTTP_TLS_ENABLED)

@@ -80,7 +80,7 @@ Or using environment variables:
 export NEO4J_URI="bolt://localhost:7687"
 # Note: In HTTP mode, NEO4J_USERNAME and NEO4J_PASSWORD are not used
 # Credentials come from per-request Basic Auth headers
-export NEO4J_MCP_TRANSPORT="http"
+export NEO4J_TRANSPORT_MODE="http"
 export NEO4J_MCP_HTTP_TLS_ENABLED="true"
 export NEO4J_MCP_HTTP_TLS_CERT_FILE="cert.pem"
 export NEO4J_MCP_HTTP_TLS_KEY_FILE="key.pem"

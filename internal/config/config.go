@@ -15,9 +15,10 @@ type TransportMode string
 
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize int32         = 100
-	TransportModeStdio      TransportMode = "stdio"
-	TransportModeHTTP       TransportMode = "http"
+	DefaultSchemaSampleSize   int32         = 100
+	TransportModeStdio        TransportMode = "stdio"
+	TransportModeHTTP         TransportMode = "http"
+	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
 )
 
 // ValidTransportModes defines the allowed transport mode values
@@ -133,6 +134,10 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		logFormat = "text"
 	}
 
+	if GetEnv("NEO4J_MCP_TRANSPORT") != "" {
+		fmt.Fprintf(os.Stderr, DeprecatedVariableMessage, "NEO4J_MCP_TRANSPORT", "NEO4J_TRANSPORT_MODE")
+	}
+
 	cfg := &Config{
 		URI:                GetEnv("NEO4J_URI"),
 		Username:           GetEnv("NEO4J_USERNAME"),
@@ -143,7 +148,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogLevel:           logLevel,
 		LogFormat:          logFormat,
 		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:      GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio),
+		TransportMode:      GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio)),
 		HTTPPort:           GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
 		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
