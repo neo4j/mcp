@@ -24,9 +24,9 @@ var (
 )
 
 // Start initializes shared resources for integration tests
-func Start(ctx context.Context) {
+func Start(ctx context.Context, version string) {
 	once.Do(func() {
-		startOnce(ctx)
+		startOnce(ctx, version)
 	})
 }
 
@@ -51,18 +51,27 @@ func GetDriverConf() *config.Config {
 }
 
 // startOnce start the testcontainer imaged
-func startOnce(ctx context.Context) {
+func startOnce(ctx context.Context, version string) {
 	ctr, boltURI, err := createNeo4jContainer(ctx)
 	if err != nil {
 		log.Fatalf("failed to start shared neo4j container: %v", err)
 	}
 	container = ctr
 
-	cfg = &config.Config{
-		URI:           boltURI,
-		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
-		TransportMode: config.GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", config.GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio)),
+	if version == "1.0" {
+		cfg = &config.Config{
+			URI:           boltURI,
+			Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+			Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+			TransportMode: config.GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", config.TransportModeStdio),
+		}
+	} else {
+		cfg = &config.Config{
+			URI:           boltURI,
+			Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+			Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+			TransportMode: config.GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", config.TransportModeStdio),
+		}
 	}
 
 	drv, err := neo4j.NewDriver(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))

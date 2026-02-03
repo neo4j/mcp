@@ -14,8 +14,8 @@ var dbs = dbservice.NewDBService()
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	
-	dbs.Start(ctx)
+
+	dbs.Start(ctx, "latest")
 
 	code := m.Run()
 
