@@ -194,7 +194,12 @@ curl -X POST http://localhost:80/mcp \
 curl -X POST http://localhost:80/mcp \
   -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list",
+    "params": {}
+  }'
 
 # Get Neo4j schema
 curl -X POST http://localhost:80/mcp \
