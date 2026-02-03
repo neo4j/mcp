@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal("error while creating MCP server for e2e purpose")
 	}
-	dbs.Start(ctx, "latest")
+	dbs.Start(ctx)
 
 	code := m.Run()
 

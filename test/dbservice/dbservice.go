@@ -27,9 +27,9 @@ func NewDBService() *dbService {
 	}
 }
 
-func (dbs *dbService) Start(ctx context.Context, version string) {
+func (dbs *dbService) Start(ctx context.Context) {
 	if dbs.useContainer {
-		containerrunner.Start(ctx, version)
+		containerrunner.Start(ctx)
 	}
 }
 
