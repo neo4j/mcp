@@ -1,3 +1,0 @@
-kind: Minor
-body: The NEO4J_MCP_TRANSPORT environment variable is now deprecated in favour of NEO4J_TRANSPORT_MODE.
-time: 2026-02-03T10:08:01.364395+01:00
