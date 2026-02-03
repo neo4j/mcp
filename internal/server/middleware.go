@@ -1,6 +1,9 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -77,6 +80,35 @@ func authMiddleware(headerName string) func(http.Handler) http.Handler {
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
+				// No credentials provided - check for unauthenticated ping health check
+				// Allow a JSON-RPC ping to pass through unauthenticated for liveness probes
+				// but ONLY when the request is a POST to /mcp or /mcp/ and the body contains
+				// a JSON object with "method":"ping". This keeps other RPC methods protected.
+
+				const maxBodyBytes = 4 * 1024 * 1024 // 4MB guard
+				// If ContentLength is available and larger than our guard, skip sniffing for safety
+				if r.ContentLength < 0 || r.ContentLength <= maxBodyBytes {
+					buf, err := io.ReadAll(r.Body)
+					if err == nil {
+						// restore the full body for downstream handlers
+						r.Body = io.NopCloser(bytes.NewReader(buf))
+						// Try to parse minimal JSONRPC envelope for the method field
+						var probe struct {
+							Method string `json:"method"`
+						}
+						if err := json.Unmarshal(buf, &probe); err == nil {
+							if probe.Method == "ping" {
+								// Allow unauthenticated ping through
+								next.ServeHTTP(w, r)
+								return
+							}
+						}
+					} else {
+						// Restore an empty body to avoid downstream panics
+						r.Body = io.NopCloser(bytes.NewReader(nil))
+					}
+				}
+
 				// No credentials provided - reject request
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
 				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
