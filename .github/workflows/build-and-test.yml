@@ -66,7 +66,7 @@ jobs:
       - name: Run integration tests
         run: go test -v -tags=integration ./test/integration/...
         env:
-          USE_CONTAINER: ${{ github.event.pull_request.head.repo.full_name == github.repository && "false" || "true" }}
+          USE_CONTAINER: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
           NEO4J_URI: ${{ secrets.AURA_URL }}
           NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
           NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
@@ -96,7 +96,7 @@ jobs:
       - name: Run E2E tests
         run: go test -v -tags=e2e ./test/e2e/...
         env:
-          USE_CONTAINER: ${{ github.event.pull_request.head.repo.full_name == github.repository && "false" || "true" }}
+          USE_CONTAINER: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
           NEO4J_URI: ${{ secrets.AURA_URL }}
           NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
           NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
