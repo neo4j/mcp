@@ -68,14 +68,14 @@ curl -X POST http://localhost:8080/mcp \
 **Custom auth header name**
 
 By default, the server reads credentials from the `Authorization` header.
-You can change the header name the server reads from by setting the environment variable `NEO4J_MCP_HTTP_AUTH_HEADER_NAME`
+You can change the header name the server reads from by setting the environment variable `NEO4J_HTTP_AUTH_HEADER_NAME`
 or passing the CLI flag `--neo4j-http-auth-header-name` when starting `neo4j-mcp`.
 
 Example (custom header `X-Test-Auth`):
 
 ```bash
-export NEO4J_MCP_TRANSPORT="http"
-export NEO4J_MCP_HTTP_AUTH_HEADER_NAME="X-Test-Auth"
+export NEO4J_TRANSPORT_MODE="http"
+export NEO4J_HTTP_AUTH_HEADER_NAME="X-Test-Auth"
 neo4j-mcp
 # Then send requests like:
 # -H "X-Test-Auth: Bearer your-sso-token-here"

@@ -27,7 +27,7 @@ In STDIO mode, the server verifies the following core requirements. If any of th
 - The presence of the APOC plugin.
 
 **HTTP Mode - Verification Skipped**
-In HTTP mode, startup verification checks are skipped because credentials come from per-request authentication headers (Basic Auth or a custom header). The server starts immediately without connecting to Neo4j at startup.
+In HTTP mode, startup verification checks are skipped because credentials come from per-request Basic Auth headers. The server starts immediately without connecting to Neo4j at startup.
 
 **Optional Requirements**
 If an optional dependency is missing, the server will start in an adaptive mode. For instance, if the Graph Data Science (GDS) library is not detected in your Neo4j installation, the server will still launch but will automatically disable all GDS-related tools, such as `list-gds-procedures`. All other tools will remain available.
@@ -65,7 +65,8 @@ Should print the installed version.
 The Neo4j MCP server supports two transport modes:
 
 - **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients (Claude Desktop, VSCode)
-- **HTTP**: RESTful HTTP server with per-request Basic Authentication or custom authentication headers for web-based clients and multi-tenant scenarios
+- **HTTP**: RESTful HTTP server with per-request Bearer token or Basic Authentication for web-based clients and multi-tenant scenario.
+In case where the standard HTTP header "Authorization" can't be used, it's possible to configure a custom HTTP header for this scope.
 
 ### Key Differences
 
@@ -87,7 +88,7 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 - `NEO4J_MCP_HTTP_TLS_CERT_FILE` - Path to TLS certificate file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
-- `NEO4J_MCP_HTTP_AUTH_HEADER_NAME` - Name of the HTTP header to read auth credentials from (default: `Authorization`)
+- `NEO4J_HTTP_AUTH_HEADER_NAME` - Name of the HTTP header to read auth credentials from (default: `Authorization`)
 
 ### Security Configuration
 

@@ -760,3 +760,85 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadConfig_AuthHeaderName(t *testing.T) {
+	// Default header name when not set
+	t.Run("default header name", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.AuthHeaderName != "Authorization" {
+			t.Errorf("LoadConfig() AuthHeaderName = %v, want 'Authorization' (default)", cfg.AuthHeaderName)
+		}
+	})
+
+	// Custom header name from environment variable
+	t.Run("custom header from env", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_HTTP_AUTH_HEADER_NAME", "X-Test-Auth")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.AuthHeaderName != "X-Test-Auth" {
+			t.Errorf("LoadConfig() AuthHeaderName = %v, want 'X-Test-Auth' (from env)", cfg.AuthHeaderName)
+		}
+	})
+
+	// CLI override should take precedence over environment variable
+	t.Run("cli override takes precedence", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_HTTP_AUTH_HEADER_NAME", "X-Env-Auth")
+
+		overrides := &CLIOverrides{
+			AuthHeaderName: "X-CLI-Auth",
+		}
+
+		cfg, err := LoadConfig(overrides)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.AuthHeaderName != "X-CLI-Auth" {
+			t.Errorf("LoadConfig() AuthHeaderName = %v, want 'X-CLI-Auth' (from CLI)", cfg.AuthHeaderName)
+		}
+	})
+
+	// Whitespace-only CLI override should be rejected (validation)
+	t.Run("whitespace-only cli override invalid", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+
+		overrides := &CLIOverrides{
+			AuthHeaderName: "   ", // non-empty but only whitespace -> should be trimmed to empty and cause an error
+		}
+
+		cfg, err := LoadConfig(overrides)
+		if err == nil {
+			t.Error("LoadConfig() expected error for whitespace-only auth header CLI override, got nil")
+			_ = cfg
+			return
+		}
+
+		if !strings.Contains(err.Error(), "invalid auth header name") {
+			t.Errorf("LoadConfig() error = %v, want error containing 'invalid auth header name'", err)
+		}
+	})
+}

@@ -25,22 +25,23 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = loggingMiddleware()(handler)
 
 	// Add auth middleware (supports both Bearer and Basic authentication)
-	// Use configured header name (fallback to Authorization)
-	header := "Authorization"
-	if s != nil && s.config != nil && s.config.AuthHeaderName != "" {
-		header = s.config.AuthHeaderName
+	// Use configured authHeaderName name (fallback to Authorization)
+	authHeaderName := "Authorization"
+	if s != nil && s.config != nil {
+		authHeaderName = s.config.AuthHeaderName
 	}
 
 	handler = authMiddleware()(handler)
 
-	// Add a middleware that rewrites the configured auth header into the standard
-	// "Authorization" header so that code which relies on the standard header
+	// Add a middleware that rewrites the configured auth authHeaderName into the standard
+	// "Authorization" authHeaderName so that code which relies on the standard authHeaderName
 	// (for example, r.BasicAuth()) can find credentials provided via the
-	// custom header. Do not overwrite an existing Authorization header.
-	handler = rewriteAuthHeaderMiddleware(header)(handler)
+	// custom authHeaderName. When a custom header is configured, it takes precedence and
+	// will overwrite any existing Authorization header value.
+	handler = rewriteAuthHeaderMiddleware(authHeaderName)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
-	handler = corsMiddleware(allowedOrigins)(handler)
+	handler = corsMiddleware(allowedOrigins, authHeaderName)(handler)
 
 	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
 	handler = pathValidationMiddleware()(handler)
@@ -49,17 +50,18 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 }
 
 // rewriteAuthHeaderMiddleware copies the value from the configured header into
-// the standard "Authorization" header if present and if Authorization is not
-// already set. This preserves existing Authorization headers and enables Basic
-// auth parsing for credentials sent in a custom header.
+// the standard "Authorization" header if present. When a custom header is configured,
+// it will take precedence and overwrite any existing Authorization header value.
 func rewriteAuthHeaderMiddleware(headerName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if headerName != "" && headerName != "Authorization" && r.Header.Get("Authorization") == "" {
-				val := r.Header.Get(headerName)
-				if val != "" {
-					r.Header.Set("Authorization", val)
-				}
+			if strings.EqualFold(headerName, "Authorization") {
+				next.ServeHTTP(w, r)
+			}
+
+			val := r.Header.Get(headerName)
+			if val != "" {
+				r.Header.Set("Authorization", val)
 			}
 
 			next.ServeHTTP(w, r)
@@ -122,7 +124,7 @@ func authMiddleware() func(http.Handler) http.Handler {
 // If allowedOrigins is empty, CORS is disabled
 // If allowedOrigins is "*", all origins are allowed
 // Otherwise, allowedOrigins should be a comma-separated list of allowed origins
-func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
+func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip CORS if not configured
@@ -141,9 +143,15 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
 
-			// Set other CORS headers
+			// Build allowed headers list, always include Content-Type and Authorization.
+			allowedHeaders := []string{"Content-Type", "Authorization"}
+			// If a custom auth header is configured and it's not the default, include it
+			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
+				allowedHeaders = append(allowedHeaders, authHeaderName)
+			}
+
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
 			w.Header().Set("Access-Control-Max-Age", corsMaxAgeSeconds)
 
 			// Handle preflight requests

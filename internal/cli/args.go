@@ -33,7 +33,7 @@ Options:
   --neo4j-http-tls-enabled <BOOLEAN>  Enable TLS/HTTPS for HTTP server: true or false (overrides environment variable NEO4J_MCP_HTTP_TLS_ENABLED)
   --neo4j-http-tls-cert-file <PATH>   Path to TLS certificate file (overrides environment variable NEO4J_MCP_HTTP_TLS_CERT_FILE)
   --neo4j-http-tls-key-file <PATH>    Path to TLS private key file (overrides environment variable NEO4J_MCP_HTTP_TLS_KEY_FILE)
-  --neo4j-http-auth-header-name <HEADER> Name of the HTTP header to read auth credentials from (overrides NEO4J_AUTH_HEADER_NAME)
+  --neo4j-http-auth-header-name <HEADER> Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -53,7 +53,7 @@ Optional Environment Variables:
   NEO4J_MCP_HTTP_TLS_ENABLED Enable TLS/HTTPS for HTTP server (default: false)
   NEO4J_MCP_HTTP_TLS_CERT_FILE Path to TLS certificate file (required when TLS is enabled)
   NEO4J_MCP_HTTP_TLS_KEY_FILE Path to TLS private key file (required when TLS is enabled)
-  NEO4J_MCP_HTTP_AUTH_HEADER_NAME Name of the HTTP header to read auth credentials from (default: Authorization)
+  NEO4J_HTTP_AUTH_HEADER_NAME Name of the HTTP header to read auth credentials from (default: Authorization)
 
 Examples:
   # Using environment variables
@@ -121,7 +121,7 @@ func ParseConfigFlags() *Args {
 	neo4jHTTPTLSEnabled := flag.String("neo4j-http-tls-enabled", "", "Enable TLS/HTTPS for HTTP server: true or false (overrides NEO4J_MCP_HTTP_TLS_ENABLED env var)")
 	neo4jHTTPTLSCertFile := flag.String("neo4j-http-tls-cert-file", "", "Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE env var)")
 	neo4jHTTPTLSKeyFile := flag.String("neo4j-http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
-	neo4jAuthHeaderName := flag.String("neo4j-http-auth-header-name", "", "Name of the HTTP header to read auth credentials from (overrides NEO4J_MCP_HTTP_AUTH_HEADER_NAME env var)")
+	neo4jAuthHeaderName := flag.String("neo4j-http-auth-header-name", "", "Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME env var)")
 
 	flag.Parse()
 

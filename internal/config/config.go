@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/neo4j/mcp/internal/logger"
 )
@@ -157,7 +158,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		HTTPTLSEnabled:     ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
 		HTTPTLSCertFile:    GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
 		HTTPTLSKeyFile:     GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
-		AuthHeaderName:     GetEnvWithDefault("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "Authorization"),
+		AuthHeaderName:     GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
 	}
 
 	// Apply CLI overrides if provided
@@ -215,6 +216,14 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 			cfg.HTTPPort = "80"
 		}
 	}
+
+	// Normalize and validate
+	headName := strings.TrimSpace(cfg.AuthHeaderName)
+	if headName == "" {
+		return nil, fmt.Errorf("invalid auth header name: explicitly configured header name cannot be empty; unset NEO4J_HTTP_AUTH_HEADER_NAME or provide a valid header name")
+	}
+	// store normalized value
+	cfg.AuthHeaderName = headName
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {

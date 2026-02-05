@@ -236,8 +236,29 @@ func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
 	}
 }
 
+func TestRewriteAuthHeader_OverwriteAuthorization(t *testing.T) {
+	// When both Authorization and custom header are present, custom header should take precedence
+	mock := mockNeo4jMCPServer(t)
+	mock.config.AuthHeaderName = "X-Test-Auth"
+
+	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "new-token-123"))
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	// Existing Authorization header with an old token
+	req.Header.Set("Authorization", "Bearer old-token-999")
+	// Custom header with the token that should take precedence
+	req.Header.Set("X-Test-Auth", "Bearer new-token-123")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", rec.Code)
+	}
+}
+
 func TestCORSMiddleware_NoConfiguration(t *testing.T) {
-	handler := corsMiddleware([]string{})(mockHandler())
+	handler := corsMiddleware([]string{}, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -256,7 +277,7 @@ func TestCORSMiddleware_NoConfiguration(t *testing.T) {
 }
 
 func TestCORSMiddleware_WildcardOrigin(t *testing.T) {
-	handler := corsMiddleware([]string{"*"})(mockHandler())
+	handler := corsMiddleware([]string{"*"}, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -275,7 +296,7 @@ func TestCORSMiddleware_WildcardOrigin(t *testing.T) {
 
 func TestCORSMiddleware_SpecificOriginMatching(t *testing.T) {
 	allowedOrigins := []string{"http://example.com", "http://localhost:3000"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -294,7 +315,7 @@ func TestCORSMiddleware_SpecificOriginMatching(t *testing.T) {
 
 func TestCORSMiddleware_SpecificOriginNotMatching(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://evil.com")
@@ -319,7 +340,7 @@ func TestCORSMiddleware_SpecificOriginNotMatching(t *testing.T) {
 
 func TestCORSMiddleware_MultipleOrigins(t *testing.T) {
 	allowedOrigins := []string{"http://example.com", "http://localhost:3000", "http://test.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	testCases := []struct {
 		origin   string
@@ -351,7 +372,7 @@ func TestCORSMiddleware_MultipleOrigins(t *testing.T) {
 
 func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "X-Auth")(mockHandler())
 
 	req := httptest.NewRequest("OPTIONS", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -371,7 +392,7 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
 
-	if rec.Header().Get("Access-Control-Allow-Headers") == "" {
+	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Auth" {
 		t.Error("Expected Access-Control-Allow-Headers header to be set")
 	}
 
@@ -382,7 +403,7 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 
 func TestCORSMiddleware_MissingOriginHeader(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	// No Origin header set
