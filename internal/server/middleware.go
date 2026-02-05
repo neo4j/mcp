@@ -132,7 +132,7 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only /mcp path is valid for this MCP server
-			if r.URL.Path != "/mcp" {
+			if r.URL.Path != "/mcp" && r.URL.Path != "/mcp/" {
 				http.Error(w, "Not Found: This server only handles requests to /mcp", http.StatusNotFound)
 				return
 			}
