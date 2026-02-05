@@ -560,3 +560,16 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 		t.Errorf("Expected status 404 for invalid path (before auth check), got %d", rec.Code)
 	}
 }
+
+func TestPathValidationMiddleware_TrailingSlashAllowed(t *testing.T) {
+	handler := pathValidationMiddleware()(mockHandler())
+
+	req := httptest.NewRequest("GET", "/mcp/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /mcp/ path, got %d", rec.Code)
+	}
+}
