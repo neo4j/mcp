@@ -113,7 +113,7 @@ jobs:
       - name: Run integration tests
         run: go test -v -tags=integration ./test/integration/...
         env:
-          USE_CONTAINER: ${{ needs.check-runner.outputs.use-container }}
+          USE_CONTAINER: "false"
           NEO4J_URI: ${{ secrets.AURA_URL }}
           NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
           NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
@@ -172,7 +172,7 @@ jobs:
       - name: Run E2E tests
         run: go test -v -tags=e2e ./test/e2e/...
         env:
-          USE_CONTAINER: ${{ needs.check-runner.outputs.use-container }}
+          USE_CONTAINER: "false"
           NEO4J_URI: ${{ secrets.AURA_URL }}
           NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
           NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
