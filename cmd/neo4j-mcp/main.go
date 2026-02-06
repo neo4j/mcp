@@ -44,6 +44,7 @@ func main() {
 		TLSEnabled:     cliArgs.HTTPTLSEnabled,
 		TLSCertFile:    cliArgs.HTTPTLSCertFile,
 		TLSKeyFile:     cliArgs.HTTPTLSKeyFile,
+		AuthHeaderName: cliArgs.AuthHeaderName,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr

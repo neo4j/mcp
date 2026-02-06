@@ -15,6 +15,10 @@ const (
 
 // chainMiddleware chains together all HTTP middleware for this server instance
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+	if s == nil || s.config == nil {
+		panic("chainMiddleware: server or config is nil")
+	}
+
 	// Chain middleware in reverse order (last added = first to execute)
 	// Execution order: PathValidator -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 
@@ -24,11 +28,10 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	// Add auth middleware (supports both Bearer and Basic authentication)
-	handler = authMiddleware()(handler)
+	handler = authMiddleware(s.config.AuthHeaderName)(handler)
 
-	// Add CORS middleware (if configured)
-	handler = corsMiddleware(allowedOrigins)(handler)
+	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
+	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
 
 	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
 	handler = pathValidationMiddleware()(handler)
@@ -41,9 +44,17 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware() func(http.Handler) http.Handler {
+func authMiddleware(headerName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			if !strings.EqualFold(headerName, "Authorization") {
+				val := r.Header.Get(headerName)
+				if val != "" {
+					r.Header.Set("Authorization", val)
+				}
+			}
+
 			authHeader := r.Header.Get("Authorization")
 
 			// Try bearer token first
@@ -91,7 +102,7 @@ func authMiddleware() func(http.Handler) http.Handler {
 // If allowedOrigins is empty, CORS is disabled
 // If allowedOrigins is "*", all origins are allowed
 // Otherwise, allowedOrigins should be a comma-separated list of allowed origins
-func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
+func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip CORS if not configured
@@ -110,9 +121,15 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
 
-			// Set other CORS headers
+			// Build allowed headers list, always include Content-Type and Authorization.
+			allowedHeaders := []string{"Content-Type", "Authorization"}
+			// If a custom auth header is configured and it's not the default, include it
+			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
+				allowedHeaders = append(allowedHeaders, authHeaderName)
+			}
+
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
 			w.Header().Set("Access-Control-Max-Age", corsMaxAgeSeconds)
 
 			// Handle preflight requests

@@ -91,7 +91,7 @@ func bearerTokenCheckHandler(t *testing.T, expectToken bool, expectedToken strin
 }
 
 func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
-	handler := authMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := authMiddleware("Authorization")(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -105,7 +105,7 @@ func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithoutCredentials(t *testing.T) {
-	handler := authMiddleware()(mockHandler())
+	handler := authMiddleware("Authorization")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -136,7 +136,7 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := authMiddleware()(mockHandler())
+			handler := authMiddleware("Authorization")(mockHandler())
 
 			req := httptest.NewRequest("GET", "/", nil)
 			req.SetBasicAuth(tc.username, tc.password)
@@ -158,7 +158,7 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
-	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-123"))
+	handler := authMiddleware("Authorization")(bearerTokenCheckHandler(t, true, "test-token-123"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer test-token-123")
@@ -172,7 +172,7 @@ func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
-	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-456"))
+	handler := authMiddleware("Authorization")(bearerTokenCheckHandler(t, true, "test-token-456"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer   test-token-456  ")
@@ -186,7 +186,7 @@ func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
-	handler := authMiddleware()(mockHandler())
+	handler := authMiddleware("Authorization")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer ")
@@ -205,7 +205,7 @@ func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
 
 func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
 	// When no bearer token, should fall back to basic auth
-	handler := authMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := authMiddleware("Authorization")(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -218,8 +218,47 @@ func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
 	}
 }
 
+func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
+	// Create a mock server with custom auth header name
+	mock := mockNeo4jMCPServer(t)
+	mock.config.AuthHeaderName = "X-Test-Auth"
+
+	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "custom-token-789"))
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	req.Header.Set("X-Test-Auth", "Bearer custom-token-789")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+}
+
+func TestRewriteAuthHeader_OverwriteAuthorization(t *testing.T) {
+	// When both Authorization and custom header are present, custom header should take precedence
+	mock := mockNeo4jMCPServer(t)
+	mock.config.AuthHeaderName = "X-Test-Auth"
+
+	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "new-token-123"))
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	// Existing Authorization header with an old token
+	req.Header.Set("Authorization", "Bearer old-token-999")
+	// Custom header with the token that should take precedence
+	req.Header.Set("X-Test-Auth", "Bearer new-token-123")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", rec.Code)
+	}
+}
+
 func TestCORSMiddleware_NoConfiguration(t *testing.T) {
-	handler := corsMiddleware([]string{})(mockHandler())
+	handler := corsMiddleware([]string{}, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -238,7 +277,7 @@ func TestCORSMiddleware_NoConfiguration(t *testing.T) {
 }
 
 func TestCORSMiddleware_WildcardOrigin(t *testing.T) {
-	handler := corsMiddleware([]string{"*"})(mockHandler())
+	handler := corsMiddleware([]string{"*"}, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -257,7 +296,7 @@ func TestCORSMiddleware_WildcardOrigin(t *testing.T) {
 
 func TestCORSMiddleware_SpecificOriginMatching(t *testing.T) {
 	allowedOrigins := []string{"http://example.com", "http://localhost:3000"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -276,7 +315,7 @@ func TestCORSMiddleware_SpecificOriginMatching(t *testing.T) {
 
 func TestCORSMiddleware_SpecificOriginNotMatching(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Origin", "http://evil.com")
@@ -301,7 +340,7 @@ func TestCORSMiddleware_SpecificOriginNotMatching(t *testing.T) {
 
 func TestCORSMiddleware_MultipleOrigins(t *testing.T) {
 	allowedOrigins := []string{"http://example.com", "http://localhost:3000", "http://test.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	testCases := []struct {
 		origin   string
@@ -333,7 +372,7 @@ func TestCORSMiddleware_MultipleOrigins(t *testing.T) {
 
 func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "X-Auth")(mockHandler())
 
 	req := httptest.NewRequest("OPTIONS", "/", nil)
 	req.Header.Set("Origin", "http://example.com")
@@ -353,7 +392,7 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
 
-	if rec.Header().Get("Access-Control-Allow-Headers") == "" {
+	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Auth" {
 		t.Error("Expected Access-Control-Allow-Headers header to be set")
 	}
 
@@ -364,7 +403,7 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 
 func TestCORSMiddleware_MissingOriginHeader(t *testing.T) {
 	allowedOrigins := []string{"http://example.com"}
-	handler := corsMiddleware(allowedOrigins)(mockHandler())
+	handler := corsMiddleware(allowedOrigins, "")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	// No Origin header set

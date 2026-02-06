@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/neo4j/mcp/internal/logger"
 )
@@ -43,6 +44,7 @@ type Config struct {
 	HTTPTLSCertFile    string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
 	HTTPTLSKeyFile     string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
 	MCPVersion         string        // MCP version string
+	AuthHeaderName     string        // HTTP header name to read auth credentials from (default: "Authorization")
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -113,6 +115,7 @@ type CLIOverrides struct {
 	TLSEnabled     string
 	TLSCertFile    string
 	TLSKeyFile     string
+	AuthHeaderName string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -155,6 +158,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		HTTPTLSEnabled:     ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
 		HTTPTLSCertFile:    GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
 		HTTPTLSKeyFile:     GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
+		AuthHeaderName:     GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
 	}
 
 	// Apply CLI overrides if provided
@@ -198,6 +202,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		if cliOverrides.TLSKeyFile != "" {
 			cfg.HTTPTLSKeyFile = cliOverrides.TLSKeyFile
 		}
+		if cliOverrides.AuthHeaderName != "" {
+			cfg.AuthHeaderName = cliOverrides.AuthHeaderName
+		}
 	}
 
 	// Set default HTTP port based on TLS configuration if not explicitly provided
@@ -209,6 +216,14 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 			cfg.HTTPPort = "80"
 		}
 	}
+
+	// Normalize and validate
+	headName := strings.TrimSpace(cfg.AuthHeaderName)
+	if headName == "" {
+		return nil, fmt.Errorf("invalid auth header name: explicitly configured header name cannot be empty; unset NEO4J_HTTP_AUTH_HEADER_NAME or provide a valid header name")
+	}
+	// store normalized value
+	cfg.AuthHeaderName = headName
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
