@@ -91,7 +91,7 @@ func bearerTokenCheckHandler(t *testing.T, expectToken bool, expectedToken strin
 }
 
 func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
-	handler := authMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := authMiddleware("Authorization")(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -105,7 +105,7 @@ func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithoutCredentials(t *testing.T) {
-	handler := authMiddleware()(mockHandler())
+	handler := authMiddleware("Authorization")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -136,7 +136,7 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := authMiddleware()(mockHandler())
+			handler := authMiddleware("Authorization")(mockHandler())
 
 			req := httptest.NewRequest("GET", "/", nil)
 			req.SetBasicAuth(tc.username, tc.password)
@@ -158,7 +158,7 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
-	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-123"))
+	handler := authMiddleware("Authorization")(bearerTokenCheckHandler(t, true, "test-token-123"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer test-token-123")
@@ -172,7 +172,7 @@ func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
-	handler := authMiddleware()(bearerTokenCheckHandler(t, true, "test-token-456"))
+	handler := authMiddleware("Authorization")(bearerTokenCheckHandler(t, true, "test-token-456"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer   test-token-456  ")
@@ -186,7 +186,7 @@ func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
-	handler := authMiddleware()(mockHandler())
+	handler := authMiddleware("Authorization")(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer ")
@@ -205,7 +205,7 @@ func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
 
 func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
 	// When no bearer token, should fall back to basic auth
-	handler := authMiddleware()(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := authMiddleware("Authorization")(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")

@@ -15,6 +15,10 @@ const (
 
 // chainMiddleware chains together all HTTP middleware for this server instance
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+	if s == nil || s.config == nil {
+		panic("chainMiddleware: server or config is nil")
+	}
+
 	// Chain middleware in reverse order (last added = first to execute)
 	// Execution order: PathValidator -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 
@@ -24,24 +28,10 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	// Add auth middleware (supports both Bearer and Basic authentication)
-	// Use configured authHeaderName name (fallback to Authorization)
-	authHeaderName := "Authorization"
-	if s != nil && s.config != nil {
-		authHeaderName = s.config.AuthHeaderName
-	}
-
-	handler = authMiddleware()(handler)
-
-	// Add a middleware that rewrites the configured auth authHeaderName into the standard
-	// "Authorization" authHeaderName so that code which relies on the standard authHeaderName
-	// (for example, r.BasicAuth()) can find credentials provided via the
-	// custom authHeaderName. When a custom header is configured, it takes precedence and
-	// will overwrite any existing Authorization header value.
-	handler = rewriteAuthHeaderMiddleware(authHeaderName)(handler)
+	handler = authMiddleware(s.config.AuthHeaderName)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
-	handler = corsMiddleware(allowedOrigins, authHeaderName)(handler)
+	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
 
 	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
 	handler = pathValidationMiddleware()(handler)
@@ -49,34 +39,22 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	return handler
 }
 
-// rewriteAuthHeaderMiddleware copies the value from the configured header into
-// the standard "Authorization" header if present. When a custom header is configured,
-// it will take precedence and overwrite any existing Authorization header value.
-func rewriteAuthHeaderMiddleware(headerName string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.EqualFold(headerName, "Authorization") {
-				next.ServeHTTP(w, r)
-			}
-
-			val := r.Header.Get(headerName)
-			if val != "" {
-				r.Header.Set("Authorization", val)
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 // authMiddleware enforces HTTP authentication (Bearer token or Basic Auth) for all requests in HTTP mode.
 // Tries Bearer token first (from Authorization: Bearer header), then falls back to Basic Auth.
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware() func(http.Handler) http.Handler {
+func authMiddleware(headerName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			if !strings.EqualFold(headerName, "Authorization") {
+				val := r.Header.Get(headerName)
+				if val != "" {
+					r.Header.Set("Authorization", val)
+				}
+			}
+
 			authHeader := r.Header.Get("Authorization")
 
 			// Try bearer token first
