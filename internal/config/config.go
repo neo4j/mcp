@@ -43,7 +43,6 @@ type Config struct {
 	HTTPTLSEnabled     bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
 	HTTPTLSCertFile    string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
 	HTTPTLSKeyFile     string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
-	MCPVersion         string        // MCP version string
 	AuthHeaderName     string        // HTTP header name to read auth credentials from (default: "Authorization")
 }
 
