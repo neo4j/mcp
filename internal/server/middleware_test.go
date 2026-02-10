@@ -612,3 +612,21 @@ func TestPathValidationMiddleware_TrailingSlashAllowed(t *testing.T) {
 		t.Errorf("Expected status 200 for /mcp/ path, got %d", rec.Code)
 	}
 }
+
+func TestAuthMiddleware_AllowsUnauthenticatedPing(t *testing.T) {
+	// Build middleware chain with no allowed origins and a simple handler
+	mockServer := mockNeo4jMCPServer(t)
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	// Create a POST request to /mcp with JSON-RPC ping body and no auth header
+	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for unauthenticated ping, got %d", rec.Code)
+	}
+}
