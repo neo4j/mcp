@@ -153,6 +153,47 @@ Available flags:
 
 Use `neo4j-mcp --help` to see all available options.
 
+## Authentication Methods (HTTP Mode)
+
+When using HTTP transport mode, the Neo4j MCP server supports two authentication methods to accommodate different deployment scenarios:
+
+### Bearer Token Authentication
+
+Bearer token authentication enables seamless integration with **Neo4j Enterprise Edition** and **Neo4j Aura** environments that use SSO/OAuth/OIDC for identity management. This method is ideal for:
+
+- **Enterprise deployments** with centralized identity providers (Okta, Azure AD, etc.)
+- **Neo4j Aura** databases configured with SSO
+- **Organizations** requiring OAuth 2.0 compliance
+- **Multi-factor authentication** scenarios
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
+The bearer token is obtained from your identity provider and passed to Neo4j for authentication. The MCP server acts as a pass-through, forwarding the token to Neo4j's authentication system.
+
+### Basic Authentication
+
+Traditional username/password authentication suitable for:
+
+- **Neo4j Community Edition**
+- **Development and testing** environments
+- **Direct database credentials** without SSO
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -u neo4j:password \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
 ## Client Configuration
 
 To configure MCP clients (VSCode, Claude Desktop, etc.) to use the Neo4j MCP server, see:
