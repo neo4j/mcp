@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/neo4j/mcp/internal/logger"
 )
@@ -15,9 +16,10 @@ type TransportMode string
 
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize int32         = 100
-	TransportModeStdio      TransportMode = "stdio"
-	TransportModeHTTP       TransportMode = "http"
+	DefaultSchemaSampleSize   int32         = 100
+	TransportModeStdio        TransportMode = "stdio"
+	TransportModeHTTP         TransportMode = "http"
+	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
 )
 
 // ValidTransportModes defines the allowed transport mode values
@@ -42,6 +44,7 @@ type Config struct {
 	HTTPTLSCertFile    string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
 	HTTPTLSKeyFile     string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
 	MCPVersion         string        // MCP version string
+	AuthHeaderName     string        // HTTP header name to read auth credentials from (default: "Authorization")
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -112,6 +115,7 @@ type CLIOverrides struct {
 	TLSEnabled     string
 	TLSCertFile    string
 	TLSKeyFile     string
+	AuthHeaderName string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -133,6 +137,10 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		logFormat = "text"
 	}
 
+	if GetEnv("NEO4J_MCP_TRANSPORT") != "" {
+		fmt.Fprintf(os.Stderr, DeprecatedVariableMessage, "NEO4J_MCP_TRANSPORT", "NEO4J_TRANSPORT_MODE")
+	}
+
 	cfg := &Config{
 		URI:                GetEnv("NEO4J_URI"),
 		Username:           GetEnv("NEO4J_USERNAME"),
@@ -143,13 +151,14 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		LogLevel:           logLevel,
 		LogFormat:          logFormat,
 		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:      GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio),
+		TransportMode:      GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio)),
 		HTTPPort:           GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
 		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
 		HTTPTLSEnabled:     ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
 		HTTPTLSCertFile:    GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
 		HTTPTLSKeyFile:     GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
+		AuthHeaderName:     GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
 	}
 
 	// Apply CLI overrides if provided
@@ -193,6 +202,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		if cliOverrides.TLSKeyFile != "" {
 			cfg.HTTPTLSKeyFile = cliOverrides.TLSKeyFile
 		}
+		if cliOverrides.AuthHeaderName != "" {
+			cfg.AuthHeaderName = cliOverrides.AuthHeaderName
+		}
 	}
 
 	// Set default HTTP port based on TLS configuration if not explicitly provided
@@ -204,6 +216,14 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 			cfg.HTTPPort = "80"
 		}
 	}
+
+	// Normalize and validate
+	headName := strings.TrimSpace(cfg.AuthHeaderName)
+	if headName == "" {
+		return nil, fmt.Errorf("invalid auth header name: explicitly configured header name cannot be empty; unset NEO4J_HTTP_AUTH_HEADER_NAME or provide a valid header name")
+	}
+	// store normalized value
+	cfg.AuthHeaderName = headName
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {

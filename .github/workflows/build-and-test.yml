@@ -6,7 +6,25 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
+  check-runner:
+    name: Check Runner Permissions
+    runs-on: ubuntu-latest
+    outputs:
+      use-container: ${{ steps.check.outputs.use-container }}
+    steps:
+      - id: check
+        run: |
+          # Use container only for fork PRs (when we don't have access to secrets)
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "use-container=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use-container=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint-and-unit-test:
     name: Lint and Unit Test
     strategy:
@@ -41,12 +59,41 @@ jobs:
       - name: Run unit tests
         run: go test -v -race ./...
 
-  integration-tests:
+  integration-tests-ubuntu:
+    name: Integration Tests (ubuntu-latest)
+    needs: check-runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6
+        with:
+          go-version: "1.25.5"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Run integration tests
+        run: go test -v -tags=integration ./test/integration/...
+        env:
+          USE_CONTAINER: ${{ needs.check-runner.outputs.use-container }}
+          NEO4J_URI: ${{ secrets.AURA_URL }}
+          NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
+          NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
+
+  integration-tests-other:
     name: Integration Tests
+    needs: check-runner
+    if: needs.check-runner.outputs.use-container != 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -71,16 +118,45 @@ jobs:
           NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
           NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
 
-  e2e-tests:
+  e2e-tests-ubuntu:
+    name: E2E Tests (ubuntu-latest)
+    needs: check-runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6
+        with:
+          go-version: "1.25.4"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Run E2E tests
+        run: go test -v -tags=e2e ./test/e2e/...
+        env:
+          USE_CONTAINER: ${{ needs.check-runner.outputs.use-container }}
+          NEO4J_URI: ${{ secrets.AURA_URL }}
+          NEO4J_USERNAME: ${{ secrets.AURA_USERNAME }}
+          NEO4J_PASSWORD: ${{ secrets.AURA_PASSWORD }}
+
+  e2e-tests-other:
     name: E2E Tests
+    needs: check-runner
+    if: needs.check-runner.outputs.use-container != 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Set up Go
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6

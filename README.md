@@ -65,7 +65,8 @@ Should print the installed version.
 The Neo4j MCP server supports two transport modes:
 
 - **STDIO** (default): Standard MCP communication via stdin/stdout for desktop clients (Claude Desktop, VSCode)
-- **HTTP**: RESTful HTTP server with per-request Bearer token or Basic Authentication for web-based clients and multi-tenant scenarios
+- **HTTP**: RESTful HTTP server with per-request Bearer token or Basic Authentication for web-based clients and multi-tenant scenario.
+In case where the standard HTTP header "Authorization" can't be used, it's possible to configure a custom HTTP header for this scope.
 
 ### Key Differences
 
@@ -87,6 +88,7 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 - `NEO4J_MCP_HTTP_TLS_CERT_FILE` - Path to TLS certificate file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
+- `NEO4J_HTTP_AUTH_HEADER_NAME` - Name of the HTTP header to read auth credentials from (default: `Authorization`)
 
 ### Security Configuration
 
@@ -98,7 +100,7 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 
 ```bash
 export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_MCP_TRANSPORT="http"
+export NEO4J_TRANSPORT_MODE="http"
 export NEO4J_MCP_HTTP_TLS_ENABLED="true"
 export NEO4J_MCP_HTTP_TLS_CERT_FILE="/path/to/cert.pem"
 export NEO4J_MCP_HTTP_TLS_KEY_FILE="/path/to/key.pem"
@@ -141,12 +143,13 @@ Available flags:
 - `--neo4j-read-only` - Enable read-only mode: `true` or `false` (overrides NEO4J_READ_ONLY)
 - `--neo4j-telemetry` - Enable telemetry: `true` or `false` (overrides NEO4J_TELEMETRY)
 - `--neo4j-schema-sample-size` - Modify the sample size used to infer the Neo4j schema
-- `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_MCP_TRANSPORT)
+- `--neo4j-transport-mode` - Transport mode: `stdio` or `http` (overrides NEO4J_TRANSPORT_MODE)
 - `--neo4j-http-host` - HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
 - `--neo4j-http-port` - HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
 - `--neo4j-http-tls-enabled` - Enable TLS/HTTPS: `true` or `false` (overrides NEO4J_MCP_HTTP_TLS_ENABLED)
 - `--neo4j-http-tls-cert-file` - Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE)
 - `--neo4j-http-tls-key-file` - Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE)
+- `--neo4j-http-auth-header-name` - Name of the HTTP header to read auth credentials from (overrides NEO4J_AUTH_HEADER_NAME)
 
 Use `neo4j-mcp --help` to see all available options.
 
