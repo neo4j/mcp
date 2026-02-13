@@ -296,8 +296,12 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 
 	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
 		analyticsService.EXPECT().IsEnabled().Times(1).Return(true)
-		analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-		analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).Times(1)
+		analyticsService.EXPECT().NewStartupEvent(config.TransportModeStdio, false, "test-version").Times(1)
+		analyticsService.EXPECT().NewConnectionInitializedEvent(analyticsReal.ConnectionEventInfo{
+			Neo4jVersion:  "5.18.0",
+			Edition:       "enterprise",
+			CypherVersion: []string{"5"},
+		}).Times(1)
 		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(2) // startup + connection events
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
@@ -313,108 +317,6 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		err = s.Stop(ctx)
 		if err != nil {
 			t.Errorf("Stop() unexpected error = %v", err)
-		}
-	})
-}
-
-func TestStartupEventPassesCorrectFields(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cfg := &config.Config{
-		URI:           "bolt://test-host:7687",
-		Username:      "neo4j",
-		Password:      "password",
-		Database:      "neo4j",
-		TransportMode: config.TransportModeStdio,
-	}
-
-	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).AnyTimes()
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"first"}, Values: []any{int64(1)}},
-	}, nil)
-	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{true}},
-	}, nil)
-	gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
-	}, nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1).Return([]*neo4j.Record{
-		{Keys: []string{"name", "edition", "versions"}, Values: []any{"Neo4j Kernel", "enterprise", []any{"5.18.0"}}},
-		{Keys: []string{"name", "edition", "versions"}, Values: []any{"Cypher", "enterprise", []any{"5"}}},
-	}, nil)
-
-	analyticsService := analytics.NewMockService(ctrl)
-
-	t.Run("startup event receives version from server, not config", func(t *testing.T) {
-		expectedVersion := "1.2.3"
-
-		analyticsService.EXPECT().IsEnabled().Times(1).Return(true)
-		analyticsService.EXPECT().NewStartupEvent(
-			config.TransportModeStdio,
-			false,
-			expectedVersion,
-		).Times(1)
-		analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).Times(1)
-		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(2)
-
-		s := server.NewNeo4jMCPServer(expectedVersion, cfg, mockDB, analyticsService)
-		err := s.Start()
-		if err != nil {
-			t.Fatalf("Start() unexpected error = %v", err)
-		}
-	})
-}
-
-func TestConnectionInitializedEventPassesCorrectFields(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cfg := &config.Config{
-		URI:           "bolt://test-host:7687",
-		Username:      "neo4j",
-		Password:      "password",
-		Database:      "neo4j",
-		TransportMode: config.TransportModeStdio,
-	}
-
-	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).AnyTimes()
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"first"}, Values: []any{int64(1)}},
-	}, nil)
-	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{true}},
-	}, nil)
-	gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"gdsVersion"}, Values: []any{"2.22.0"}},
-	}, nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1).Return([]*neo4j.Record{
-		{Keys: []string{"name", "edition", "versions"}, Values: []any{"Neo4j Kernel", "enterprise", []any{"5.18.0"}}},
-		{Keys: []string{"name", "edition", "versions"}, Values: []any{"Cypher", "enterprise", []any{"5", "25"}}},
-	}, nil)
-
-	analyticsService := analytics.NewMockService(ctrl)
-
-	t.Run("connection initialized event receives neo4j version, edition, and cypher versions", func(t *testing.T) {
-		analyticsService.EXPECT().IsEnabled().Times(1).Return(true)
-		analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-		analyticsService.EXPECT().NewConnectionInitializedEvent(analyticsReal.ConnectionEventInfo{
-			Neo4jVersion:  "5.18.0",
-			Edition:       "enterprise",
-			CypherVersion: []string{"5", "25"},
-		}).Times(1)
-		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(2)
-
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
-		err := s.Start()
-		if err != nil {
-			t.Fatalf("Start() unexpected error = %v", err)
 		}
 	})
 }
