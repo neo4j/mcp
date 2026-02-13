@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	analyticsReal "github.com/neo4j/mcp/internal/analytics"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
@@ -295,8 +296,12 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 
 	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
 		analyticsService.EXPECT().IsEnabled().Times(1).Return(true)
-		analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-		analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).Times(1)
+		analyticsService.EXPECT().NewStartupEvent(config.TransportModeStdio, false, "test-version").Times(1)
+		analyticsService.EXPECT().NewConnectionInitializedEvent(analyticsReal.ConnectionEventInfo{
+			Neo4jVersion:  "5.18.0",
+			Edition:       "enterprise",
+			CypherVersion: []string{"5"},
+		}).Times(1)
 		analyticsService.EXPECT().EmitEvent(gomock.Any()).Times(2) // startup + connection events
 
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
