@@ -192,7 +192,7 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 
 // emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
 func (s *Neo4jMCPServer) emitServerStartupEvent() {
-	s.anService.EmitEvent(s.anService.NewStartupEvent(s.config.TransportMode, s.config.HTTPTLSEnabled, s.config.MCPVersion))
+	s.anService.EmitEvent(s.anService.NewStartupEvent(s.config.TransportMode, s.config.HTTPTLSEnabled, s.version))
 }
 
 // emitConnectionInitializedEvent emits the connection initialized event with DB information (STDIO mode only)
