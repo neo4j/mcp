@@ -1,3 +1,0 @@
-kind: Patch
-body: Fix missing version string in HTTP metrics.
-time: 2026-02-10T00:10:54.831019Z
