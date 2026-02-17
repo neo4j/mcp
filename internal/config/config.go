@@ -27,24 +27,25 @@ var ValidTransportModes = []TransportMode{TransportModeStdio, TransportModeHTTP}
 
 // Config holds the application configuration
 type Config struct {
-	URI                string
-	Username           string
-	Password           string
-	Database           string
-	ReadOnly           bool // If true, disables write tools
-	Telemetry          bool // If false, disables telemetry
-	LogLevel           string
-	LogFormat          string
-	SchemaSampleSize   int32
-	TransportMode      TransportMode // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort           string        // HTTP server port (default: "443" with TLS, "80" without TLS)
-	HTTPHost           string        // HTTP server host (default: "127.0.0.1")
-	HTTPAllowedOrigins string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
-	HTTPTLSEnabled     bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
-	HTTPTLSCertFile    string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
-	HTTPTLSKeyFile     string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
-	MCPVersion         string        // MCP version string
-	AuthHeaderName     string        // HTTP header name to read auth credentials from (default: "Authorization")
+	URI                      string
+	Username                 string
+	Password                 string
+	Database                 string
+	ReadOnly                 bool // If true, disables write tools
+	Telemetry                bool // If false, disables telemetry
+	LogLevel                 string
+	LogFormat                string
+	SchemaSampleSize         int32
+	TransportMode            TransportMode // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort                 string        // HTTP server port (default: "443" with TLS, "80" without TLS)
+	HTTPHost                 string        // HTTP server host (default: "127.0.0.1")
+	HTTPAllowedOrigins       string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPTLSEnabled           bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
+	HTTPTLSCertFile          string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
+	HTTPTLSKeyFile           string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
+	MCPVersion               string        // MCP version string
+	AuthHeaderName           string        // HTTP header name to read auth credentials from (default: "Authorization")
+	AllowUnauthenticatedPing bool          // If true, allows unauthenticated ping health checks in HTTP mode
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -102,20 +103,21 @@ func (c *Config) Validate() error {
 
 // CLIOverrides holds optional configuration values from CLI flags
 type CLIOverrides struct {
-	URI            string
-	Username       string
-	Password       string
-	Database       string
-	ReadOnly       string
-	Telemetry      string
-	TransportMode  string
-	Port           string
-	Host           string
-	AllowedOrigins string
-	TLSEnabled     string
-	TLSCertFile    string
-	TLSKeyFile     string
-	AuthHeaderName string
+	URI                      string
+	Username                 string
+	Password                 string
+	Database                 string
+	ReadOnly                 string
+	Telemetry                string
+	TransportMode            string
+	Port                     string
+	Host                     string
+	AllowedOrigins           string
+	TLSEnabled               string
+	TLSCertFile              string
+	TLSKeyFile               string
+	AuthHeaderName           string
+	AllowUnauthenticatedPing string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -142,23 +144,24 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	}
 
 	cfg := &Config{
-		URI:                GetEnv("NEO4J_URI"),
-		Username:           GetEnv("NEO4J_USERNAME"),
-		Password:           GetEnv("NEO4J_PASSWORD"),
-		Database:           GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
-		ReadOnly:           ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
-		Telemetry:          ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
-		LogLevel:           logLevel,
-		LogFormat:          logFormat,
-		SchemaSampleSize:   ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:      GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio)),
-		HTTPPort:           GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
-		HTTPHost:           GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
-		HTTPAllowedOrigins: GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
-		HTTPTLSEnabled:     ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
-		HTTPTLSCertFile:    GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
-		HTTPTLSKeyFile:     GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
-		AuthHeaderName:     GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
+		URI:                      GetEnv("NEO4J_URI"),
+		Username:                 GetEnv("NEO4J_USERNAME"),
+		Password:                 GetEnv("NEO4J_PASSWORD"),
+		Database:                 GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		ReadOnly:                 ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
+		Telemetry:                ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
+		LogLevel:                 logLevel,
+		LogFormat:                logFormat,
+		SchemaSampleSize:         ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
+		TransportMode:            GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio)),
+		HTTPPort:                 GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
+		HTTPHost:                 GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
+		HTTPAllowedOrigins:       GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
+		HTTPTLSEnabled:           ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
+		HTTPTLSCertFile:          GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
+		HTTPTLSKeyFile:           GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
+		AuthHeaderName:           GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
+		AllowUnauthenticatedPing: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
 	}
 
 	// Apply CLI overrides if provided
@@ -204,6 +207,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.AuthHeaderName != "" {
 			cfg.AuthHeaderName = cliOverrides.AuthHeaderName
+		}
+		if cliOverrides.AllowUnauthenticatedPing != "" {
+			cfg.AllowUnauthenticatedPing = ParseBool(cliOverrides.AllowUnauthenticatedPing, false)
 		}
 	}
 

@@ -89,6 +89,7 @@ neo4j-mcp
 export NEO4J_MCP_HTTP_HOST="127.0.0.1"      # Default: 127.0.0.1
 export NEO4J_MCP_HTTP_PORT="80"             # Default: 80
 export NEO4J_MCP_HTTP_ALLOWED_ORIGINS="*"   # Default: empty (no CORS)
+export NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING="false" # Allow unauthenticated ping probes (default: false)
 
 # Neo4j configuration (same as STDIO mode)
 export NEO4J_DATABASE="neo4j"               # Default: neo4j

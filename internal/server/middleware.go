@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	corsMaxAgeSeconds = "86400" // 24 hours
+	corsMaxAgeSeconds           = "86400" // 24 hours
+	maxUnauthenticatedBodyBytes = 4 * 1024
 )
 
 // chainMiddleware chains together all HTTP middleware for this server instance
@@ -31,7 +32,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	handler = authMiddleware(s.config.AuthHeaderName)(handler)
+	handler = authMiddleware(s.config.AuthHeaderName, s.config.AllowUnauthenticatedPing)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
@@ -47,7 +48,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware(headerName string) func(http.Handler) http.Handler {
+func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -80,36 +81,11 @@ func authMiddleware(headerName string) func(http.Handler) http.Handler {
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				// No credentials provided - check for unauthenticated ping health check
-				// Allow a JSON-RPC ping to pass through unauthenticated for liveness probes
-				// but ONLY when the request is a POST to /mcp or /mcp/ and the body contains
-				// a JSON object with "method":"ping". This keeps other RPC methods protected.
-
-				const maxBodyBytes = 4 * 1024 * 1024 // 4MB guard
-				// If ContentLength is available and larger than our guard, skip sniffing for safety
-				if r.ContentLength < 0 || r.ContentLength <= maxBodyBytes {
-					buf, err := io.ReadAll(r.Body)
-					if err == nil {
-						// restore the full body for downstream handlers
-						r.Body = io.NopCloser(bytes.NewReader(buf))
-						// Try to parse minimal JSONRPC envelope for the method field
-						var probe struct {
-							Method string `json:"method"`
-						}
-						if err := json.Unmarshal(buf, &probe); err == nil {
-							if probe.Method == "ping" {
-								// Allow unauthenticated ping through
-								next.ServeHTTP(w, r)
-								return
-							}
-						}
-					} else {
-						// Restore an empty body to avoid downstream panics
-						r.Body = io.NopCloser(bytes.NewReader(nil))
-					}
+				if allowUnauthenticatedPing && isUnauthenticatedPingRequest(r) {
+					next.ServeHTTP(w, r)
+					return
 				}
 
-				// No credentials provided - reject request
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
 				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
 				http.Error(w, "Unauthorized: Basic or Bearer authentication required", http.StatusUnauthorized)
@@ -209,4 +185,29 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isUnauthenticatedPingRequest(r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
+		return false
+	}
+
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		r.Body = io.NopCloser(bytes.NewReader(nil))
+		return false
+	}
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+
+	var probe struct {
+		Method string `json:"method"`
+	}
+	if e := json.Unmarshal(buf, &probe); e != nil {
+		return false
+	}
+
+	return probe.Method == "ping"
 }
