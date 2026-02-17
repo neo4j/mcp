@@ -65,6 +65,18 @@ curl -X POST http://localhost:8080/mcp \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```
 
+**Which Authentication Method Should I Use?**
+
+- **Use Bearer Token** when:
+  - You're using Neo4j Enterprise Edition or Aura with SSO/OIDC/OAuth configured
+  - You want to integrate with your organization's identity provider
+  - You need to support OAuth 2.0 flows
+
+- **Use Basic Auth** when:
+  - You're using traditional username/password authentication
+  - You're using Neo4j Community Edition
+  - You have direct database credentials
+
 **Custom auth header name**
 
 By default, the server reads credentials from the `Authorization` header.
@@ -158,7 +170,9 @@ neo4j-mcp
 
 The server will start on `http://127.0.0.1:80` by default.
 
-Then create or edit your `mcp.json` file:
+Then create or edit your `mcp.json` file.
+
+**Option 1: Basic Authentication**
 
 ```json
 {
@@ -187,6 +201,26 @@ echo -n "neo4j:password" | base64
 ```
 
 Then use it as: `"Authorization": "Basic bmVvNGo6cGFzc3dvcmQ="`
+
+**Option 2: Bearer Token (Enterprise/Aura with SSO)**
+
+For Neo4j Enterprise or Aura with SSO/OAuth configured:
+
+```json
+{
+  "servers": {
+    "neo4j-http-bearer": {
+      "type": "http",
+      "url": "http://127.0.0.1:80/mcp",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  }
+}
+```
+
+**Note:** Replace the bearer token with your actual OAuth/SSO token from your identity provider.
 
 ## Claude Desktop Configuration
 
@@ -243,6 +277,8 @@ Then edit your Claude Desktop configuration file:
 
 **Configuration:**
 
+**Option 1: Basic Authentication**
+
 ```json
 {
   "mcpServers": {
@@ -258,6 +294,26 @@ Then edit your Claude Desktop configuration file:
 ```
 
 **Note:** Replace `bmVvNGo6cGFzc3dvcmQ=` with your own base64-encoded credentials (see [Generating the Authorization Header](#http-mode) section).
+
+**Option 2: Bearer Token (Enterprise/Aura with SSO)**
+
+For Neo4j Enterprise or Aura with SSO/OAuth configured:
+
+```json
+{
+  "mcpServers": {
+    "neo4j-http-bearer": {
+      "type": "http",
+      "url": "http://127.0.0.1:80/mcp",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  }
+}
+```
+
+**Note:** Replace the bearer token with your actual OAuth/SSO token from your identity provider.
 
 ## Multi-User / Multi-Tenant Setup
 
@@ -298,15 +354,59 @@ Authentication is handled through environment variables (`NEO4J_USERNAME` and `N
 
 ### HTTP Mode
 
-HTTP mode uses per-request Basic Authentication:
+HTTP mode uses per-request authentication (Bearer Token or Basic Auth):
 
-- **Required**: All HTTP requests must include Basic Authentication headers
+- **Required**: All HTTP requests must include authentication headers (Bearer or Basic)
+- **Bearer Token Support**: Supports Neo4j Enterprise/Aura SSO/OAuth authentication
+- **Basic Auth Support**: Traditional username/password authentication
 - **Per-Request Credentials**: Each HTTP request uses its own Neo4j credentials
 - **Multi-Tenant Support**: Different users can access different Neo4j databases/credentials
 - **No Shared State**: HTTP mode is stateless - credentials never stored on server
 - **Security**: Returns 401 if credentials are missing
 
 The server uses Neo4j's impersonation feature to execute queries with different credentials without creating new driver instances (more efficient).
+
+## Troubleshooting Authentication
+
+### Bearer Token Issues
+
+**401 Unauthorized - Token not accepted**
+- Verify your Neo4j instance is Enterprise Edition or Aura with OAuth/SSO configured
+- Community Edition does not support bearer token authentication - use Basic Auth instead
+- Confirm the token hasn't expired - bearer tokens typically have short lifespans (15-60 minutes)
+- Check with your identity provider to ensure the token is valid
+
+**Invalid token format**
+- Ensure the header format is exactly: `Authorization: Bearer YOUR_TOKEN`
+- No extra spaces before or after "Bearer"
+- Token should not be base64-encoded (unlike Basic Auth)
+
+**Neo4j rejects valid token**
+- Verify your Neo4j instance is configured to accept tokens from your identity provider
+- Check Neo4j server logs for specific authentication errors
+- Confirm the token issuer matches Neo4j's OAuth configuration
+
+### Basic Auth Issues
+
+**401 Unauthorized - Credentials not accepted**
+- Verify username and password are correct
+- Check that credentials are properly base64 encoded: `echo -n "user:pass" | base64`
+- Ensure the authorization header format is: `Authorization: Basic BASE64_STRING`
+
+**Empty credentials error**
+- Both username and password must be non-empty
+- The base64 string must decode to `username:password` format with both parts present
+
+### General Issues
+
+**No authentication header provided**
+- HTTP mode requires authentication on every request
+- Ensure your MCP client configuration includes the `Authorization` header
+
+**Connection refused / Cannot reach server**
+- Verify the Neo4j MCP server is running in HTTP mode
+- Check the server is listening on the correct host:port
+- Confirm firewall rules allow connections to the MCP server port
 
 ## Additional Clients
 
