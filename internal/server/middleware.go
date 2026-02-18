@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,8 @@ const (
 	corsMaxAgeSeconds           = "86400" // 24 hours
 	maxUnauthenticatedBodyBytes = 4 * 1024
 )
+
+var errRequestBodyTooLarge = errors.New("request body too large")
 
 // chainMiddleware chains together all HTTP middleware for this server instance
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
@@ -61,7 +64,7 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.
 
 			authHeader := r.Header.Get("Authorization")
 
-			// Try bearer token first
+			// Try the bearer token first
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				token := strings.TrimPrefix(authHeader, "Bearer ")
 				token = strings.TrimSpace(token)
@@ -81,9 +84,25 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				if allowUnauthenticatedPing && isUnauthenticatedPingRequest(r) {
-					next.ServeHTTP(w, r)
-					return
+				if allowUnauthenticatedPing {
+					// Wrap the body; this will cause reads past the limit to fail. Only apply
+					// when the feature is enabled to avoid unintended side effects on other endpoints.
+					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
+
+					ok, err := isUnauthenticatedPingRequest(r)
+					if err != nil {
+						// If the body was too large, return 413 Payload Too Large
+						if errors.Is(err, errRequestBodyTooLarge) {
+							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+							return
+						}
+						// For other read errors or JSON errors, fall through and require auth
+					}
+
+					if ok {
+						next.ServeHTTP(w, r)
+						return
+					}
 				}
 
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
@@ -131,7 +150,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 
 			// Build allowed headers list, always include Content-Type and Authorization.
 			allowedHeaders := []string{"Content-Type", "Authorization"}
-			// If a custom auth header is configured and it's not the default, include it
+			// If a custom auth header is configured, and it's not the default, include it
 			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
 				allowedHeaders = append(allowedHeaders, authHeaderName)
 			}
@@ -187,27 +206,43 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-func isUnauthenticatedPingRequest(r *http.Request) bool {
+func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 	if r.Method != http.MethodPost {
-		return false
+		return false, nil
 	}
 	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
-		return false
+		return false, errRequestBodyTooLarge
 	}
 
 	buf, err := io.ReadAll(r.Body)
-	if err != nil {
-		r.Body = io.NopCloser(bytes.NewReader(nil))
-		return false
+	// Close the original body to free resources.
+	if rc := r.Body; rc != nil {
+		_ = rc.Close()
 	}
+
+	if err != nil {
+		// replace body with an empty reader to avoid further reads.
+		r.Body = io.NopCloser(bytes.NewReader(nil))
+
+		// If MaxBytesReader triggered, it typically returns an error containing
+		// "request body too large". Map that to a sentinel error so middleware can
+		// respond with 413.
+		if strings.Contains(err.Error(), "request body too large") {
+			return false, errRequestBodyTooLarge
+		}
+
+		return false, err
+	}
+
+	// Restore the read bytes so downstream handlers can read the body as usual
 	r.Body = io.NopCloser(bytes.NewReader(buf))
 
 	var probe struct {
 		Method string `json:"method"`
 	}
 	if e := json.Unmarshal(buf, &probe); e != nil {
-		return false
+		return false, e
 	}
 
-	return probe.Method == "ping"
+	return probe.Method == "ping", nil
 }

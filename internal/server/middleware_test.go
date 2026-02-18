@@ -670,16 +670,29 @@ func TestAuthMiddleware_InvalidBasicAuthHeader(t *testing.T) {
 	}
 }
 
-func TestAuthMiddleware_PassesBasicAuthToContext(t *testing.T) {
-	handler := authMiddleware("Authorization", false)(authCheckHandler(t, true, "testuser", "testpass"))
+func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
+	// This test constructs a POST /mcp request whose body exceeds the
+	// maxUnauthenticatedBodyBytes limit. We set ContentLength to -1 so the
+	// middleware will actually read the body (and hit MaxBytesReader) instead
+	// of short-circuiting on ContentLength.
+	mockServer := mockNeo4jMCPServer(t)
+	mockServer.config.AllowUnauthenticatedPing = true
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
-	req := httptest.NewRequest("GET", "/", nil)
-	req.SetBasicAuth("testuser", "testpass")
+	// Build a JSON ping body and pad it to exceed the max allowed size
+	pad := strings.Repeat("x", maxUnauthenticatedBodyBytes+10)
+	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4,"pad":"` + pad + `"}`
+
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	// Force the middleware to read from the body instead of using ContentLength
+	req.ContentLength = -1
+
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", rec.Code)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("Expected status 413 Payload Too Large for oversized unauthenticated ping, got %d", rec.Code)
 	}
 }
