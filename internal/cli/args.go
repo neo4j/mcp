@@ -69,7 +69,7 @@ For more information, visit: https://github.com/neo4j/mcp
 type Args struct {
 	URI                string
 	Username           string
-	Password           string
+	Password           string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
 	Database           string
 	ReadOnly           string
 	Telemetry          string
