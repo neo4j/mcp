@@ -101,7 +101,7 @@ var argsSlice = []string{
 	"--neo4j-http-tls-enabled",
 	"--neo4j-http-tls-cert-file",
 	"--neo4j-http-tls-key-file",
-	"--neo4j-auth-header-name",
+	"--neo4j-http-auth-header-name",
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
