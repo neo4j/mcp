@@ -37,7 +37,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.26.0"
       - run: go install go.uber.org/mock/mockgen@latest
 
       - name: Download dependencies
@@ -70,7 +70,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.26.0"
 
       - name: Download dependencies
         run: go mod download
@@ -102,7 +102,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.26.0"
 
       - name: Download dependencies
         run: go mod download
@@ -129,7 +129,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.26.0"
 
       - name: Download dependencies
         run: go mod download
@@ -161,7 +161,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.26.0"
 
       - name: Download dependencies
         run: go mod download
