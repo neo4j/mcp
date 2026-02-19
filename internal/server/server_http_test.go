@@ -1,7 +1,3 @@
-//
-// Copyright (c) "Neo4j"
-// Neo4j Sweden AB [http://neo4j.com]
-
 // Keeping tests in the same package to test the HTTP server without exposing internals.
 package server
 

@@ -1,7 +1,3 @@
-//
-// Copyright (c) "Neo4j"
-// Neo4j Sweden AB [http://neo4j.com]
-
 //go:build e2e
 
 package e2e
