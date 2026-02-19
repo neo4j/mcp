@@ -1,0 +1,31 @@
+name: "License Header Check"
+on:
+    pull_request:
+        branches:
+            - main
+
+jobs:
+    license-header-check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Check license headers on changed files
+              run: |
+                  CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep -vE '\.(md|txt|json|yaml|yml|sum|mod)$' || true)
+
+                  [ -z "$CHANGED_FILES" ] && { echo "No relevant files changed."; exit 0; }
+
+                  MISSING=0
+                  while IFS= read -r file; do
+                    if head -n 4 "$file" | grep -q 'Copyright (c) "Neo4j"'; then
+                      echo "✅ $file"
+                    else
+                      echo "❌ $file"
+                      MISSING=1
+                    fi
+                  done <<< "$CHANGED_FILES"
+
+                  [ $MISSING -ne 0 ] && exit 1 || true
