@@ -1,3 +1,6 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
 // Package server_test contains tests for the HTTP mode lifecycle of the Neo4j MCP server.
 // This file specifically tests the differences between HTTP and STDIO transport modes,
 // with focus on the delayed initialization pattern used in HTTP mode.
