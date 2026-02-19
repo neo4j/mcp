@@ -32,7 +32,7 @@ var ValidTransportModes = []TransportMode{TransportModeStdio, TransportModeHTTP}
 type Config struct {
 	URI                string
 	Username           string
-	Password           string
+	Password           string // #nosec G117
 	Database           string
 	ReadOnly           bool // If true, disables write tools
 	Telemetry          bool // If false, disables telemetry
@@ -106,7 +106,7 @@ func (c *Config) Validate() error {
 type CLIOverrides struct {
 	URI            string
 	Username       string
-	Password       string
+	Password       string // #nosec G117
 	Database       string
 	ReadOnly       string
 	Telemetry      string
