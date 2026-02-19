@@ -162,7 +162,7 @@ func TestLogLevelChange(t *testing.T) {
 
 func TestRedactionLogic(t *testing.T) {
 	t.Run("sensitive keys are redacted", func(t *testing.T) {
-		sensitiveFields := map[string]string{
+		sensitiveFields := map[string]string{ // #nosec G101 -- test data for redaction logic verification
 			"password":   "my-secret-password",
 			"token":      "bearer-token-123",
 			"api_key":    "sk-1234567890",
