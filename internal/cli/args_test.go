@@ -266,6 +266,19 @@ func TestHandleArgs(t *testing.T) {
 			expectedStderr:   "--neo4j-http-allowed-origins requires a value",
 		},
 		{
+			name:             "http auth header name flag with valid value",
+			args:             []string{testProgramName, "--neo4j-http-auth-header-name", "X-Custom-Auth"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http auth header name flag missing value",
+			args:             []string{testProgramName, "--neo4j-http-auth-header-name"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-auth-header-name requires a value",
+		},
+		{
 			name:             "double dash separator stops flag processing",
 			args:             []string{testProgramName, "--", "--unknown-flag"},
 			version:          testVersion,

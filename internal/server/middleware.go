@@ -65,8 +65,7 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.
 			authHeader := r.Header.Get("Authorization")
 
 			// Try the bearer token first
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				token := strings.TrimPrefix(authHeader, "Bearer ")
+			if token, found := strings.CutPrefix(authHeader, "Bearer "); found {
 				token = strings.TrimSpace(token)
 
 				if token == "" {
@@ -190,7 +189,7 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			slog.Debug("HTTP Request",
+			slog.Debug("HTTP Request", // #nosec G706 -- logging HTTP request metadata, no user input in format string
 				"method", r.Method,
 				"url", r.URL.Path,
 				"remote_addr", r.RemoteAddr,
