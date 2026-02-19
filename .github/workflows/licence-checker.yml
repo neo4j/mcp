@@ -1,31 +1,51 @@
+# ========================================
+# License Header Validation Script
+# ========================================
+# This script checks that all relevant changed files contain the required
+# Neo4j copyright header in their first 4 lines.
+#
+# How it works:
+# 1. Get list of files changed compared to main branch
+# 2. Filter out config/documentation files (md, txt, json, yaml, etc.)
+# 3. For each remaining file, check if it has 'Copyright (c) "Neo4j"'
+# 4. Report which files pass (✅) or fail (❌)
+# 5. Exit with error code 1 if any files are missing headers
+#
+# Bash tips for beginners:
+# - `|| true` prevents commands from failing the workflow when they return non-zero
+# - `[ -z "$VAR" ]` tests if a variable is empty
+# - `IFS= read -r` reads lines preserving whitespace and special characters
+# - `<<< "$VAR"` feeds a variable's content as input to a command (herestring)
+# - `[ condition ] && command` runs command only if condition is true
+# ========================================
 name: "License Header Check"
 on:
-    pull_request:
-        branches:
-            - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-    license-header-check:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
+  license-header-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            - name: Check license headers on changed files
-              run: |
-                  CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep -vE '\.(md|txt|json|yaml|yml|sum|mod)$' || true)
+      - name: Check license headers on changed files
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep -vE '\.(md|txt|json|yaml|yml|sum|mod)$' || true)
 
-                  [ -z "$CHANGED_FILES" ] && { echo "No relevant files changed."; exit 0; }
+          [ -z "$CHANGED_FILES" ] && { echo "No relevant files changed."; exit 0; }
 
-                  MISSING=0
-                  while IFS= read -r file; do
-                    if head -n 4 "$file" | grep -q 'Copyright (c) "Neo4j"'; then
-                      echo "✅ $file"
-                    else
-                      echo "❌ $file"
-                      MISSING=1
-                    fi
-                  done <<< "$CHANGED_FILES"
+          MISSING=0
+          while IFS= read -r file; do
+            if head -n 4 "$file" | grep -q 'Copyright (c) "Neo4j"'; then
+              echo "✅ $file"
+            else
+              echo "❌ $file"
+              MISSING=1
+            fi
+          done <<< "$CHANGED_FILES"
 
-                  [ $MISSING -ne 0 ] && exit 1 || true
+          [ $MISSING -ne 0 ] && exit 1 || true
