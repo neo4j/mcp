@@ -277,6 +277,19 @@ func TestHandleArgs(t *testing.T) {
 			version:          testVersion,
 			expectedExitCode: -1, // Should not exit, config flag before -- is valid
 		},
+		{
+			name:             "http allow unauthenticated ping with valid value",
+			args:             []string{testProgramName, "--neo4j-http-allow-unauthenticated-ping", "true"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "http allow unauthenticated ping with missing value",
+			args:             []string{testProgramName, "--neo4j-http-allow-unauthenticated-ping"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-http-allow-unauthenticated-ping requires a value",
+		},
 	}
 
 	for _, tt := range tests {

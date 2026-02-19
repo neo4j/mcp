@@ -78,8 +78,14 @@ In case where the standard HTTP header "Authorization" can't be used, it's possi
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
-**Health Check Ping**
-If you expose the HTTP endpoint to load balancers or uptime checks, enable unauthenticated ping probes with the `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING` env var or `--neo4j-http-allow-unauthenticated-ping true`. When disabled (default), every request—including ping—requires auth.
+## Unauthenticated MCP Ping
+
+By default, the ping method is protected by standard authentication flows. However, because the MCP specification allows pings prior to initialization, some integrations (such as AWS AgentCore) rely on this optional method as an initial health check mechanism.
+
+To improve integration compatibility with these platforms, you can exclude the ping method from authentication requirements via:
+
+- Environment Variable: `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING=true`
+- or Command Line Flag: `--neo4j-http-allow-unauthenticated-ping true`
 
 ## TLS/HTTPS Configuration
 
