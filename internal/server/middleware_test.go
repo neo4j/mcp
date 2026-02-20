@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -91,7 +92,7 @@ func bearerTokenCheckHandler(t *testing.T, expectToken bool, expectedToken strin
 }
 
 func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
-	handler := authMiddleware("Authorization")(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := authMiddleware("Authorization", false)(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -105,7 +106,7 @@ func TestAuthMiddleware_WithValidBasicCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithoutCredentials(t *testing.T) {
-	handler := authMiddleware("Authorization")(mockHandler())
+	handler := authMiddleware("Authorization", false)(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -136,7 +137,7 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := authMiddleware("Authorization")(mockHandler())
+			handler := authMiddleware("Authorization", false)(mockHandler())
 
 			req := httptest.NewRequest("GET", "/", nil)
 			req.SetBasicAuth(tc.username, tc.password)
@@ -158,7 +159,7 @@ func TestAuthMiddleware_WithEmptyBasicCredentials(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
-	handler := authMiddleware("Authorization")(bearerTokenCheckHandler(t, true, "test-token-123"))
+	handler := authMiddleware("Authorization", false)(bearerTokenCheckHandler(t, true, "test-token-123"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer test-token-123")
@@ -172,7 +173,7 @@ func TestAuthMiddleware_WithValidBearerToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
-	handler := authMiddleware("Authorization")(bearerTokenCheckHandler(t, true, "test-token-456"))
+	handler := authMiddleware("Authorization", false)(bearerTokenCheckHandler(t, true, "test-token-456"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer   test-token-456  ")
@@ -186,7 +187,7 @@ func TestAuthMiddleware_WithBearerTokenAndExtraSpaces(t *testing.T) {
 }
 
 func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
-	handler := authMiddleware("Authorization")(mockHandler())
+	handler := authMiddleware("Authorization", false)(mockHandler())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Bearer ")
@@ -205,7 +206,7 @@ func TestAuthMiddleware_WithEmptyBearerToken(t *testing.T) {
 
 func TestAuthMiddleware_FallbackToBasicAuth(t *testing.T) {
 	// When no bearer token, should fall back to basic auth
-	handler := authMiddleware("Authorization")(authCheckHandler(t, true, "testuser", "testpass"))
+	handler := authMiddleware("Authorization", false)(authCheckHandler(t, true, "testuser", "testpass"))
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetBasicAuth("testuser", "testpass")
@@ -236,7 +237,7 @@ func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
 	}
 }
 
-func TestRewriteAuthHeader_OverwriteAuthorization(t *testing.T) {
+func TestAuthMiddleware_CustomHeaderName_OverridesAuthHeader(t *testing.T) {
 	// When both Authorization and custom header are present, custom header should take precedence
 	mock := mockNeo4jMCPServer(t)
 	mock.config.AuthHeaderName = "X-Test-Auth"
@@ -610,5 +611,88 @@ func TestPathValidationMiddleware_TrailingSlashAllowed(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Expected status 200 for /mcp/ path, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_AllowsUnauthenticatedPing(t *testing.T) {
+	// Build middleware chain with no allowed origins and a simple handler
+	mockServer := mockNeo4jMCPServer(t)
+	mockServer.config.AllowUnauthenticatedPing = true
+	callback := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	// Create a POST request to /mcp with JSON-RPC ping body and no auth header
+	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	callback.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for unauthenticated ping, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_BlocksUnauthenticatedPingWhenDisabled(t *testing.T) {
+	mockServer := mockNeo4jMCPServer(t)
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 when unauthenticated ping is disabled, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_InvalidBasicAuthHeader(t *testing.T) {
+	handler := authMiddleware("Authorization", false)(mockHandler())
+
+	req := httptest.NewRequest("GET", "/", nil)
+	// Invalid basic auth header
+	req.Header.Set("Authorization", "Basic invalid-base64")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	// Should return 401 for invalid auth header
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status 401, got %d", rec.Code)
+	}
+
+	// Should have WWW-Authenticate header
+	if rec.Header().Get("WWW-Authenticate") == "" {
+		t.Error("Expected WWW-Authenticate header to be set")
+	}
+}
+
+func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
+	// This test constructs a POST /mcp request whose body exceeds the
+	// maxUnauthenticatedBodyBytes limit. We set ContentLength to -1 so the
+	// middleware will actually read the body (and hit MaxBytesReader) instead
+	// of short-circuiting on ContentLength.
+	mockServer := mockNeo4jMCPServer(t)
+	mockServer.config.AllowUnauthenticatedPing = true
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	// Build a JSON ping body and pad it to exceed the max allowed size
+	pad := strings.Repeat("x", maxUnauthenticatedBodyBytes+10)
+	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4,"pad":"` + pad + `"}`
+
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	// Force the middleware to read from the body instead of using ContentLength
+	req.ContentLength = -1
+
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("Expected status 413 Payload Too Large for oversized unauthenticated ping, got %d", rec.Code)
 	}
 }

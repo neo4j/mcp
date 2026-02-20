@@ -1,6 +1,10 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -10,8 +14,11 @@ import (
 )
 
 const (
-	corsMaxAgeSeconds = "86400" // 24 hours
+	corsMaxAgeSeconds           = "86400" // 24 hours
+	maxUnauthenticatedBodyBytes = 4 * 1024
 )
+
+var errRequestBodyTooLarge = errors.New("request body too large")
 
 // chainMiddleware chains together all HTTP middleware for this server instance
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
@@ -28,7 +35,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	handler = authMiddleware(s.config.AuthHeaderName)(handler)
+	handler = authMiddleware(s.config.AuthHeaderName, s.config.AllowUnauthenticatedPing)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
@@ -44,7 +51,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware(headerName string) func(http.Handler) http.Handler {
+func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -57,7 +64,7 @@ func authMiddleware(headerName string) func(http.Handler) http.Handler {
 
 			authHeader := r.Header.Get("Authorization")
 
-			// Try bearer token first
+			// Try the bearer token first
 			if token, found := strings.CutPrefix(authHeader, "Bearer "); found {
 				token = strings.TrimSpace(token)
 
@@ -76,7 +83,27 @@ func authMiddleware(headerName string) func(http.Handler) http.Handler {
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				// No credentials provided - reject request
+				if allowUnauthenticatedPing {
+					// Wrap the body; this will cause reads past the limit to fail. Only apply
+					// when the feature is enabled to avoid unintended side effects on other endpoints.
+					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
+
+					ok, err := isUnauthenticatedPingRequest(r)
+					if err != nil {
+						// If the body was too large, return 413 Payload Too Large
+						if errors.Is(err, errRequestBodyTooLarge) {
+							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+							return
+						}
+						// For other read errors or JSON errors, fall through and require auth
+					}
+
+					if ok {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
 				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
 				http.Error(w, "Unauthorized: Basic or Bearer authentication required", http.StatusUnauthorized)
@@ -122,7 +149,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 
 			// Build allowed headers list, always include Content-Type and Authorization.
 			allowedHeaders := []string{"Content-Type", "Authorization"}
-			// If a custom auth header is configured and it's not the default, include it
+			// If a custom auth header is configured, and it's not the default, include it
 			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
 				allowedHeaders = append(allowedHeaders, authHeaderName)
 			}
@@ -176,4 +203,45 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
+	if r.Method != http.MethodPost {
+		return false, nil
+	}
+	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
+		return false, errRequestBodyTooLarge
+	}
+
+	buf, err := io.ReadAll(r.Body)
+	// Close the original body to free resources.
+	if rc := r.Body; rc != nil {
+		_ = rc.Close()
+	}
+
+	if err != nil {
+		// replace body with an empty reader to avoid further reads.
+		r.Body = io.NopCloser(bytes.NewReader(nil))
+
+		// If MaxBytesReader triggered, it typically returns an error containing
+		// "request body too large". Map that to a sentinel error so middleware can
+		// respond with 413.
+		if strings.Contains(err.Error(), "request body too large") {
+			return false, errRequestBodyTooLarge
+		}
+
+		return false, err
+	}
+
+	// Restore the read bytes so downstream handlers can read the body as usual
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+
+	var probe struct {
+		Method string `json:"method"`
+	}
+	if e := json.Unmarshal(buf, &probe); e != nil {
+		return false, e
+	}
+
+	return probe.Method == "ping", nil
 }

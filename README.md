@@ -78,6 +78,15 @@ In case where the standard HTTP header "Authorization" can't be used, it's possi
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration instructions for both modes.
 
+## Unauthenticated MCP Ping
+
+By default, the ping method is protected by standard authentication flows. However, because the MCP specification allows pings prior to initialization, some integrations (such as AWS AgentCore) rely on this optional method as an initial health check mechanism.
+
+To improve integration compatibility with these platforms, you can exclude the ping method from authentication requirements via:
+
+- Environment Variable: `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING=true`
+- or Command Line Flag: `--neo4j-http-allow-unauthenticated-ping true`
+
 ## TLS/HTTPS Configuration
 
 When using HTTP transport mode, you can enable TLS/HTTPS for secure communication:
@@ -89,6 +98,7 @@ When using HTTP transport mode, you can enable TLS/HTTPS for secure communicatio
 - `NEO4J_MCP_HTTP_TLS_KEY_FILE` - Path to TLS private key file (required when TLS is enabled)
 - `NEO4J_MCP_HTTP_PORT` - HTTP server port (default: `443` when TLS enabled, `80` when TLS disabled)
 - `NEO4J_HTTP_AUTH_HEADER_NAME` - Name of the HTTP header to read auth credentials from (default: `Authorization`)
+- `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING` - Allow unauthenticated ping health checks (default: `false`)
 
 ### Security Configuration
 
@@ -150,6 +160,7 @@ Available flags:
 - `--neo4j-http-tls-cert-file` - Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE)
 - `--neo4j-http-tls-key-file` - Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE)
 - `--neo4j-http-auth-header-name` - Name of the HTTP header to read auth credentials from (overrides NEO4J_AUTH_HEADER_NAME)
+- `--neo4j-http-allow-unauthenticated-ping` - Allow unauthenticated ping health checks: `true` or `false` (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING)
 
 Use `neo4j-mcp --help` to see all available options.
 

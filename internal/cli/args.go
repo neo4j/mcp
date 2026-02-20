@@ -34,6 +34,7 @@ Options:
   --neo4j-http-tls-cert-file <PATH>   Path to TLS certificate file (overrides environment variable NEO4J_MCP_HTTP_TLS_CERT_FILE)
   --neo4j-http-tls-key-file <PATH>    Path to TLS private key file (overrides environment variable NEO4J_MCP_HTTP_TLS_KEY_FILE)
   --neo4j-http-auth-header-name <HEADER> Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME)
+  --neo4j-http-allow-unauthenticated-ping <BOOLEAN> Allow unauthenticated ping health checks: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -54,6 +55,7 @@ Optional Environment Variables:
   NEO4J_MCP_HTTP_TLS_CERT_FILE Path to TLS certificate file (required when TLS is enabled)
   NEO4J_MCP_HTTP_TLS_KEY_FILE Path to TLS private key file (required when TLS is enabled)
   NEO4J_HTTP_AUTH_HEADER_NAME Name of the HTTP header to read auth credentials from (default: Authorization)
+  NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING Allow unauthenticated ping health checks (default: false)
 
 Examples:
   # Using environment variables
@@ -67,21 +69,22 @@ For more information, visit: https://github.com/neo4j/mcp
 
 // Args holds configuration values parsed from command-line flags
 type Args struct {
-	URI                string
-	Username           string
-	Password           string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
-	Database           string
-	ReadOnly           string
-	Telemetry          string
-	SchemaSampleSize   string
-	TransportMode      string
-	HTTPPort           string
-	HTTPHost           string
-	HTTPAllowedOrigins string
-	HTTPTLSEnabled     string
-	HTTPTLSCertFile    string
-	HTTPTLSKeyFile     string
-	AuthHeaderName     string
+	URI                          string
+	Username                     string
+	Password                     string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
+	Database                     string
+	ReadOnly                     string
+	Telemetry                    string
+	SchemaSampleSize             string
+	TransportMode                string
+	HTTPPort                     string
+	HTTPHost                     string
+	HTTPAllowedOrigins           string
+	HTTPTLSEnabled               string
+	HTTPTLSCertFile              string
+	HTTPTLSKeyFile               string
+	AuthHeaderName               string
+	HTTPAllowUnauthenticatedPing string
 }
 
 // this is a list of known configuration flags to be skipped in HandleArgs
@@ -102,6 +105,7 @@ var argsSlice = []string{
 	"--neo4j-http-tls-cert-file",
 	"--neo4j-http-tls-key-file",
 	"--neo4j-http-auth-header-name",
+	"--neo4j-http-allow-unauthenticated-ping",
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
@@ -122,25 +126,27 @@ func ParseConfigFlags() *Args {
 	neo4jHTTPTLSCertFile := flag.String("neo4j-http-tls-cert-file", "", "Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE env var)")
 	neo4jHTTPTLSKeyFile := flag.String("neo4j-http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
 	neo4jAuthHeaderName := flag.String("neo4j-http-auth-header-name", "", "Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME env var)")
+	neo4jHTTPAllowUnauthenticatedPing := flag.String("neo4j-http-allow-unauthenticated-ping", "", "Allow unauthenticated ping health checks: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING env var)")
 
 	flag.Parse()
 
 	return &Args{
-		URI:                *neo4jURI,
-		Username:           *neo4jUsername,
-		Password:           *neo4jPassword,
-		Database:           *neo4jDatabase,
-		ReadOnly:           *neo4jReadOnly,
-		Telemetry:          *neo4jTelemetry,
-		SchemaSampleSize:   *neo4jSchemaSampleSize,
-		TransportMode:      *neo4jTransportMode,
-		HTTPPort:           *neo4jHTTPPort,
-		HTTPHost:           *neo4jHTTPHost,
-		HTTPAllowedOrigins: *neo4jHTTPAllowedOrigins,
-		HTTPTLSEnabled:     *neo4jHTTPTLSEnabled,
-		HTTPTLSCertFile:    *neo4jHTTPTLSCertFile,
-		HTTPTLSKeyFile:     *neo4jHTTPTLSKeyFile,
-		AuthHeaderName:     *neo4jAuthHeaderName,
+		URI:                          *neo4jURI,
+		Username:                     *neo4jUsername,
+		Password:                     *neo4jPassword,
+		Database:                     *neo4jDatabase,
+		ReadOnly:                     *neo4jReadOnly,
+		Telemetry:                    *neo4jTelemetry,
+		SchemaSampleSize:             *neo4jSchemaSampleSize,
+		TransportMode:                *neo4jTransportMode,
+		HTTPPort:                     *neo4jHTTPPort,
+		HTTPHost:                     *neo4jHTTPHost,
+		HTTPAllowedOrigins:           *neo4jHTTPAllowedOrigins,
+		HTTPTLSEnabled:               *neo4jHTTPTLSEnabled,
+		HTTPTLSCertFile:              *neo4jHTTPTLSCertFile,
+		HTTPTLSKeyFile:               *neo4jHTTPTLSKeyFile,
+		HTTPAllowUnauthenticatedPing: *neo4jHTTPAllowUnauthenticatedPing,
+		AuthHeaderName:               *neo4jAuthHeaderName,
 	}
 }
 

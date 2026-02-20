@@ -1,0 +1,5 @@
+kind: Patch
+body: |
+  Allow unauthenticated "ping" requests. Enable with the `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING` environment
+  variable or the `--neo4j-http-allow-unauthenticated-ping` CLI flag.
+time: 2026-02-05T15:36:19.000202613Z
