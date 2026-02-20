@@ -1,3 +1,0 @@
-kind: Patch
-body: Fixed the type in argSlice preventing neo4j-http-auth-header-name from being parsed as expected.
-time: 2026-02-18T23:40:19.247917Z
