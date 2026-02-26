@@ -1,3 +1,6 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
 package database
 
 //go:generate mockgen -destination=mocks/mock_database.go -package=database_mocks github.com/neo4j/mcp/internal/database Service

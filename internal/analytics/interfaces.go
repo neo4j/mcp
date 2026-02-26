@@ -1,3 +1,6 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
 package analytics
 
 //go:generate mockgen -destination=mocks/mock_analytics.go -package=analytics_mocks -typed github.com/neo4j/mcp/internal/analytics Service,HTTPClient
