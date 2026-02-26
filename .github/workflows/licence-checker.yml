@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - keremgocen/add-licence-header-checking-workflow
 
 permissions:
   contents: read
