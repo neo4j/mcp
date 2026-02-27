@@ -229,7 +229,7 @@ func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
 
 	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "custom-token-789"))
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/mcp", nil)
 	req.Header.Set("X-Test-Auth", "Bearer custom-token-789")
 	rec := httptest.NewRecorder()
 
@@ -247,7 +247,7 @@ func TestAuthMiddleware_CustomHeaderName_OverridesAuthHeader(t *testing.T) {
 
 	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "new-token-123"))
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/mcp", nil)
 	// Existing Authorization header with an old token
 	req.Header.Set("Authorization", "Bearer old-token-999")
 	// Custom header with the token that should take precedence
@@ -449,7 +449,7 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 	mockServer := mockNeo4jMCPServer(t)
 	handler := mockServer.chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	req.SetBasicAuth("user", "pass")
 	rec := httptest.NewRecorder()
@@ -471,7 +471,7 @@ func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	mockServer := mockNeo4jMCPServer(t)
 	handler := mockServer.chainMiddleware(allowedOrigins, mockHandler())
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	// No auth credentials
 	rec := httptest.NewRecorder()
@@ -481,6 +481,39 @@ func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	// Should return 401 when no credentials provided
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("Expected status 401, got %d", rec.Code)
+	}
+}
+
+func TestPathValidationMiddleware_GetReturns405(t *testing.T) {
+	handler := pathValidationMiddleware()(mockHandler())
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405 for GET /mcp, got %d", rec.Code)
+	}
+
+	if rec.Header().Get("Allow") != "POST, OPTIONS" {
+		t.Errorf("Expected Allow: POST, OPTIONS header, got %q", rec.Header().Get("Allow"))
+	}
+}
+
+func TestPathValidationMiddleware_GetReturns405InFullChain(t *testing.T) {
+	// GET should be rejected by pathValidationMiddleware before auth runs
+	mockServer := mockNeo4jMCPServer(t)
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	req := httptest.NewRequest("GET", "/mcp", nil)
+	req.SetBasicAuth("user", "pass")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405 for GET /mcp, got %d", rec.Code)
 	}
 }
 
@@ -538,7 +571,7 @@ func TestParseAllowedOrigins_WithSpaces(t *testing.T) {
 func TestPathValidationMiddleware_ValidPath(t *testing.T) {
 	handler := pathValidationMiddleware()(mockHandler())
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/mcp", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -607,7 +640,7 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 func TestPathValidationMiddleware_TrailingSlashAllowed(t *testing.T) {
 	handler := pathValidationMiddleware()(mockHandler())
 
-	req := httptest.NewRequest("GET", "/mcp/", nil)
+	req := httptest.NewRequest("POST", "/mcp/", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

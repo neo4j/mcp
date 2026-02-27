@@ -157,7 +157,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 				allowedHeaders = append(allowedHeaders, authHeaderName)
 			}
 
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
 			w.Header().Set("Access-Control-Max-Age", corsMaxAgeSeconds)
 
@@ -173,13 +173,22 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 }
 
 // pathValidationMiddleware validates that requests are only sent to /mcp path
-// Returns 404 for all other paths to avoid hanging connections
+// and that the HTTP method is allowed. Returns 404 for all other paths to avoid
+// hanging connections, and 405 for GET requests since this server does not offer
+// an SSE stream (as required by the MCP spec).
 func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only /mcp path is valid for this MCP server
 			if r.URL.Path != "/mcp" && r.URL.Path != "/mcp/" {
 				http.Error(w, "Not Found: This server only handles requests to /mcp", http.StatusNotFound)
+				return
+			}
+			// GET is not supported: per the MCP spec the server MUST return either
+			// text/event-stream or 405. This server does not offer an SSE stream.
+			if r.Method == http.MethodGet {
+				w.Header().Set("Allow", "POST, OPTIONS")
+				http.Error(w, "Method Not Allowed: GET is not supported on /mcp", http.StatusMethodNotAllowed)
 				return
 			}
 			next.ServeHTTP(w, r)
