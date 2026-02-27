@@ -1,6 +1,3 @@
-// Copyright (c) "Neo4j"
-// Neo4j Sweden AB [http://neo4j.com]
-
 package server
 
 import (
@@ -38,7 +35,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	handler = authMiddleware(s.config.AuthHeaderName, s.config.AllowUnauthenticatedPing)(handler)
+	handler = authMiddleware(s.config.AuthHeaderName, s.config.AllowUnauthenticatedPing, s.config.AllowUnauthenticatedToolsList)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
@@ -54,7 +51,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.Handler) http.Handler {
+func authMiddleware(headerName string, allowUnauthenticatedPing bool, allowUnauthenticatedToolsList bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -105,6 +102,32 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.
 						next.ServeHTTP(w, r)
 						return
 					}
+				}
+
+				// AWS Gateway expects the toollist without having to auth
+				// As this can be view as an information leak - and it's not part of the MCP protocol spec
+				// we will only allow if configured to do so
+				// Follows the same pattern as for allowUnauthenticedPing
+				if allowUnauthenticatedToolsList {
+					// Wrap the body; this will cause reads past the limit to fail. Only apply
+					// when the feature is enabled to avoid unintended side effects on other endpoints.
+					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
+
+					ok, err := isUnauthenticatedToolsListRequest(r)
+					if err != nil {
+						// If the body was too large, return 413 Payload Too Large
+						if errors.Is(err, errRequestBodyTooLarge) {
+							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+							return
+						}
+						// For other read errors or JSON errors, fall through and require auth
+					}
+
+					if ok {
+						next.ServeHTTP(w, r)
+						return
+					}
+
 				}
 
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
@@ -247,4 +270,45 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 	}
 
 	return probe.Method == "ping", nil
+}
+
+func isUnauthenticatedToolsListRequest(r *http.Request) (bool, error) {
+	if r.Method != http.MethodPost {
+		return false, nil
+	}
+	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
+		return false, errRequestBodyTooLarge
+	}
+
+	buf, err := io.ReadAll(r.Body)
+	// Close the original body to free resources.
+	if rc := r.Body; rc != nil {
+		_ = rc.Close()
+	}
+
+	if err != nil {
+		// replace body with an empty reader to avoid further reads.
+		r.Body = io.NopCloser(bytes.NewReader(nil))
+
+		// If MaxBytesReader triggered, it typically returns an error containing
+		// "request body too large". Map that to a sentinel error so middleware can
+		// respond with 413.
+		if strings.Contains(err.Error(), "request body too large") {
+			return false, errRequestBodyTooLarge
+		}
+
+		return false, err
+	}
+
+	// Restore the read bytes so downstream handlers can read the body as usual
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+
+	var probe struct {
+		Method string `json:"method"`
+	}
+	if e := json.Unmarshal(buf, &probe); e != nil {
+		return false, e
+	}
+
+	return probe.Method == "tools/list", nil
 }
