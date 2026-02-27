@@ -315,6 +315,67 @@ For Neo4j Enterprise or Aura with SSO/OAuth configured:
 
 **Note:** Replace the bearer token with your actual OAuth/SSO token from your identity provider.
 
+## Amazon Kiro Configuration
+
+The Amazon Kiro (https://kiro.dev/) is an agentic IDE that helps you do your best work with features such as specs, steering, and hooks.
+
+The Kiro MCP configuration is managed through a JSON file. The interface supports two levels of configuration:
+
+- User-level: ~/.kiro/settings/mcp.json applies to all workspaces
+- Workspace-level: .kiro/settings/mcp.json is specific to the current workspace
+
+You can apply the configuration using :
+
+- Open the command palette (use Cmd + Shift + P on Mac or Ctrl + Shift + P on Windows/Linux), search for MCP and select Kiro: Open workspace MCP config (JSON) or Kiro: Open user MCP config (JSON), depending on whether or not you want to configure the settings for the workspace or user level.
+
+### HTTP Mode
+
+HTTP mode uses per-request authentication (Bearer Token or Basic Auth):
+
+First, start your Neo4j MCP server in HTTP mode (see [HTTP Mode](#http-mode) section above).
+
+Then edit your Kiro configuration file as mentioned above:
+
+**Configuration:**
+
+**Option 1: Basic Authentication**
+
+```json
+{
+  "mcpServers": {
+    "neo4j-http": {
+      "type": "http",
+      "url": "http://127.0.0.1:80/mcp",
+      "headers": {
+        "Authorization": "Basic bmVvNGo6cGFzc3dvcmQ="
+      }
+    }
+  }
+}
+```
+
+**Note:** Replace `bmVvNGo6cGFzc3dvcmQ=` with your own base64-encoded credentials (see [Generating the Authorization Header](#http-mode) section).
+
+**Option 2: Bearer Token (Enterprise/Aura with SSO)**
+
+For Neo4j Enterprise or Aura with SSO/OAuth configured:
+
+```json
+{
+  "mcpServers": {
+    "neo4j-http-bearer": {
+      "type": "http",
+      "url": "http://127.0.0.1:80/mcp",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  }
+}
+```
+
+**Note:** Replace the bearer token with your actual OAuth/SSO token from your identity provider.
+
 ## Multi-User / Multi-Tenant Setup
 
 HTTP mode supports multiple users with different credentials accessing the same server. You can configure multiple server entries with different credentials:
