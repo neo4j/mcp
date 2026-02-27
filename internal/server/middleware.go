@@ -166,7 +166,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 				allowedHeaders = append(allowedHeaders, authHeaderName)
 			}
 
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
 			w.Header().Set("Access-Control-Max-Age", corsMaxAgeSeconds)
 
@@ -182,13 +182,22 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 }
 
 // pathValidationMiddleware validates that requests are only sent to /mcp path
-// Returns 404 for all other paths to avoid hanging connections
+// and that the HTTP method is allowed. Returns 404 for all other paths to avoid
+// hanging connections, and 405 for any method other than POST or OPTIONS since
+// the MCP StreamableHTTP Transport spec requires all client messages to be POST
+// requests. OPTIONS is permitted so that CORS preflight continues to work.
 func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only /mcp path is valid for this MCP server
 			if r.URL.Path != "/mcp" && r.URL.Path != "/mcp/" {
 				http.Error(w, "Not Found: This server only handles requests to /mcp", http.StatusNotFound)
+				return
+			}
+			// Only POST and OPTIONS are supported.
+			if r.Method != http.MethodPost && r.Method != http.MethodOptions {
+				w.Header().Set("Allow", "POST, OPTIONS")
+				http.Error(w, "Method Not Allowed: only POST is supported on /mcp", http.StatusMethodNotAllowed)
 				return
 			}
 			next.ServeHTTP(w, r)
