@@ -484,36 +484,60 @@ func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	}
 }
 
-func TestPathValidationMiddleware_GetReturns405(t *testing.T) {
-	handler := pathValidationMiddleware()(mockHandler())
-
-	req := httptest.NewRequest("GET", "/mcp", nil)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405 for GET /mcp, got %d", rec.Code)
+func TestPathValidationMiddleware_DisallowedMethodReturns405(t *testing.T) {
+	disallowedMethods := []string{
+		http.MethodGet,
+		http.MethodDelete,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodHead,
 	}
 
-	if rec.Header().Get("Allow") != "POST, OPTIONS" {
-		t.Errorf("Expected Allow: POST, OPTIONS header, got %q", rec.Header().Get("Allow"))
+	for _, method := range disallowedMethods {
+		t.Run(method, func(t *testing.T) {
+			handler := pathValidationMiddleware()(mockHandler())
+
+			req := httptest.NewRequest(method, "/mcp", nil)
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Errorf("Expected status 405 for %s /mcp, got %d", method, rec.Code)
+			}
+
+			if rec.Header().Get("Allow") != "POST, OPTIONS" {
+				t.Errorf("Expected Allow: POST, OPTIONS header, got %q", rec.Header().Get("Allow"))
+			}
+		})
 	}
 }
 
-func TestPathValidationMiddleware_GetReturns405InFullChain(t *testing.T) {
-	// GET should be rejected by pathValidationMiddleware before auth runs
-	mockServer := mockNeo4jMCPServer(t)
-	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+func TestPathValidationMiddleware_DisallowedMethodReturns405InFullChain(t *testing.T) {
+	// Disallowed methods should be rejected by pathValidationMiddleware before auth runs
+	disallowedMethods := []string{
+		http.MethodGet,
+		http.MethodDelete,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodHead,
+	}
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
-	req.SetBasicAuth("user", "pass")
-	rec := httptest.NewRecorder()
+	for _, method := range disallowedMethods {
+		t.Run(method, func(t *testing.T) {
+			mockServer := mockNeo4jMCPServer(t)
+			handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
-	handler.ServeHTTP(rec, req)
+			req := httptest.NewRequest(method, "/mcp", nil)
+			req.SetBasicAuth("user", "pass")
+			rec := httptest.NewRecorder()
 
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405 for GET /mcp, got %d", rec.Code)
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Errorf("Expected status 405 for %s /mcp, got %d", method, rec.Code)
+			}
+		})
 	}
 }
 
