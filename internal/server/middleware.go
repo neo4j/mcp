@@ -90,31 +90,24 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool, allowUnaut
 					// Wrap the body once to enforce a size limit for unauthenticated probes.
 					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
 
+					// tools/list is opt-in: it can be considered an information leak
+					// and is not required by the MCP spec.
+					var unauthMethods []string
 					if allowUnauthenticatedPing {
-						ok, err := isUnauthenticatedMethodRequest(r, "ping")
-						if err != nil {
-							if errors.Is(err, errRequestBodyTooLarge) {
-								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
-								return
-							}
-							// For other read errors or JSON errors, fall through and require auth
-						}
-						if ok {
-							next.ServeHTTP(w, r)
-							return
-						}
+						unauthMethods = append(unauthMethods, "ping")
 					}
-
-					// Unauthenticated tools/list is opt-in: it can be considered an
-					// information leak and is not required by the MCP spec.
 					if allowUnauthenticatedToolsList {
-						ok, err := isUnauthenticatedMethodRequest(r, "tools/list")
+						unauthMethods = append(unauthMethods, "tools/list")
+					}
+					for _, method := range unauthMethods {
+						ok, err := isUnauthenticatedMethodRequest(r, method)
 						if err != nil {
 							if errors.Is(err, errRequestBodyTooLarge) {
 								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
 								return
 							}
 							// For other read errors or JSON errors, fall through and require auth
+							continue
 						}
 						if ok {
 							next.ServeHTTP(w, r)
