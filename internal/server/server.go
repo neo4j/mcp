@@ -145,26 +145,14 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	err := s.dbService.VerifyConnectivity(ctx)
 	if err != nil {
-		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
+		return err
 	}
-	// Perform a dummy query to verify correctness of the connection.
-	records, err := s.dbService.ExecuteReadQuery(ctx, "RETURN 1 as first", map[string]any{})
 
-	if err != nil {
-		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
-	}
-	if len(records) != 1 || len(records[0].Values) != 1 {
-		return fmt.Errorf("failed to verify connectivity with the Neo4j instance: unexpected response from test query")
-	}
-	one, ok := records[0].Values[0].(int64)
-	if !ok || one != 1 {
-		return fmt.Errorf("failed to verify connectivity with the Neo4j instance: unexpected response from test query")
-	}
 	// Check for apoc.meta.schema procedure
 	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
 
 	// Check for apoc.meta.schema availability
-	records, err = s.dbService.ExecuteReadQuery(ctx, checkApocMetaSchemaQuery, nil)
+	records, err := s.dbService.ExecuteReadQuery(ctx, checkApocMetaSchemaQuery, nil)
 	if err != nil {
 		return fmt.Errorf("failed to check for APOC availability: %w", err)
 	}

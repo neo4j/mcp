@@ -70,23 +70,23 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 }
 
 // VerifyConnectivity checks the driver can establish a valid connection with a Neo4j instance;
+// This is done by running a harmless test query against whatever database has been specified ( if any )
 func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
-	// For HTTP mode, extract credentials from context
-	if s.transportMode == config.TransportModeHTTP {
-		authToken := s.getHTTPAuthToken(ctx)
-		if authToken != nil {
-			if err := s.driver.VerifyAuthentication(ctx, authToken); err != nil {
-				slog.Error("Failed to verify database connectivity", "error", err.Error())
-				return err
-			}
-			return nil
-		}
+	// Run a harmless test query
+	records, err := s.ExecuteReadQuery(ctx, "RETURN 1 as first", map[string]any{})
+	if err != nil {
+		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
 	}
-	// Verify database connectivity
-	if err := s.driver.VerifyConnectivity(ctx); err != nil {
-		slog.Error("Failed to verify database connectivity", "error", err.Error())
-		return err
+
+	if len(records) != 1 || len(records[0].Values) != 1 {
+		return fmt.Errorf("failed to verify connectivity with the Neo4j instance: unexpected response from test query")
 	}
+	one, ok := records[0].Values[0].(int64)
+
+	if !ok || one != 1 {
+		return fmt.Errorf("failed to verify connectivity with the Neo4j instance: unexpected response from test query")
+	}
+
 	return nil
 }
 
