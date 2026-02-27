@@ -1,0 +1,3 @@
+kind: Patch
+body: Allows listing tools without authentication if the environment variable `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST` or argument `--neo4j-http-allow-unauth
+time: 2026-02-27T16:17:25.315720201+01:00
