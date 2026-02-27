@@ -68,11 +68,17 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 		}
 	}()
 
-	// Wait for the server to signal readiness, then give it a moment to bind.
-	// HTTPServerReady closes before ListenAndServe() is called.
-	for range s.HTTPServerReady { //nolint:all
+	// Wait for the server to signal readiness, the start goroutine to fail, or a
+	// timeout. HTTPServerReady is closed just before ListenAndServe() is called, so
+	// give the OS a moment to actually bind after the select unblocks.
+	select {
+	case <-s.HTTPServerReady:
+		time.Sleep(100 * time.Millisecond)
+	case startErr := <-errChan:
+		t.Fatalf("server failed to start: %v", startErr)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for HTTP server to be ready")
 	}
-	time.Sleep(100 * time.Millisecond)
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 
