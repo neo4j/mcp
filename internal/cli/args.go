@@ -38,7 +38,7 @@ Options:
   --neo4j-http-tls-key-file <PATH>    Path to TLS private key file (overrides environment variable NEO4J_MCP_HTTP_TLS_KEY_FILE)
   --neo4j-http-auth-header-name <HEADER> Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME)
   --neo4j-http-allow-unauthenticated-ping <BOOLEAN> Allow unauthenticated ping health checks: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING)
-  --neo4j-http-allow-unauthenticated-tool-list <BOOLEAN> Allow unauthenticated tools list: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST)
+  --neo4j-http-allow-unauthenticated-tools-list <BOOLEAN> Allow unauthenticated tools list: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
