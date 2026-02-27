@@ -8,9 +8,11 @@ package integration
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,8 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -36,11 +40,12 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 	l.Close()
 
 	cfg := &config.Config{
-		URI:           testCFG.URI,
-		Database:      testCFG.Database,
-		TransportMode: config.TransportModeHTTP,
-		HTTPHost:      "127.0.0.1",
-		HTTPPort:      strconv.Itoa(port),
+		URI:                testCFG.URI,
+		Database:           testCFG.Database,
+		TransportMode:      config.TransportModeHTTP,
+		HTTPHost:           "127.0.0.1",
+		HTTPPort:           strconv.Itoa(port),
+		HTTPAllowedOrigins: "*",
 	}
 
 	ctrl := gomock.NewController(t)
@@ -103,23 +108,118 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	_, baseURL := startHTTPServer(t)
 
-	t.Run("GET /mcp returns 405 with Allow header", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURL+"/mcp", nil)
-		if err != nil {
-			t.Fatalf("failed to create request: %v", err)
-		}
+	testCFG := dbs.GetDriverConf()
 
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatalf("request failed: %v", err)
-		}
-		defer resp.Body.Close()
+	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
 
-		if resp.StatusCode != http.StatusMethodNotAllowed {
-			t.Errorf("expected 405 Method Not Allowed, got %d", resp.StatusCode)
-		}
-		if allow := resp.Header.Get("Allow"); allow != "POST, OPTIONS" {
-			t.Errorf("expected Allow: POST, OPTIONS, got %q", allow)
-		}
-	})
+	const methodNotAllowedMsg = "Method Not Allowed: only POST is supported on /mcp"
+	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
+
+	tests := []struct {
+		name         string
+		method       string
+		path         string
+		body         string
+		setupReq     func(*http.Request)
+		wantStatus   int
+		wantBody     string
+		wantAllowHdr string
+		assertErr    func(t *testing.T, err error)
+	}{
+		{
+			name:   "POST /mcp with valid credentials returns 200",
+			method: http.MethodPost,
+			path:   "/mcp",
+			body:   pingBody,
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+			},
+			wantStatus: http.StatusOK,
+			assertErr:  noErr,
+		},
+		{
+			// CORS middleware intercepts OPTIONS before auth runs (AllowedOrigins: "*"
+			// is set on the test server). Preflight returns 204 No Content per spec.
+			name:   "OPTIONS /mcp returns 204 CORS preflight",
+			method: http.MethodOptions,
+			path:   "/mcp",
+			setupReq: func(req *http.Request) {
+				req.Header.Set("Origin", "http://example.com")
+			},
+			wantStatus: http.StatusNoContent,
+			assertErr:  noErr,
+		},
+		{
+			name:         "GET /mcp is rejected",
+			method:       http.MethodGet,
+			path:         "/mcp",
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantBody:     methodNotAllowedMsg,
+			wantAllowHdr: "POST, OPTIONS",
+			assertErr:    noErr,
+		},
+		{
+			name:         "PATCH /mcp is rejected",
+			method:       http.MethodPatch,
+			path:         "/mcp",
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantBody:     methodNotAllowedMsg,
+			wantAllowHdr: "POST, OPTIONS",
+			assertErr:    noErr,
+		},
+		{
+			name:         "GET /mcp/ (trailing slash) is rejected",
+			method:       http.MethodGet,
+			path:         "/mcp/",
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantBody:     methodNotAllowedMsg,
+			wantAllowHdr: "POST, OPTIONS",
+			assertErr:    noErr,
+		},
+		{
+			name:         "PATCH /mcp/ (trailing slash) is rejected",
+			method:       http.MethodPatch,
+			path:         "/mcp/",
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantBody:     methodNotAllowedMsg,
+			wantAllowHdr: "POST, OPTIONS",
+			assertErr:    noErr,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var bodyReader io.Reader
+			if tc.body != "" {
+				bodyReader = strings.NewReader(tc.body)
+			}
+
+			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+tc.path, bodyReader)
+			require.NoError(t, err)
+
+			if tc.setupReq != nil {
+				tc.setupReq(req)
+			}
+
+			resp, err := http.DefaultClient.Do(req)
+			tc.assertErr(t, err)
+			if err != nil {
+				return
+			}
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.wantStatus, resp.StatusCode)
+
+			if tc.wantBody != "" {
+				body, err := io.ReadAll(resp.Body)
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantBody, strings.TrimSpace(string(body)))
+			}
+
+			if tc.wantAllowHdr != "" {
+				assert.Equal(t, tc.wantAllowHdr, resp.Header.Get("Allow"))
+			}
+		})
+	}
 }
