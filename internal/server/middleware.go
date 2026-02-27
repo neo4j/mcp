@@ -38,7 +38,14 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	handler = authMiddleware(s.config.AuthHeaderName, s.config.AllowUnauthenticatedPing, s.config.AllowUnauthenticatedToolsList)(handler)
+	var unauthMethods []string
+	if s.config.AllowUnauthenticatedPing {
+		unauthMethods = append(unauthMethods, "ping")
+	}
+	if s.config.AllowUnauthenticatedToolsList {
+		unauthMethods = append(unauthMethods, "tools/list")
+	}
+	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
@@ -53,8 +60,10 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 // Tries Bearer token first (from Authorization: Bearer header), then falls back to Basic Auth.
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
+// unauthenticatedMethods is an optional list of JSON-RPC method names (e.g. "ping", "tools/list")
+// that are permitted without credentials.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware(headerName string, allowUnauthenticatedPing bool, allowUnauthenticatedToolsList bool) func(http.Handler) http.Handler {
+func authMiddleware(headerName string, unauthenticatedMethods []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -86,20 +95,11 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool, allowUnaut
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				if allowUnauthenticatedPing || allowUnauthenticatedToolsList {
+				if len(unauthenticatedMethods) > 0 {
 					// Wrap the body once to enforce a size limit for unauthenticated probes.
 					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
 
-					// tools/list is opt-in: it can be considered an information leak
-					// and is not required by the MCP spec.
-					var unauthMethods []string
-					if allowUnauthenticatedPing {
-						unauthMethods = append(unauthMethods, "ping")
-					}
-					if allowUnauthenticatedToolsList {
-						unauthMethods = append(unauthMethods, "tools/list")
-					}
-					for _, method := range unauthMethods {
+					for _, method := range unauthenticatedMethods {
 						ok, err := isUnauthenticatedMethodRequest(r, method)
 						if err != nil {
 							if errors.Is(err, errRequestBodyTooLarge) {
