@@ -38,7 +38,14 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
-	handler = authMiddleware(s.config.AuthHeaderName, s.config.AllowUnauthenticatedPing)(handler)
+	var unauthMethods []string
+	if s.config.AllowUnauthenticatedPing {
+		unauthMethods = append(unauthMethods, "ping")
+	}
+	if s.config.AllowUnauthenticatedToolsList {
+		unauthMethods = append(unauthMethods, "tools/list")
+	}
+	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
 
 	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
@@ -53,8 +60,10 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 // Tries Bearer token first (from Authorization: Bearer header), then falls back to Basic Auth.
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
+// unauthenticatedMethods is an optional list of JSON-RPC method names (e.g. "ping", "tools/list")
+// that are permitted without credentials.
 // Returns 401 Unauthorized if credentials are missing or malformed.
-func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.Handler) http.Handler {
+func authMiddleware(headerName string, unauthenticatedMethods []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -86,24 +95,24 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool) func(http.
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				if allowUnauthenticatedPing {
-					// Wrap the body; this will cause reads past the limit to fail. Only apply
-					// when the feature is enabled to avoid unintended side effects on other endpoints.
+				if len(unauthenticatedMethods) > 0 {
+					// Wrap the body once to enforce a size limit for unauthenticated probes.
 					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
 
-					ok, err := isUnauthenticatedPingRequest(r)
-					if err != nil {
-						// If the body was too large, return 413 Payload Too Large
-						if errors.Is(err, errRequestBodyTooLarge) {
-							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+					for _, method := range unauthenticatedMethods {
+						ok, err := isUnauthenticatedMethodRequest(r, method)
+						if err != nil {
+							if errors.Is(err, errRequestBodyTooLarge) {
+								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+								return
+							}
+							// For other read errors or JSON errors, fall through and require auth
+							continue
+						}
+						if ok {
+							next.ServeHTTP(w, r)
 							return
 						}
-						// For other read errors or JSON errors, fall through and require auth
-					}
-
-					if ok {
-						next.ServeHTTP(w, r)
-						return
 					}
 				}
 
@@ -208,7 +217,11 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
+// isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
+// the request is a POST whose "method" field matches the given jsonRPCMethod.
+// The body is always restored so downstream handlers can read it normally.
+// Caller must have already wrapped r.Body with http.MaxBytesReader.
+func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool, error) {
 	if r.Method != http.MethodPost {
 		return false, nil
 	}
@@ -223,7 +236,7 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 	}
 
 	if err != nil {
-		// replace body with an empty reader to avoid further reads.
+		// Replace body with an empty reader to avoid further reads.
 		r.Body = io.NopCloser(bytes.NewReader(nil))
 
 		// If MaxBytesReader triggered, it typically returns an error containing
@@ -236,7 +249,7 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 		return false, err
 	}
 
-	// Restore the read bytes so downstream handlers can read the body as usual
+	// Restore the read bytes so downstream handlers can read the body as usual.
 	r.Body = io.NopCloser(bytes.NewReader(buf))
 
 	var probe struct {
@@ -246,5 +259,5 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 		return false, e
 	}
 
-	return probe.Method == "ping", nil
+	return probe.Method == jsonRPCMethod, nil
 }
