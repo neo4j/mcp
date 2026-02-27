@@ -21,10 +21,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// startHTTPServer starts a real HTTP MCP server on a random port and returns the server,
-// its base URL, and a channel that receives any error from Start().
-// The caller is responsible for stopping the server via t.Cleanup or directly.
-func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string, chan error) {
+// startHTTPServer starts a real HTTP MCP server on a random port and returns the server and its base URL.
+func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 	t.Helper()
 
 	testCFG := dbs.GetDriverConf()
@@ -91,13 +89,13 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string, chan error) 
 		}
 	})
 
-	return s, baseURL, errChan
+	return s, baseURL
 }
 
 func TestHTTPMethodRestrictions(t *testing.T) {
 	t.Parallel()
 
-	_, baseURL, _ := startHTTPServer(t)
+	_, baseURL := startHTTPServer(t)
 
 	t.Run("GET /mcp returns 405 with Allow header", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURL+"/mcp", nil)
