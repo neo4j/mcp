@@ -673,6 +673,39 @@ func TestAuthMiddleware_InvalidBasicAuthHeader(t *testing.T) {
 	}
 }
 
+func TestAuthMiddleware_AllowsUnauthenticatedToolsList(t *testing.T) {
+	mockServer := mockNeo4jMCPServer(t)
+	mockServer.config.AllowUnauthenticatedToolsList = true
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for unauthenticated tools/list, got %d", rec.Code)
+	}
+}
+
+func TestAuthMiddleware_BlocksUnauthenticatedToolsListWhenDisabled(t *testing.T) {
+	mockServer := mockNeo4jMCPServer(t)
+	handler := mockServer.chainMiddleware([]string{}, mockHandler())
+
+	body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
+	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 when unauthenticated tools/list is disabled, got %d", rec.Code)
+	}
+}
+
 func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
 	// This test constructs a POST /mcp request whose body exceeds the
 	// maxUnauthenticatedBodyBytes limit. We set ContentLength to -1 so the

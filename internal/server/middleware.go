@@ -86,51 +86,41 @@ func authMiddleware(headerName string, allowUnauthenticatedPing bool, allowUnaut
 			// Fall back to basic auth
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				if allowUnauthenticatedPing {
-					// Wrap the body; this will cause reads past the limit to fail. Only apply
-					// when the feature is enabled to avoid unintended side effects on other endpoints.
+				if allowUnauthenticatedPing || allowUnauthenticatedToolsList {
+					// Wrap the body once to enforce a size limit for unauthenticated probes.
 					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
 
-					ok, err := isUnauthenticatedPingRequest(r)
-					if err != nil {
-						// If the body was too large, return 413 Payload Too Large
-						if errors.Is(err, errRequestBodyTooLarge) {
-							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+					if allowUnauthenticatedPing {
+						ok, err := isUnauthenticatedMethodRequest(r, "ping")
+						if err != nil {
+							if errors.Is(err, errRequestBodyTooLarge) {
+								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+								return
+							}
+							// For other read errors or JSON errors, fall through and require auth
+						}
+						if ok {
+							next.ServeHTTP(w, r)
 							return
 						}
-						// For other read errors or JSON errors, fall through and require auth
 					}
 
-					if ok {
-						next.ServeHTTP(w, r)
-						return
-					}
-				}
-
-				// AWS Gateway expects the toollist without having to auth
-				// As this can be view as an information leak - and it's not part of the MCP protocol spec
-				// we will only allow if configured to do so
-				// Follows the same pattern as for allowUnauthenticedPing
-				if allowUnauthenticatedToolsList {
-					// Wrap the body; this will cause reads past the limit to fail. Only apply
-					// when the feature is enabled to avoid unintended side effects on other endpoints.
-					r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodyBytes)
-
-					ok, err := isUnauthenticatedToolsListRequest(r)
-					if err != nil {
-						// If the body was too large, return 413 Payload Too Large
-						if errors.Is(err, errRequestBodyTooLarge) {
-							http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+					// Unauthenticated tools/list is opt-in: it can be considered an
+					// information leak and is not required by the MCP spec.
+					if allowUnauthenticatedToolsList {
+						ok, err := isUnauthenticatedMethodRequest(r, "tools/list")
+						if err != nil {
+							if errors.Is(err, errRequestBodyTooLarge) {
+								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+								return
+							}
+							// For other read errors or JSON errors, fall through and require auth
+						}
+						if ok {
+							next.ServeHTTP(w, r)
 							return
 						}
-						// For other read errors or JSON errors, fall through and require auth
 					}
-
-					if ok {
-						next.ServeHTTP(w, r)
-						return
-					}
-
 				}
 
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
@@ -234,7 +224,11 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
+// isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
+// the request is a POST whose "method" field matches the given jsonRPCMethod.
+// The body is always restored so downstream handlers can read it normally.
+// Caller must have already wrapped r.Body with http.MaxBytesReader.
+func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool, error) {
 	if r.Method != http.MethodPost {
 		return false, nil
 	}
@@ -249,7 +243,7 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 	}
 
 	if err != nil {
-		// replace body with an empty reader to avoid further reads.
+		// Replace body with an empty reader to avoid further reads.
 		r.Body = io.NopCloser(bytes.NewReader(nil))
 
 		// If MaxBytesReader triggered, it typically returns an error containing
@@ -262,7 +256,7 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 		return false, err
 	}
 
-	// Restore the read bytes so downstream handlers can read the body as usual
+	// Restore the read bytes so downstream handlers can read the body as usual.
 	r.Body = io.NopCloser(bytes.NewReader(buf))
 
 	var probe struct {
@@ -272,46 +266,5 @@ func isUnauthenticatedPingRequest(r *http.Request) (bool, error) {
 		return false, e
 	}
 
-	return probe.Method == "ping", nil
-}
-
-func isUnauthenticatedToolsListRequest(r *http.Request) (bool, error) {
-	if r.Method != http.MethodPost {
-		return false, nil
-	}
-	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
-		return false, errRequestBodyTooLarge
-	}
-
-	buf, err := io.ReadAll(r.Body)
-	// Close the original body to free resources.
-	if rc := r.Body; rc != nil {
-		_ = rc.Close()
-	}
-
-	if err != nil {
-		// replace body with an empty reader to avoid further reads.
-		r.Body = io.NopCloser(bytes.NewReader(nil))
-
-		// If MaxBytesReader triggered, it typically returns an error containing
-		// "request body too large". Map that to a sentinel error so middleware can
-		// respond with 413.
-		if strings.Contains(err.Error(), "request body too large") {
-			return false, errRequestBodyTooLarge
-		}
-
-		return false, err
-	}
-
-	// Restore the read bytes so downstream handlers can read the body as usual
-	r.Body = io.NopCloser(bytes.NewReader(buf))
-
-	var probe struct {
-		Method string `json:"method"`
-	}
-	if e := json.Unmarshal(buf, &probe); e != nil {
-		return false, e
-	}
-
-	return probe.Method == "tools/list", nil
+	return probe.Method == jsonRPCMethod, nil
 }
