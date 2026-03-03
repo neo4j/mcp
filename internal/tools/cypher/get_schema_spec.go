@@ -17,5 +17,6 @@ func GetSchemaSpec() mcp.Tool {
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(true),
+		mcp.WithInputSchema[struct{}](),
 	)
 }
