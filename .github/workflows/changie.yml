@@ -15,6 +15,9 @@ jobs:
 
       - name: Batch changes
         id: batch
+        # continue-on-error is intentional: when a release PR is merged, it deletes files from
+        # .changes/unreleased/, triggering this workflow via path filter even though there is nothing
+        # left to batch. All subsequent steps are gated on batch success and will be skipped cleanly.
         continue-on-error: true
         uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # v2
         with:
