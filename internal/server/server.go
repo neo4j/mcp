@@ -110,6 +110,10 @@ func (s *Neo4jMCPServer) Start() error {
 
 			s.emitServerStartupEvent()
 			s.emitConnectionInitializedEvent(context.Background())
+			slog.Info(
+				fmt.Sprintf("Starting Neo4j MCP server version %s in STDIO mode", s.version),
+				"version", s.version,
+			)
 
 			return server.ServeStdio(s.MCPServer)
 		}
@@ -322,7 +326,14 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	if s.config.HTTPTLSEnabled {
 		protocol = protocolHTTPS
 	}
-	slog.Info("Starting HTTP server", "address", addr, "url", fmt.Sprintf("%s://%s", protocol, addr), "tls", s.config.HTTPTLSEnabled)
+
+	slog.Info(
+		fmt.Sprintf("Starting Neo4j MCP server version %s in HTTP mode", s.version),
+		"version", s.version,
+		"address", addr,
+		"url", fmt.Sprintf("%s://%s", protocol, addr),
+		"tls", s.config.HTTPTLSEnabled,
+	)
 
 	// Create the StreamableHTTPServer - it serves on /mcp path by default
 	mcpServerHTTP := server.NewStreamableHTTPServer(
