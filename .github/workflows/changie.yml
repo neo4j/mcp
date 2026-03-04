@@ -2,7 +2,7 @@ name: changie
 
 on:
   push:
-    branches: ["main", "keremgocen/fix-changie-false-positive-batch-for-releases"]
+    branches: ["main"]
     paths:
       - ".changes/unreleased/**"
 
