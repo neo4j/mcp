@@ -67,7 +67,7 @@ func TestServerInitializationE2E(t *testing.T) {
 
 		// Test should pass as the default database is neo4j
 		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
+		initResponse, _ := mcpClient.Initialize(ctx, initRequest)
 		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
 
 	})
