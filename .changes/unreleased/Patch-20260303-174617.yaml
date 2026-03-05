@@ -1,3 +1,0 @@
-kind: Patch
-body: Fix compatibility issue to consumers that requires input schema properties to be defined, such as OpenAPI API.
-time: 2026-03-03T17:46:17.525972Z
