@@ -127,6 +127,14 @@ For detailed instructions on certificate generation, testing TLS, and production
 
 The `neo4j-mcp` server can be configured using environment variables or CLI flags. CLI flags take precedence over environment variables.
 
+### ♊ Usage with Gemini CLI
+
+You can install the Neo4j MCP server as a native extension to query your graph using natural language:
+
+```bash
+gemini extensions install [https://github.com/neo4j/mcp](https://github.com/neo4j/mcp)
+```
+
 ### Environment Variables
 
 See the [Client Setup Guide](docs/CLIENT_SETUP.md) for configuration examples.
