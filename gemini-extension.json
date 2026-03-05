@@ -1,0 +1,41 @@
+{
+  "name": "neo4j",
+  "version": "0.1.0",
+  "description": "Connect Gemini to your Neo4j graph database to query nodes, relationships, and explore graph schemas.",
+  "mcpServers": {
+    "neo4j": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcp-neo4j"
+      ],
+      "env": {
+        "NEO4J_URI": "${settings.NEO4J_URI}",
+        "NEO4J_USERNAME": "${settings.NEO4J_USERNAME}",
+        "NEO4J_PASSWORD": "${settings.NEO4J_PASSWORD}"
+      }
+    }
+  },
+  "settings": [
+    {
+      "name": "NEO4J_URI",
+      "type": "string",
+      "description": "The connection URI (e.g., neo4j+s://<dbid>.databases.neo4j.io)",
+      "default": "bolt://localhost:7687",
+      "required": true
+    },
+    {
+      "name": "NEO4J_USERNAME",
+      "type": "string",
+      "description": "Database username",
+      "default": "neo4j",
+      "required": true
+    },
+    {
+      "name": "NEO4J_PASSWORD",
+      "description": "Database password (input will be masked securely)",
+      "sensitive": true,
+      "required": true
+    }
+  ]
+}
