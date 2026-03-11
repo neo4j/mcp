@@ -1,3 +1,0 @@
-kind: Patch
-body: Preflight checks has been modified to support multi-db when user has no access to dbms default db. A dummy query against the target database is instead performed.
-time: 2026-03-11T11:29:17.724409Z
