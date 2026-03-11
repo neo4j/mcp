@@ -37,7 +37,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	t.Run("starts server successfully", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -82,7 +81,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	t.Run("starts server should fails when no connection can be established", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1).Return(fmt.Errorf("connection error"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, fmt.Errorf("connection error"))
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
@@ -96,7 +95,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 	})
 	t.Run("starts server should fail when test query returns unexpected result", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys:   []string{"first"},
@@ -117,7 +115,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -168,7 +165,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	t.Run("starts server successfully if GDS is not found", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -203,7 +199,6 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	t.Run("stops server successfully", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -258,7 +253,6 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 	}
 
 	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).AnyTimes()
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
 		{
 			Keys: []string{"first"},

@@ -69,27 +69,6 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	return queryOptions
 }
 
-// VerifyConnectivity checks the driver can establish a valid connection with a Neo4j instance;
-func (s *Neo4jService) VerifyConnectivity(ctx context.Context) error {
-	// For HTTP mode, extract credentials from context
-	if s.transportMode == config.TransportModeHTTP {
-		authToken := s.getHTTPAuthToken(ctx)
-		if authToken != nil {
-			if err := s.driver.VerifyAuthentication(ctx, authToken); err != nil {
-				slog.Error("Failed to verify database connectivity", "error", err.Error())
-				return err
-			}
-			return nil
-		}
-	}
-	// Verify database connectivity
-	if err := s.driver.VerifyConnectivity(ctx); err != nil {
-		slog.Error("Failed to verify database connectivity", "error", err.Error())
-		return err
-	}
-	return nil
-}
-
 // Collect HTTP Auth token from Context.
 func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
 	if token, hasBearerToken := auth.GetBearerToken(ctx); hasBearerToken {

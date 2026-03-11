@@ -147,12 +147,13 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
 // - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
 func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
-	err := s.dbService.VerifyConnectivity(ctx)
-	if err != nil {
-		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)
-	}
+	// Use a timeout to fail fast if the Neo4j instance is unreachable (e.g., TCP connection refused,
+	// DNS failure, network failure). Without this, ExecuteReadQuery can block for minutes waiting for
+	// the driver's internal connection pool timeout.
+	verifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	// Perform a dummy query to verify correctness of the connection.
-	records, err := s.dbService.ExecuteReadQuery(ctx, "RETURN 1 as first", map[string]any{})
+	records, err := s.dbService.ExecuteReadQuery(verifyCtx, "RETURN 1 as first", map[string]any{})
 
 	if err != nil {
 		return fmt.Errorf("impossible to verify connectivity with the Neo4j instance: %w", err)

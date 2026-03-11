@@ -147,7 +147,6 @@ func TestToolRegister(t *testing.T) {
 // utility to mock the invocation required by VerifyRequirements
 func getMockedDBService(ctrl *gomock.Controller, withGDS bool) *db.MockService {
 	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 		{
 			Keys: []string{"first"},
