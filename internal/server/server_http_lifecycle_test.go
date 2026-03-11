@@ -87,7 +87,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 	t.Run("Server triggers verification on first initialize request", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -137,7 +136,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// This is because the client can be misconfigured with invalid credentials
 		// and it should not affect the experience to other clients/users with correct information.
 
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1).Return(fmt.Errorf("connection error"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, fmt.Errorf("connection error"))
 		// In HTTP mode, no database calls happen during Start()
 		// The hook will handle errors when actually triggered by a client request
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
@@ -155,7 +154,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// in HTTP mode once the requirements are check are not checked again, since the configuration are shared across users.
 		// the before initialization hook should not be used as authentication mechanism as it cannot return valid errors to the users.
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -204,7 +202,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
@@ -256,7 +253,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 	t.Run("server should not add GDS tools when GDS is not installed", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().VerifyConnectivity(gomock.Any()).Times(1)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},

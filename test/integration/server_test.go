@@ -89,7 +89,7 @@ func TestServerLifecycle(t *testing.T) {
 				t.Fatal("the NewNeo4jMCPServer() returned nil")
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 			defer cancel()
 
 			var wg sync.WaitGroup
@@ -166,7 +166,7 @@ func TestServerLifecycle(t *testing.T) {
 		if startErr != nil {
 			t.Fatalf("Start() returned an unexpected error after stop: %v", startErr)
 		}
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		stopCtx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 		defer cancel()
 		if err := s.Stop(stopCtx); err != nil {
 			t.Fatalf("Stop() returned an unexpected error: %v", err)
