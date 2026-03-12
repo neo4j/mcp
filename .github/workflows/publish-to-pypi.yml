@@ -40,7 +40,8 @@ jobs:
             --license GPL-3.0-only \
             --url https://github.com/neo4j/mcp \
             --readme README.md \
-            --platforms linux-amd64,linux-arm64,darwin-amd64,darwin-arm64,windows-amd64,windows-arm64
+            --platforms linux-amd64,linux-arm64,darwin-amd64,darwin-arm64,windows-amd64,windows-arm64 \
+            --set-version-var main.Version
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wheels
