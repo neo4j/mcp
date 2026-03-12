@@ -2,22 +2,13 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
-  push:
-    branches:
-      - "keremgocen/publish-pypi-package-mcp-server"
   workflow_dispatch:
     inputs:
       version:
         description: "Version to build (e.g. 1.2.0, without v prefix)"
         required: true
-      upload:
-        description: "Publish to PyPI?"
-        type: boolean
-        default: false
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,8 +26,6 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            echo "VERSION=0.0.0.dev0" >> $GITHUB_ENV
           else
             echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
           fi
@@ -56,7 +45,6 @@ jobs:
         with:
           name: wheels
           path: dist/
-
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -66,14 +54,7 @@ jobs:
         with:
           name: wheels
           path: dist/
-      - name: Publish to TestPyPI
-        if: github.event_name == 'push'
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13
-        with:
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          repository-url: https://test.pypi.org/legacy/
       - name: Publish to PyPI
-        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.upload)
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
