@@ -41,14 +41,17 @@ jobs:
             echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
           fi
       - run: pip install go-to-wheel
+      - name: Prepare main package for go-to-wheel
+        run: cp cmd/neo4j-mcp/main.go main.go
       - run: |
-          go-to-wheel ./cmd/neo4j-mcp \
+          go-to-wheel . \
             --name neo4j-mcp-server \
             --version ${{ env.VERSION }} \
             --description "Neo4j MCP server" \
             --license GPL-3.0-only \
             --url https://github.com/neo4j/mcp \
-            --readme README.md
+            --readme README.md \
+            --platforms linux-amd64,linux-arm64,darwin-amd64,darwin-arm64,windows-amd64,windows-arm64
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wheels
