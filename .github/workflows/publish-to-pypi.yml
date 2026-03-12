@@ -1,0 +1,60 @@
+name: Publish to PyPI
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 1.2.0, without v prefix)"
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
+        with:
+          go-version: stable
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v6
+        with:
+          python-version: "3.x"
+      - name: Get version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          fi
+      - run: pip install go-to-wheel
+      - name: Prepare main package for go-to-wheel
+        run: cp cmd/neo4j-mcp/main.go main.go
+      - run: |
+          go-to-wheel . \
+            --name neo4j-mcp-server \
+            --version ${{ env.VERSION }} \
+            --description "Neo4j MCP server" \
+            --license GPL-3.0-only \
+            --url https://github.com/neo4j/mcp \
+            --readme README.md \
+            --platforms linux-amd64,linux-arm64,darwin-amd64,darwin-arm64,windows-amd64,windows-arm64
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wheels
+          path: dist/
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wheels
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
