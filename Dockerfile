@@ -1,5 +1,5 @@
 # Builder stage
-FROM golang:1.25-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS builder
+FROM golang:1.26-alpine@sha256:2389ebfa5b7f43eeafbd6be0c3700cc46690ef842ad962f6c5bd6be49ed82039 AS builder
 
 LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp"
 
