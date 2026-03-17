@@ -2,9 +2,6 @@ name: Publish to PyPI
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to build (e.g. 1.2.0, without v prefix)"
-        required: true
       dry_run:
         description: "Dry run: build and smoke-test only, skip publish"
         type: boolean
@@ -28,14 +25,16 @@ jobs:
           python-version: "3.x"
       - name: Get version
         id: get-version
-        run: echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(gh release view --json tagName -q '.tagName' | sed 's/^v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - run: pip install go-to-wheel
       - name: Prepare main package for go-to-wheel
         run: cp cmd/neo4j-mcp/main.go main.go
       - run: |
           go-to-wheel . \
             --name neo4j-mcp-server \
-            --version ${{ inputs.version }} \
+            --version ${{ steps.get-version.outputs.version }} \
             --description "Neo4j MCP server" \
             --license GPL-3.0-only \
             --url https://github.com/neo4j/mcp \
