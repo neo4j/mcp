@@ -26,7 +26,7 @@ jobs:
       - name: Get version
         id: get-version
         run: |
-          VERSION=$(gh release view --json tagName -q '.tagName' | sed 's/^v//')
+          VERSION=$(curl -s https://api.github.com/repos/neo4j/mcp/releases/latest | jq -r '.tag_name' | sed 's/^v//')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - run: pip install go-to-wheel
       - name: Prepare main package for go-to-wheel
