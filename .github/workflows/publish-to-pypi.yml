@@ -55,15 +55,9 @@ jobs:
         with:
           name: wheels
           path: dist/
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Smoke test linux-amd64 binary
-        run: |
-          WHL=$(ls dist/*linux*x86_64*.whl | head -n1)
-          unzip -o "$WHL" -d /tmp/wheel_test
-          BIN=$(find /tmp/wheel_test -type f -name "neo4j-mcp-server" | head -n1)
-          chmod +x "$BIN"
-          OUTPUT=$("$BIN" --version)
-          echo "Binary output: $OUTPUT"
-          echo "$OUTPUT" | grep -F "${{ needs.build.outputs.version }}"
+        run: bash .github/scripts/smoke-test-wheel.sh "${{ needs.build.outputs.version }}"
   publish:
     needs: smoke-test
     if: ${{ !inputs.dry_run }}
