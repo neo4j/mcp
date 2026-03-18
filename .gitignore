@@ -26,10 +26,12 @@ go.work.sum
 
 # env file
 .env
+.env.task
 
 # Editor/IDE
 # .idea/
 .vscode/
+.cursor/
 
 
 # Binaries
