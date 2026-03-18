@@ -122,6 +122,19 @@ func (s *Neo4jMCPServer) Start() error {
 	}
 }
 
+// healthzHandler handles GET /healthz for infrastructure health checks.
+// It requires no authentication and always returns HTTP 200 while the process is alive.
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
 // parseAllowedOrigins parses the allowed origins string into a slice of strings
 func parseAllowedOrigins(allowedOriginsStr string) []string {
 	if allowedOriginsStr == "" {
@@ -343,10 +356,17 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	)
 
 	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
+
+	// Route /healthz directly (no auth required).
+	// All other paths go through the full middleware chain which enforces auth and path validation.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.Handle("/", s.chainMiddleware(allowedOrigins, mcpServerHTTP))
+
 	// Wrap handler with middleware and create HTTP server
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: s.chainMiddleware(allowedOrigins, mcpServerHTTP),
+		Handler: mux,
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       serverHTTPReadTimeout,
 		WriteTimeout:      serverHTTPWriteTimeout,
