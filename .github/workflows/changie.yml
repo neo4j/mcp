@@ -13,16 +13,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Check for unbatched changes
+        id: check_changes
+        run: |
+          COUNT=$(find .changes/unreleased -name "*.yaml" | wc -l)
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
       - name: Batch changes
+        if: steps.check_changes.outputs.count > 0
         id: batch
-        # continue-on-error is intentional: when a release PR is merged, it deletes files from
-        # .changes/unreleased/, triggering this workflow via path filter even though there is nothing
-        # left to batch. All subsequent steps are gated on batch success and will be skipped cleanly.
-        continue-on-error: true
         uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # v2
         with:
           version: latest
           args: batch auto
+
+      - name: No changes to release
+        if: steps.check_changes.outputs.count == 0
+        run: echo "No new change files found. Skipping batch step."
 
       - name: Merge changes
         if: steps.batch.outcome == 'success'
