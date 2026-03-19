@@ -132,7 +132,11 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
+	_, err := w.Write([]byte(`{"status":"ok"}`))
+	// reasons behind: https://stackoverflow.com/questions/43976140/check-errors-when-calling-http-responsewriter-write
+	if err != nil {
+		slog.Error("Error writing healthz response", "error", err)
+	}
 }
 
 // parseAllowedOrigins parses the allowed origins string into a slice of strings
