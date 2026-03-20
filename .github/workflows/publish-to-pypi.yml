@@ -6,6 +6,9 @@ on:
         description: "Dry run: build and smoke-test only, skip publish"
         type: boolean
         default: false
+  release:
+    types:
+      - released
 permissions:
   contents: read
 jobs:
@@ -28,7 +31,7 @@ jobs:
         run: |
           VERSION=$(curl -s https://api.github.com/repos/neo4j/mcp/releases/latest | jq -r '.tag_name' | sed 's/^v//')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - run: pip install go-to-wheel
+      - run: pip install --require-hashes -r .github/workflows/requirements-build.txt
       - name: Prepare main package for go-to-wheel
         run: cp cmd/neo4j-mcp/main.go main.go
       - run: |
