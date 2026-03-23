@@ -11,7 +11,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -41,6 +43,7 @@ func startHTTPModeServer(t *testing.T) string {
 		"--neo4j-http-port", fmt.Sprintf("%d", port),
 		"--neo4j-telemetry", "false",
 	)
+	cmd.Env = stripEnv(os.Environ(), "NEO4J_USERNAME", "NEO4J_PASSWORD")
 
 	require.NoError(t, cmd.Start(), "failed to start HTTP server")
 
@@ -63,6 +66,24 @@ func freePort() (int, error) {
 	}
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+// stripEnv returns a copy of env with entries matching any of the given keys removed.
+func stripEnv(env []string, keys ...string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, e := range env {
+		skip := false
+		for _, key := range keys {
+			if strings.HasPrefix(e, key+"=") {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
 }
 
 // waitForHealthz polls /healthz until it returns HTTP 200 or the deadline expires.
