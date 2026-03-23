@@ -104,12 +104,12 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 				},
 			},
 		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
+		gdsVersionQuery := "CALL gds.list() YIELD name"
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
-				Keys: []string{"gdsVersion"},
+				Keys: []string{"name"},
 				Values: []any{
-					string("2.22.0"),
+					string("gds.allShortestPaths.delta.mutate"),
 				},
 			},
 		}, nil)
@@ -171,12 +171,12 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 				},
 			},
 		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
+		gdsVersionQuery := "CALL gds.list() YIELD name"
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
-				Keys: []string{"gdsVersion"},
+				Keys: []string{"name"},
 				Values: []any{
-					string("2.22.0"),
+					string("gds.allShortestPaths.delta.mutate"),
 				},
 			},
 		}, nil)
@@ -219,12 +219,12 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 				},
 			},
 		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
+		gdsVersionQuery := "CALL gds.list() YIELD name"
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
-				Keys: []string{"gdsVersion"},
+				Keys: []string{"name"},
 				Values: []any{
-					string("2.22.0"),
+					string("gds.allShortestPaths.delta.mutate"),
 				},
 			},
 		}, nil)
@@ -271,8 +271,8 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 			},
 		}, nil)
 
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		gdsVersionQuery := "CALL gds.list() YIELD name"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("The procedure gds.list() was not found. Verify that the spelling is correct."))
 
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
