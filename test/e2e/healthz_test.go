@@ -36,7 +36,7 @@ func startHTTPModeServer(t *testing.T) string {
 	// In HTTP mode the config validation rejects NEO4J_USERNAME / NEO4J_PASSWORD —
 	// credentials are supplied per-request via Basic Auth headers instead.
 	// Strip those keys so the e2e suite's env values don't cause a startup error.
-	cmd := exec.Command(server,
+	cmd := exec.Command(server, // #nosec G204 -- server is a binary path built by the test harness, not user input
 		"--neo4j-uri", dbs.GetDriverConf().URI,
 		"--neo4j-transport-mode", "http",
 		"--neo4j-http-host", "127.0.0.1",
