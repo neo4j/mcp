@@ -449,16 +449,21 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 }
 
 // handleToolCallComplete is called after every tool call completes
-func (s *Neo4jMCPServer) handleToolCallComplete(_ context.Context, _ any, request *mcp.CallToolRequest, result *mcp.CallToolResult) {
+func (s *Neo4jMCPServer) handleToolCallComplete(_ context.Context, _ any, request *mcp.CallToolRequest, result any) {
 	if s.anService == nil || !s.anService.IsEnabled() {
 		return
 	}
 
 	toolName := request.Params.Name
-	success := !result.IsError
+
+	// Type assert result to *mcp.CallToolResult
+	toolResult, ok := result.(*mcp.CallToolResult)
+	if !ok {
+		return
+	}
 
 	// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
-	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, success))
+	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
 
 	// Handle GDS events for cypher tools
 	if toolName == "read-cypher" || toolName == "write-cypher" {
