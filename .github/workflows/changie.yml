@@ -7,32 +7,30 @@ on:
       - ".changes/unreleased/**"
 
 jobs:
+  check-unreleased:
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.check.outputs.count }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - id: check
+        run: echo "count=$(find .changes/unreleased -name "*.yaml" | wc -l)" >> $GITHUB_OUTPUT
+
   generate-pr:
+    needs: check-unreleased
+    if: needs.check-unreleased.outputs.count > 0
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Check for unbatched changes
-        id: check_changes
-        run: |
-          COUNT=$(find .changes/unreleased -name "*.yaml" | wc -l)
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Batch changes
-        if: steps.check_changes.outputs.count > 0
         id: batch
         uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # v2
         with:
           version: latest
           args: batch auto
 
-      - name: No changes to release
-        if: steps.check_changes.outputs.count == 0
-        run: echo "No new change files found. Skipping batch step."
-
       - name: Merge changes
-        if: steps.batch.outcome == 'success'
         uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # v2
         with:
           version: latest
@@ -40,14 +38,12 @@ jobs:
 
       - name: Get the latest version
         id: latest
-        if: steps.batch.outcome == 'success'
         uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # v2
         with:
           version: latest
           args: latest
 
       - name: Create Pull Request
-        if: steps.batch.outcome == 'success'
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8
         with:
           title: Release ${{ steps.latest.outputs.output }}
