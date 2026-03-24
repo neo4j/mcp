@@ -34,7 +34,8 @@ jobs:
       - run: pip install --require-hashes -r .github/workflows/requirements-build.txt
       - name: Prepare main package for go-to-wheel
         run: cp cmd/neo4j-mcp/main.go main.go
-      - run: |
+      - name: Build wheels with go-to-wheel
+        run: |
           go-to-wheel . \
             --name neo4j-mcp-server \
             --version $VERSION \
@@ -46,6 +47,28 @@ jobs:
             --set-version-var main.Version
         env:
           VERSION: ${{ steps.get-version.outputs.version }}
+      - name: Build reference linux-amd64 binary
+        env:
+          VERSION: ${{ steps.get-version.outputs.version }}
+          CGO_ENABLED: "0"
+        run: |
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.Version=$VERSION" -o /tmp/neo4j-mcp-server-ref .
+      - name: Extract wheel binary
+        run: |
+          WHL=$(ls dist/*linux*x86_64*.whl | head -n1)
+          unzip -q "$WHL" -d /tmp/wheel_verify
+          cp /tmp/wheel_verify/neo4j_mcp_server/bin/neo4j-mcp-server /tmp/neo4j-mcp-server-wheel
+      - name: Verify checksum matches go-to-wheel binary
+        run: |
+          REF_HASH=$(sha256sum /tmp/neo4j-mcp-server-ref | awk '{print $1}')
+          WHEEL_HASH=$(sha256sum /tmp/neo4j-mcp-server-wheel | awk '{print $1}')
+
+          if [ "$REF_HASH" != "$WHEEL_HASH" ]; then
+            echo "ERROR: Checksum mismatch!"
+            echo "  Reference: $REF_HASH"
+            echo "  Wheel:     $WHEEL_HASH"
+            exit 1
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wheels
