@@ -1,3 +1,0 @@
-kind: Minor
-body: Introduce a /healtz endpoint to provide liveness and readiness checks for infrastructure monitoring and orchestration.
-time: 2026-03-18T16:58:30.321701Z
