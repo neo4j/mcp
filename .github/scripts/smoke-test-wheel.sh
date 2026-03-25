@@ -6,6 +6,7 @@ set -e
 
 EXPECTED_VERSION="${1:?Expected version argument}"
 
+echo "dist/ contents: $(ls dist/)"
 WHL=$(ls dist/*linux*x86_64*.whl | head -n1)
 unzip -o "$WHL" -d /tmp/wheel_test
 BIN=$(find /tmp/wheel_test -type f -name "neo4j-mcp-server" | head -n1)
