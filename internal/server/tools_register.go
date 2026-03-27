@@ -140,6 +140,22 @@ func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDef
 			},
 			readonly: true,
 		},
+		{
+			category: gdsCategory,
+			definition: server.ServerTool{
+				Tool:    gds.CreateGdsProjectionSpec(),
+				Handler: gds.CreateGdsProjectionHandler(deps),
+			},
+			readonly: false,
+		},
+		{
+			category: gdsCategory,
+			definition: server.ServerTool{
+				Tool:    gds.DropGdsProjectionSpec(),
+				Handler: gds.DropGdsProjectionHandler(deps),
+			},
+			readonly: false,
+		},
 		// Add other categories below...
 	}
 }

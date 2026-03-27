@@ -6,7 +6,7 @@ package gds
 import "github.com/mark3labs/mcp-go/mcp"
 
 type EmptyInput struct {
-	Properties map[string]interface{} `json:"properties"`
+	Properties map[string]interface{} `json:"properties" jsonschema:"default={},description=An empty input. Just call with an empty object."`
 }
 
 func ListGDSProceduresSpec() mcp.Tool {
