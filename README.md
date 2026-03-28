@@ -1,5 +1,7 @@
 # Neo4j MCP
 
+[![gitcgr](https://gitcgr.com/badge/neo4j/mcp.svg)](https://gitcgr.com/neo4j/mcp)
+
 Official Model Context Protocol (MCP) server for Neo4j.
 
 ## Links
