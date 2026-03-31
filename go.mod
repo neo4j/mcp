@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.45.0
+	github.com/mark3labs/mcp-go v0.46.0
 	github.com/neo4j/neo4j-go-driver/v6 v6.0.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.41.0
@@ -34,6 +34,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
