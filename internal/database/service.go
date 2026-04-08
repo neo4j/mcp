@@ -50,8 +50,16 @@ func NewNeo4jService(driver neo4j.Driver, database string, transportMode config.
 func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
 	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
 
+	dbName := s.database
+	// set database name based on the transport mode
+	if s.transportMode == config.TransportModeHTTP {
+		if name, ok := auth.GetDatabaseName(ctx); ok && name != "" {
+			dbName = name
+		}
+	}
+
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
-		neo4j.ExecuteQueryWithDatabase(s.database),
+		neo4j.ExecuteQueryWithDatabase(dbName),
 		neo4j.ExecuteQueryWithTransactionConfig(txMetadata),
 	}
 
