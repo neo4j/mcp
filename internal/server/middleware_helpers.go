@@ -98,15 +98,15 @@ func isValidDatabaseName(name string) bool {
 }
 
 // isValidDatabasePath checks if the URL path matches the expected format for MCP endpoints
+// Expected path format: /db/{databaseName}/mcp or /mcp
 func isValidDatabasePath(path string) bool {
-	// Expected path format: /db/{databaseName}/mcp or /mcp
 	parts := strings.Split(path, "/")
 	// ["", "db", "{name}", "mcp", +anything else]
 	if len(parts) >= 4 && parts[1] == "db" && parts[3] == "mcp" {
 		return true
 	}
 
-	if len(parts) == 2 && parts[1] == "mcp" { // /mcp (without trailing slash)
+	if len(parts) == 2 && parts[1] == "mcp" {
 		return true
 	}
 
