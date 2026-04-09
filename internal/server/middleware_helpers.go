@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 )
 
@@ -65,11 +64,37 @@ func extractDatabaseFromPath(path string) (string, bool) {
 	return "", false
 }
 
+// isAlphanumeric checks if a character is an ASCII letter or digit
+func isAlphanumeric(ch rune) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+}
+
 // isValidDatabaseName checks if the provided database name is valid according to Neo4j naming rules
-// (alphanumeric, underscores, hyphens, dots, 1-63 characters)
+// Reference: https://neo4j.com/docs/cypher-manual/current/administration/databases/standard-databases/naming-rules/
 func isValidDatabaseName(name string) bool {
-	var validDatabaseName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,63}$`)
-	return validDatabaseName.MatchString(name)
+	// Length must be between 3 and 63 characters
+	if len(name) < 3 || len(name) > 63 {
+		return false
+	}
+
+	// Names starting with underscore or "system" are reserved for internal use
+	if strings.HasPrefix(name, "_") || strings.HasPrefix(strings.ToLower(name), "system") {
+		return false
+	}
+
+	// First and last characters must be ASCII alphabetic or numeric
+	if !isAlphanumeric(rune(name[0])) || !isAlphanumeric(rune(name[len(name)-1])) {
+		return false
+	}
+
+	// Subsequent characters must be ASCII alphabetic or numeric, dots, or dashes
+	for _, ch := range name[1 : len(name)-1] {
+		if !isAlphanumeric(ch) && ch != '.' && ch != '-' {
+			return false
+		}
+	}
+
+	return true
 }
 
 // isValidDatabasePath checks if the URL path matches the expected format for MCP endpoints
@@ -77,7 +102,7 @@ func isValidDatabasePath(path string) bool {
 	// Expected path format: /db/{databaseName}/mcp or /mcp
 	parts := strings.Split(path, "/")
 	// ["", "db", "{name}", "mcp", +anything else]
-	if len(parts) >= 4 && parts[1] == "db" && (parts[3] == "mcp") {
+	if len(parts) >= 4 && parts[1] == "db" && parts[3] == "mcp" {
 		return isValidDatabaseName(parts[2])
 	}
 

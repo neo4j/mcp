@@ -562,7 +562,7 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 				t.Errorf("Expected status 404 for path %s, got %d", tc.path, rec.Code)
 			}
 
-			expectedBody := "Not Found: This server only handles requests to /mcp, or /db/{databaseName}/mcp\n"
+			expectedBody := "Not Found: This server only handles requests to /mcp or /db/{databaseName}/mcp\n"
 			if rec.Body.String() != expectedBody {
 				t.Errorf("Expected body %q, got %q", expectedBody, rec.Body.String())
 			}
