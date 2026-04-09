@@ -103,7 +103,7 @@ func isValidDatabasePath(path string) bool {
 	parts := strings.Split(path, "/")
 	// ["", "db", "{name}", "mcp", +anything else]
 	if len(parts) >= 4 && parts[1] == "db" && parts[3] == "mcp" {
-		return isValidDatabaseName(parts[2])
+		return true
 	}
 
 	if len(parts) == 2 && parts[1] == "mcp" { // /mcp (without trailing slash)
