@@ -58,9 +58,9 @@ func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool
 
 // extractDatabaseFromPath checks if the URL path matches the expected format
 func extractDatabaseFromPath(path string) (string, bool) {
+	path = strings.TrimSuffix(path, "/")
 	parts := strings.Split(path, "/")
-	// ["", "db", "{name}", "*"]
-	if len(parts) >= 4 && parts[1] == "db" {
+	if len(parts) == 4 && parts[1] == "db" && parts[3] == "mcp" {
 		return parts[2], true
 	}
 	return "", false
@@ -102,18 +102,10 @@ func isValidDatabaseName(name string) bool {
 // isValidDatabasePath checks if the URL path matches the expected format for MCP endpoints
 // Expected path format: /db/{databaseName}/mcp or /mcp
 func isValidDatabasePath(path string) bool {
+	path = strings.TrimSuffix(path, "/")
 	parts := strings.Split(path, "/")
-	if len(parts) >= 4 && parts[1] == "db" && parts[3] == "mcp" {
+	if len(parts) == 4 && parts[1] == "db" && parts[3] == "mcp" {
 		return true
 	}
-
-	if len(parts) == 2 && parts[1] == "mcp" {
-		return true
-	}
-
-	if len(parts) == 3 && parts[1] == "mcp" && parts[2] == "" { // /mcp/ (trailing slash yields ["", "mcp", ""])
-		return true
-	}
-
-	return false
+	return len(parts) == 2 && parts[1] == "mcp"
 }

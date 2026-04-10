@@ -19,12 +19,6 @@ func TestExtractDatabaseFromPath(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "valid path with database and extra segments",
-			path:   "/db/testdb/mcp/extra", // we only care about the first 4 segments within the scope of extractDatabaseFromPath function, so this should still succeed
-			want:   "testdb",
-			wantOK: true,
-		},
-		{
 			name:   "invalid path missing db segment",
 			path:   "/testdb/mcp",
 			want:   "",

@@ -589,6 +589,7 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 		{"other path", "/api"},
 		{"nested path", "/mcp/test"},
 		{"similar path", "/mcpserver"},
+		{"extra segments after db mcp", "/db/mydb/mcp/extra"},
 	}
 
 	for _, tc := range testCases {
@@ -761,7 +762,7 @@ func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
 	}
 }
 
-func TestDbNameMiddleware(t *testing.T) {
+func TestDBNameMiddleware(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
@@ -779,12 +780,6 @@ func TestDbNameMiddleware(t *testing.T) {
 			path:     "/db/my-db/mcp",
 			wantCode: http.StatusOK,
 			wantDB:   "my-db",
-		},
-		{
-			name:     "extra path segments after mcp",
-			path:     "/db/mydb/mcp/extra",
-			wantCode: http.StatusOK,
-			wantDB:   "mydb",
 		},
 		{
 			name:     "valid path without database name",
