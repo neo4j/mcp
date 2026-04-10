@@ -5,45 +5,59 @@ package server
 
 import "testing"
 
-func TestExtractDatabaseFromPath(t *testing.T) {
+func TestParseMCPPath(t *testing.T) {
 	tests := []struct {
-		name   string
-		path   string
-		want   string
-		wantOK bool
+		name     string
+		path     string
+		wantDB   string
+		wantOK   bool
 	}{
 		{
-			name:   "valid path with database",
+			name:   "/db/{name}/mcp returns database name",
 			path:   "/db/testdb/mcp",
-			want:   "testdb",
+			wantDB: "testdb",
 			wantOK: true,
 		},
 		{
-			name:   "invalid path missing db segment",
+			name:   "/mcp is valid with no database",
+			path:   "/mcp",
+			wantDB: "",
+			wantOK: true,
+		},
+		{
+			name:   "/mcp/ (trailing slash) is valid with no database",
+			path:   "/mcp/",
+			wantDB: "",
+			wantOK: true,
+		},
+		{
+			name:   "unrecognised path is invalid",
 			path:   "/testdb/mcp",
-			want:   "",
+			wantDB: "",
 			wantOK: false,
 		},
 		{
-			name:   "3 parts after split should return false",
+			name:   "/db/{name} without mcp segment is invalid",
 			path:   "/db/userdb",
+			wantDB: "",
 			wantOK: false,
 		},
 		{
-			name:   "/db/ should return false",
-			path:   "/db/",
+			name:   "extra segments after mcp are invalid",
+			path:   "/db/testdb/mcp/extra",
+			wantDB: "",
 			wantOK: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, ok := extractDatabaseFromPath(tt.path)
-			if path != tt.want {
-				t.Errorf("extractDatabaseFromPath() = %v, want %v", path, tt.want)
+			db, ok := parseMCPPath(tt.path)
+			if db != tt.wantDB {
+				t.Errorf("parseMCPPath() database = %q, want %q", db, tt.wantDB)
 			}
 			if ok != tt.wantOK {
-				t.Errorf("extractDatabaseFromPath() = %v, want %v", ok, tt.wantOK)
+				t.Errorf("parseMCPPath() ok = %v, want %v", ok, tt.wantOK)
 			}
 		})
 	}
