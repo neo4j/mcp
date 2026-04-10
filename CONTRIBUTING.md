@@ -243,7 +243,7 @@ curl -X POST http://localhost:80/mcp \
 
 ## TLS/HTTPS Configuration
 
-For detailed instructions on generating certificates and testing TLS configurations, see the **[TLS Setup Guide](docs/TLS_SETUP.md)**.
+For detailed instructions on generating certificates and testing TLS configurations, see the [TLS Setup Guide](https://neo4j.com/docs/mcp/current/tls-setup).
 
 This guide includes:
 - Self-signed certificate generation for testing
@@ -364,7 +364,7 @@ When adding new database operations:
 
 If your changes impact the end-user configuration (e.g., adding new environment variables or modifying tool definitions), you must update the `manifest.json` file. This ensures that integrations like Claude Desktop are aware of the new server configuration.
 
-For more information refer to the dedicated guide: [the MCPB build documentation](docs/BUILD_MCPB.md).
+For more information refer to the dedicated guide: [the MCPB build documentation](https://neo4j.com/docs/mcp/current/installation#mcpb).
 
 ### Getting Help
 
@@ -373,3 +373,7 @@ For more information refer to the dedicated guide: [the MCPB build documentation
 - Reach out to maintainers for complex architectural questions
 
 Thank you for contributing to making Neo4j MCP better!
+
+## Documentation
+
+If you would like to contribute to the Neo4j MCP documentation, checkout the [documentation source on GitHub](https://github.com/neo4j/docs-mcp).
