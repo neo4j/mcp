@@ -22,202 +22,131 @@ func applyOptions(options []neo4j.ExecuteQueryConfigurationOption) *neo4j.Execut
 	return config
 }
 
-// TestBuildQueryOptions_HTTPMode_BearerToken verifies that bearer tokens
-// are properly added to query options in HTTP mode, and that an explicit
-// database name from the context is used if provided.
-func TestBuildQueryOptions_HTTPMode_BearerToken(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil, // Not needed for this test
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
+// TestBuildQueryOptions covers all combinations of transport mode, auth type,
+// and database selection using table-driven tests.
+func TestBuildQueryOptions(t *testing.T) {
+	tests := []struct {
+		name          string
+		transportMode config.TransportMode
+		setupCtx      func(context.Context) context.Context
+		expectedDB    string
+		expectAuth    bool
+	}{
+		// HTTP mode with bearer token
+		{
+			name:          "HTTP mode with bearer token and database from context should use explicit database",
+			transportMode: config.TransportModeHTTP,
+			setupCtx: func(ctx context.Context) context.Context {
+				ctx = auth.WithBearerToken(ctx, "test-bearer-token")
+				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				return ctx
+			},
+			expectedDB: "explicit-db",
+			expectAuth: true,
+		},
+		{
+			name:          "HTTP mode with bearer token, no database provided in context, should resolve to user's home database",
+			transportMode: config.TransportModeHTTP,
+			setupCtx: func(ctx context.Context) context.Context {
+				return auth.WithBearerToken(ctx, "test-bearer-token")
+			},
+			expectedDB: "",
+			expectAuth: true,
+		},
+		// HTTP mode with basic auth
+		{
+			name:          "HTTP mode with basic auth and explicit database",
+			transportMode: config.TransportModeHTTP,
+			setupCtx: func(ctx context.Context) context.Context {
+				ctx = auth.WithBasicAuth(ctx, "testuser", "testpass")
+				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				return ctx
+			},
+			expectedDB: "explicit-db",
+			expectAuth: true,
+		},
+		{
+			name:          "HTTP mode with basic auth, should resolve to user's home database",
+			transportMode: config.TransportModeHTTP,
+			setupCtx: func(ctx context.Context) context.Context {
+				return auth.WithBasicAuth(ctx, "testuser", "testpass")
+			},
+			expectedDB: "",
+			expectAuth: true,
+		},
+		// HTTP mode without auth
+		{
+			name:          "HTTP mode without auth, user's home database",
+			transportMode: config.TransportModeHTTP,
+			setupCtx: func(ctx context.Context) context.Context {
+				return ctx
+			},
+			expectedDB: "",
+			expectAuth: false,
+		},
+		{
+			name:          "HTTP mode without auth, explicit database",
+			transportMode: config.TransportModeHTTP,
+			setupCtx: func(ctx context.Context) context.Context {
+				return auth.WithDatabaseName(ctx, "custom-db")
+			},
+			expectedDB: "custom-db",
+			expectAuth: false,
+		},
+		// STDIO mode (auth and database from context should be ignored)
+		{
+			name:          "STDIO mode ignores bearer token, uses default database",
+			transportMode: config.TransportModeStdio,
+			setupCtx: func(ctx context.Context) context.Context {
+				ctx = auth.WithBearerToken(ctx, "test-token")
+				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				return ctx
+			},
+			expectedDB: "testdb",
+			expectAuth: false,
+		},
+		{
+			name:          "STDIO mode ignores basic auth, uses default database",
+			transportMode: config.TransportModeStdio,
+			setupCtx: func(ctx context.Context) context.Context {
+				ctx = auth.WithBasicAuth(ctx, "user", "pass")
+				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				return ctx
+			},
+			expectedDB: "testdb",
+			expectAuth: false,
+		},
+		{
+			name:          "STDIO mode with no auth, uses default database",
+			transportMode: config.TransportModeStdio,
+			setupCtx: func(ctx context.Context) context.Context {
+				return ctx
+			},
+			expectedDB: "testdb",
+			expectAuth: false,
+		},
 	}
 
-	ctx := context.Background()
-	ctx = auth.WithBearerToken(ctx, "test-bearer-token")
-	ctx = auth.WithDatabaseName(ctx, "explicit-db")
-	options := service.buildQueryOptions(ctx)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &Neo4jService{
+				driver:        nil,
+				database:      "testdb",
+				transportMode: tt.transportMode,
+			}
 
-	// Apply options to configuration and inspect
-	cfg := applyOptions(options)
+			ctx := tt.setupCtx(context.Background())
+			options := service.buildQueryOptions(ctx)
+			cfg := applyOptions(options)
 
-	// Verify explicit database is set when provided in context
-	if cfg.Database != "explicit-db" {
-		t.Errorf("Expected database 'explicit-db', got %q", cfg.Database)
-	}
+			if cfg.Database != tt.expectedDB {
+				t.Errorf("Expected database %q, got %q", tt.expectedDB, cfg.Database)
+			}
 
-	// Verify auth token is set
-	if cfg.Auth == nil {
-		t.Fatal("Expected auth token to be set, got nil")
-	}
-}
-
-// TestBuildQueryOptions_HTTPMode_BearerToken_NoDatabase verifies that in HTTP mode,
-// when no database is provided in context, no database option is added
-// (user's home database will be used).
-func TestBuildQueryOptions_HTTPMode_BearerToken_NoDatabase(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := auth.WithBearerToken(context.Background(), "test-bearer-token")
-	options := service.buildQueryOptions(ctx)
-
-	cfg := applyOptions(options)
-
-	// Verify no database is set when not provided in context (uses user's home database)
-	if cfg.Database != "" {
-		t.Errorf("Expected empty database (user's home), got %q", cfg.Database)
-	}
-
-	// Verify auth token is set
-	if cfg.Auth == nil {
-		t.Fatal("Expected auth token to be set, got nil")
-	}
-}
-
-// TestBuildQueryOptions_HTTPMode_BasicAuth verifies that basic auth
-// is properly added to query options in HTTP mode when no bearer token is present.
-func TestBuildQueryOptions_HTTPMode_BasicAuth(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := context.Background()
-	ctx = auth.WithBasicAuth(ctx, "testuser", "testpass")
-	ctx = auth.WithDatabaseName(ctx, "explicit-db")
-	options := service.buildQueryOptions(ctx)
-
-	cfg := applyOptions(options)
-
-	if cfg.Database != "explicit-db" {
-		t.Errorf("Expected database 'explicit-db', got %q", cfg.Database)
-	}
-
-	if cfg.Auth == nil {
-		t.Fatal("Expected auth token to be set, got nil")
-	}
-}
-
-// TestBuildQueryOptions_HTTPMode_BasicAuth_NoDatabase verifies that in HTTP mode,
-// when no database is provided in context, no database option is added.
-func TestBuildQueryOptions_HTTPMode_BasicAuth_NoDatabase(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := auth.WithBasicAuth(context.Background(), "testuser", "testpass")
-	options := service.buildQueryOptions(ctx)
-
-	cfg := applyOptions(options)
-
-	// Verify no database is set when not provided in context (uses user's home database)
-	if cfg.Database != "" {
-		t.Errorf("Expected empty database (user's home), got %q", cfg.Database)
-	}
-
-	if cfg.Auth == nil {
-		t.Fatal("Expected auth token to be set, got nil")
-	}
-}
-
-// TestBuildQueryOptions_HTTPMode_NoAuth verifies that in HTTP mode without
-// explicit database in context, user's home database is used (no database option set).
-func TestBuildQueryOptions_HTTPMode_NoAuth(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := context.Background()
-	options := service.buildQueryOptions(ctx)
-
-	cfg := applyOptions(options)
-
-	// Verify no database is set when not provided in context (uses user's home database)
-	if cfg.Database != "" {
-		t.Errorf("Expected empty database (user's home), got %q", cfg.Database)
-	}
-
-	// No auth in context, so Auth should be nil
-	if cfg.Auth != nil {
-		t.Errorf("Expected no auth token when no credentials in context, got %+v", cfg.Auth)
-	}
-}
-
-// TestBuildQueryOptions_HTTPMode_WithDatabase verifies that when an explicit
-// database is provided in context, it is used instead of user's home database.
-func TestBuildQueryOptions_HTTPMode_WithDatabase(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeHTTP,
-	}
-
-	ctx := context.Background()
-	ctx = auth.WithDatabaseName(ctx, "custom-db")
-	options := service.buildQueryOptions(ctx)
-
-	cfg := applyOptions(options)
-
-	// Verify explicit database is used
-	if cfg.Database != "custom-db" {
-		t.Errorf("Expected database 'custom-db', got %q", cfg.Database)
-	}
-}
-
-// TestBuildQueryOptions_STDIOMode_NoAuthAdded verifies that in STDIO mode,
-// no auth token is added to query options (driver's built-in auth is used).
-func TestBuildQueryOptions_STDIOMode_NoAuthAdded(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeStdio,
-	}
-
-	// Add bearer token to context (should be ignored in STDIO mode)
-	ctx := auth.WithBearerToken(context.Background(), "test-token")
-
-	options := service.buildQueryOptions(ctx)
-	config := applyOptions(options)
-
-	if config.Database != "testdb" {
-		t.Errorf("Expected database 'testdb', got %q", config.Database)
-	}
-
-	// In STDIO mode, auth from context should be ignored (driver's built-in auth is used)
-	if config.Auth != nil {
-		t.Errorf("Expected no auth token in STDIO mode, got %+v", config.Auth)
-	}
-}
-
-// TestBuildQueryOptions_STDIOMode_BasicAuthIgnored verifies that basic auth
-// in context is ignored in STDIO mode.
-func TestBuildQueryOptions_STDIOMode_BasicAuthIgnored(t *testing.T) {
-	service := &Neo4jService{
-		driver:        nil,
-		database:      "testdb",
-		transportMode: config.TransportModeStdio,
-	}
-
-	// Add basic auth to context (should be ignored in STDIO mode)
-	ctx := auth.WithBasicAuth(context.Background(), "user", "pass")
-
-	options := service.buildQueryOptions(ctx)
-	config := applyOptions(options)
-
-	if config.Database != "testdb" {
-		t.Errorf("Expected database 'testdb', got %q", config.Database)
-	}
-
-	// In STDIO mode, auth from context should be ignored
-	if config.Auth != nil {
-		t.Errorf("Expected no auth token in STDIO mode, got %+v", config.Auth)
+			hasAuth := cfg.Auth != nil
+			if hasAuth != tt.expectAuth {
+				t.Errorf("Expected auth=%v, got auth=%v (Auth=%+v)", tt.expectAuth, hasAuth, cfg.Auth)
+			}
+		})
 	}
 }
