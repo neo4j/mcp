@@ -221,6 +221,16 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 	}
 
+	// For HTTP mode, database selection must be per-request via URL path (/db/{databaseName}/mcp)
+	// Reject if NEO4J_DATABASE env var or --neo4j-database flag is explicitly set
+	if cfg.TransportMode == TransportModeHTTP {
+		dbFromEnv := os.Getenv("NEO4J_DATABASE") != ""
+		dbFromCLI := cliOverrides != nil && cliOverrides.Database != ""
+		if dbFromEnv || dbFromCLI {
+			return nil, fmt.Errorf("NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+		}
+	}
+
 	// Set default HTTP port based on TLS configuration if not explicitly provided
 	// Default to 443 for HTTPS, 80 for HTTP
 	if cfg.HTTPPort == "" {

@@ -4,10 +4,7 @@
 package server
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -30,12 +27,10 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	}
 
 	// Chain middleware in reverse order (last added = first to execute)
-	// Execution order: PathValidator -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
+	// Middleware execution order: DB name extractor -> Path validation -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 
-	// Start with the actual handler
 	handler := next
 
-	// Add logging middleware
 	handler = loggingMiddleware()(handler)
 
 	var unauthMethods []string
@@ -45,15 +40,34 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	if s.config.AllowUnauthenticatedToolsList {
 		unauthMethods = append(unauthMethods, "tools/list")
 	}
+
 	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
-
-	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
-
-	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
 	handler = pathValidationMiddleware()(handler)
+	handler = dbNameMiddleware()(handler)
 
 	return handler
+}
+
+// loggingMiddleware logs HTTP requests for debugging
+func loggingMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+			slog.Debug("HTTP Request", // #nosec G706 -- logging HTTP request metadata, no user input in format string
+				"method", r.Method,
+				"url", r.URL.Path,
+				"remote_addr", r.RemoteAddr,
+				"user_agent", r.UserAgent(),
+				"content_length", r.ContentLength,
+				"host", r.Host,
+				"query", r.URL.RawQuery,
+			)
+
+			// Call the next handler
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // authMiddleware enforces HTTP authentication (Bearer token or Basic Auth) for all requests in HTTP mode.
@@ -181,7 +195,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 	}
 }
 
-// pathValidationMiddleware validates that requests are only sent to /mcp path
+// pathValidationMiddleware validates that requests are only sent to /mcp or /db/{databaseName}/mcp paths
 // and that the HTTP method is allowed. Returns 404 for all other paths to avoid
 // hanging connections, and 405 for any method other than POST or OPTIONS since
 // the MCP StreamableHTTP Transport spec requires all client messages to be POST
@@ -189,9 +203,10 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only /mcp path is valid for this MCP server
-			if r.URL.Path != "/mcp" && r.URL.Path != "/mcp/" {
-				http.Error(w, "Not Found: This server only handles requests to /mcp", http.StatusNotFound)
+			path := r.URL.Path
+			// Allow /mcp, /mcp/, and /db/{databaseName}/mcp paths
+			if _, ok := parseMCPPath(path); !ok {
+				http.Error(w, "Not Found: This server only handles requests to /mcp or /db/{databaseName}/mcp", http.StatusNotFound)
 				return
 			}
 			// Only POST and OPTIONS are supported.
@@ -205,68 +220,26 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// loggingMiddleware logs HTTP requests for debugging
-func loggingMiddleware() func(http.Handler) http.Handler {
+// dbNameMiddleware extracts the database name from the URL path and stores it in the request context.
+// Only processes /db/{databaseName}/mcp paths; passes through /mcp requests without modification.
+func dbNameMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			database, _ := parseMCPPath(r.URL.Path)
+			if database == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
 
-			slog.Debug("HTTP Request", // #nosec G706 -- logging HTTP request metadata, no user input in format string
-				"method", r.Method,
-				"url", r.URL.Path,
-				"remote_addr", r.RemoteAddr,
-				"user_agent", r.UserAgent(),
-				"content_length", r.ContentLength,
-				"host", r.Host,
-				"query", r.URL.RawQuery,
-			)
+			if !isValidDatabaseName(database) {
+				http.Error(w, "Bad Request: Invalid database name", http.StatusBadRequest)
+				return
+			}
 
-			// Call the next handler
-			next.ServeHTTP(w, r)
+			ctx := r.Context()
+			ctx = auth.WithDatabaseName(ctx, database)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-}
-
-// isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
-// the request is a POST whose "method" field matches the given jsonRPCMethod.
-// The body is always restored so downstream handlers can read it normally.
-// Caller must have already wrapped r.Body with http.MaxBytesReader.
-func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool, error) {
-	if r.Method != http.MethodPost {
-		return false, nil
-	}
-	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
-		return false, errRequestBodyTooLarge
-	}
-
-	buf, err := io.ReadAll(r.Body)
-	// Close the original body to free resources.
-	if rc := r.Body; rc != nil {
-		_ = rc.Close()
-	}
-
-	if err != nil {
-		// Replace body with an empty reader to avoid further reads.
-		r.Body = io.NopCloser(bytes.NewReader(nil))
-
-		// If MaxBytesReader triggered, it typically returns an error containing
-		// "request body too large". Map that to a sentinel error so middleware can
-		// respond with 413.
-		if strings.Contains(err.Error(), "request body too large") {
-			return false, errRequestBodyTooLarge
-		}
-
-		return false, err
-	}
-
-	// Restore the read bytes so downstream handlers can read the body as usual.
-	r.Body = io.NopCloser(bytes.NewReader(buf))
-
-	var probe struct {
-		Method string `json:"method"`
-	}
-	if e := json.Unmarshal(buf, &probe); e != nil {
-		return false, e
-	}
-
-	return probe.Method == jsonRPCMethod, nil
 }

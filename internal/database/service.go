@@ -51,8 +51,16 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
 
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
-		neo4j.ExecuteQueryWithDatabase(s.database),
 		neo4j.ExecuteQueryWithTransactionConfig(txMetadata),
+	}
+
+	if s.transportMode == config.TransportModeHTTP {
+		if name, ok := auth.GetDatabaseName(ctx); ok {
+			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(name))
+		}
+	} else {
+		// STDIO mode: always use configured database
+		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(s.database))
 	}
 
 	// Add any base options (routing, etc.)

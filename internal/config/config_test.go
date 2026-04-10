@@ -845,3 +845,53 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
+	t.Run("NEO4J_DATABASE env var in HTTP mode should raise error", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
+
+		_, err := LoadConfig(nil)
+		if err == nil {
+			t.Errorf("LoadConfig() expected error but got none")
+			return
+		}
+		if !strings.Contains(err.Error(), "NEO4J_DATABASE environment variable") {
+			t.Errorf("LoadConfig() error = %v, want error containing 'NEO4J_DATABASE environment variable'", err)
+		}
+	})
+
+	t.Run("--neo4j-database flag in HTTP mode should raise error", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+
+		_, err := LoadConfig(&CLIOverrides{
+			Database: "custom-db",
+		})
+		if err == nil {
+			t.Errorf("LoadConfig() expected error but got none")
+			return
+		}
+		if !strings.Contains(err.Error(), "--neo4j-database flag") {
+			t.Errorf("LoadConfig() error = %v, want error containing '--neo4j-database flag'", err)
+		}
+	})
+
+	t.Run("STDIO mode with NEO4J_DATABASE should work fine", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
+
+		cfg, err := LoadConfig(nil)
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.Database != "neo4j" {
+			t.Errorf("LoadConfig() Database = %v, want neo4j", cfg.Database)
+		}
+	})
+}

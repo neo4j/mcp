@@ -8,99 +8,142 @@ import (
 	"testing"
 )
 
-func TestWithBearerToken(t *testing.T) {
-	ctx := context.Background()
-	token := "test-bearer-token"
-
-	ctx = WithBearerToken(ctx, token)
-
-	retrieved, ok := GetBearerToken(ctx)
-	if !ok {
-		t.Error("Expected bearer token in context, but none found")
-	}
-	if retrieved != token {
-		t.Errorf("Expected token %q, got %q", token, retrieved)
-	}
-}
-
-func TestGetBearerToken_Missing(t *testing.T) {
-	ctx := context.Background()
-
-	token, ok := GetBearerToken(ctx)
-	if ok {
-		t.Error("Expected no bearer token in context, but found one")
+func TestBearerToken(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupCtx  context.Context
+		wantToken string
+		wantOK    bool
+	}{
+		{
+			name:      "token stored and retrieved",
+			setupCtx:  WithBearerToken(context.Background(), "test-bearer-token"),
+			wantToken: "test-bearer-token",
+			wantOK:    true,
+		},
+		{
+			name:     "missing token returns empty and false",
+			setupCtx: context.Background(),
+			wantOK:   false,
+		},
 	}
 
-	// Verify returned token is empty when ok=false
-	if token != "" {
-		t.Errorf("Expected empty token when no bearer token, got %q", token)
-	}
-}
-
-// Note: We don't test empty bearer tokens because the middleware (authMiddleware)
-// explicitly rejects empty tokens with a 401 error before they reach the context.
-// See internal/server/middleware.go, an empty bearer token can never exist in context in production.
-
-func TestWithBasicAuth(t *testing.T) {
-	ctx := context.Background()
-	user := "testuser"
-	pass := "testpass"
-
-	ctx = WithBasicAuth(ctx, user, pass)
-
-	retrievedUser, retrievedPass, ok := GetBasicAuthCredentials(ctx)
-	if !ok {
-		t.Error("Expected basic auth credentials in context, but none found")
-	}
-	if retrievedUser != user {
-		t.Errorf("Expected user %q, got %q", user, retrievedUser)
-	}
-	if retrievedPass != pass {
-		t.Errorf("Expected pass %q, got %q", pass, retrievedPass)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			token, ok := GetBearerToken(tc.setupCtx)
+			if ok != tc.wantOK {
+				t.Errorf("ok: got %v, want %v", ok, tc.wantOK)
+			}
+			if token != tc.wantToken {
+				t.Errorf("token: got %q, want %q", token, tc.wantToken)
+			}
+		})
 	}
 }
 
-func TestGetBasicAuthCredentials_Missing(t *testing.T) {
-	ctx := context.Background()
-
-	user, pass, ok := GetBasicAuthCredentials(ctx)
-	if ok {
-		t.Error("Expected no basic auth credentials in context, but found some")
+func TestBasicAuth(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupCtx context.Context
+		wantUser string
+		wantPass string
+		wantOK   bool
+	}{
+		{
+			name:     "credentials stored and retrieved",
+			setupCtx: WithBasicAuth(context.Background(), "testuser", "testpass"),
+			wantUser: "testuser",
+			wantPass: "testpass",
+			wantOK:   true,
+		},
+		{
+			name:     "missing credentials return empty and false",
+			setupCtx: context.Background(),
+			wantOK:   false,
+		},
 	}
 
-	// Verify returned values are empty when ok=false
-	if user != "" {
-		t.Errorf("Expected empty username when no credentials, got %q", user)
-	}
-	if pass != "" {
-		t.Errorf("Expected empty password when no credentials, got %q", pass)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			user, pass, ok := GetBasicAuthCredentials(tc.setupCtx)
+			if ok != tc.wantOK {
+				t.Errorf("ok: got %v, want %v", ok, tc.wantOK)
+			}
+			if user != tc.wantUser {
+				t.Errorf("user: got %q, want %q", user, tc.wantUser)
+			}
+			if pass != tc.wantPass {
+				t.Errorf("pass: got %q, want %q", pass, tc.wantPass)
+			}
+		})
 	}
 }
 
-func TestHasAuthCredentials(t *testing.T) {
-	t.Run("with basic auth", func(t *testing.T) {
-		ctx := context.Background()
-		ctx = WithBasicAuth(ctx, "user", "pass")
+func TestHasAuth(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupCtx context.Context
+		want     bool
+	}{
+		{
+			name:     "with basic auth",
+			setupCtx: WithBasicAuth(context.Background(), "user", "pass"),
+			want:     true,
+		},
+		{
+			name:     "with bearer token",
+			setupCtx: WithBearerToken(context.Background(), "token"),
+			want:     true,
+		},
+		{
+			name:     "with no auth",
+			setupCtx: context.Background(),
+			want:     false,
+		},
+	}
 
-		if !HasAuth(ctx) {
-			t.Error("Expected HasAuthCredentials to return true for basic auth, got false")
-		}
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := HasAuth(tc.setupCtx); got != tc.want {
+				t.Errorf("HasAuth: got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
 
-	t.Run("with bearer token", func(t *testing.T) {
-		ctx := context.Background()
-		ctx = WithBearerToken(ctx, "token")
+func TestDatabaseName(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupCtx context.Context
+		wantName string
+		wantOK   bool
+	}{
+		{
+			name:     "database name stored and retrieved",
+			setupCtx: WithDatabaseName(context.Background(), "user-db"),
+			wantName: "user-db",
+			wantOK:   true,
+		},
+		{
+			name:     "missing database name returns empty and false",
+			setupCtx: context.Background(),
+			wantOK:   false,
+		},
+	}
 
-		if !HasAuth(ctx) {
-			t.Error("Expected HasAuthCredentials to return true for bearer token, got false")
-		}
-	})
-
-	t.Run("with no auth", func(t *testing.T) {
-		ctx := context.Background()
-
-		if HasAuth(ctx) {
-			t.Error("Expected HasAuthCredentials to return false for no auth, got true")
-		}
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			name, ok := GetDatabaseName(tc.setupCtx)
+			if ok != tc.wantOK {
+				t.Errorf("ok: got %v, want %v", ok, tc.wantOK)
+			}
+			if name != tc.wantName {
+				t.Errorf("name: got %q, want %q", name, tc.wantName)
+			}
+		})
+	}
 }
