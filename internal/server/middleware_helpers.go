@@ -104,7 +104,6 @@ func isValidDatabaseName(name string) bool {
 // Expected path format: /db/{databaseName}/mcp or /mcp
 func isValidDatabasePath(path string) bool {
 	parts := strings.Split(path, "/")
-	// ["", "db", "{name}", "mcp", +anything else]
 	if len(parts) >= 4 && parts[1] == "db" && parts[3] == "mcp" {
 		return true
 	}
