@@ -718,3 +718,87 @@ func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
 		t.Fatalf("Expected status 413 Payload Too Large for oversized unauthenticated ping, got %d", rec.Code)
 	}
 }
+
+func TestDbNameMiddleware(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		wantCode int
+		wantDB   string // expected database name in context; empty means not set
+	}{
+		{
+			name:     "valid path with database name",
+			path:     "/db/mydb/mcp",
+			wantCode: http.StatusOK,
+			wantDB:   "mydb",
+		},
+		{
+			name:     "valid path with dash in database name",
+			path:     "/db/my-db/mcp",
+			wantCode: http.StatusOK,
+			wantDB:   "my-db",
+		},
+		{
+			name:     "extra path segments after mcp",
+			path:     "/db/mydb/mcp/extra",
+			wantCode: http.StatusOK,
+			wantDB:   "mydb",
+		},
+		{
+			name:     "valid path without database name",
+			path:     "/mcp",
+			wantCode: http.StatusOK,
+			wantDB:   "",
+		},
+		{
+			name:     "valid path with trailing slash",
+			path:     "/mcp/",
+			wantCode: http.StatusOK,
+			wantDB:   "",
+		},
+		{
+			name:     "invalid path calls next handler without setting database name",
+			path:     "/invalid",
+			wantCode: http.StatusOK,
+			wantDB:   "",
+		},
+		{
+			name:     "invalid database name in path should return 400",
+			path:     "/db/invalid$db/mcp",
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "too short database name",
+			path:     "/db/ab/mcp",
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "reserved system prefix",
+			path:     "/db/system123/mcp",
+			wantCode: http.StatusBadRequest,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotDB string
+			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotDB, _ = auth.GetDatabaseName(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+			handler := dbNameMiddleware()(inner)
+
+			body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
+			req := httptest.NewRequest("POST", tt.path, bytes.NewBufferString(body))
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantCode {
+				t.Errorf("dbNameMiddleware() status = %v, want %v", rec.Code, tt.wantCode)
+			}
+			if gotDB != tt.wantDB {
+				t.Errorf("database in context = %q, want %q", gotDB, tt.wantDB)
+			}
+		})
+	}
+}

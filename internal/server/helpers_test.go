@@ -50,3 +50,5 @@ func mockHandler() http.Handler {
 		_, _ = w.Write([]byte("OK"))
 	})
 }
+
+// todo: move this helper function to a more general test utils package if needed by multiple tests, this is not a test file but a helper for tests in this package
