@@ -79,7 +79,6 @@ func isAlphanumeric(ch rune) bool {
 }
 
 // isValidDatabaseName checks if the provided database name is valid according to Neo4j naming rules
-// Reference: https://neo4j.com/docs/cypher-manual/current/administration/databases/standard-databases/naming-rules/
 func isValidDatabaseName(name string) bool {
 	// Length must be between 3 and 63 characters
 	if len(name) < 3 || len(name) > 63 {
