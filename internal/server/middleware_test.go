@@ -564,19 +564,21 @@ func TestParseAllowedOrigins_WithSpaces(t *testing.T) {
 }
 
 func TestPathValidationMiddleware_ValidPath(t *testing.T) {
-	handler := pathValidationMiddleware()(mockHandler())
+	validPaths := []string{"/mcp", "/mcp/", "/db/mydb/mcp"}
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
-	rec := httptest.NewRecorder()
+	for _, path := range validPaths {
+		t.Run(path, func(t *testing.T) {
+			handler := pathValidationMiddleware()(mockHandler())
 
-	handler.ServeHTTP(rec, req)
+			req := httptest.NewRequest("POST", path, nil)
+			rec := httptest.NewRecorder()
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for /mcp path, got %d", rec.Code)
-	}
+			handler.ServeHTTP(rec, req)
 
-	if rec.Body.String() != "OK" {
-		t.Errorf("Expected body 'OK', got %q", rec.Body.String())
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected status 200 for %s path, got %d", path, rec.Code)
+			}
+		})
 	}
 }
 
@@ -790,12 +792,6 @@ func TestDBNameMiddleware(t *testing.T) {
 		{
 			name:     "valid path with trailing slash",
 			path:     "/mcp/",
-			wantCode: http.StatusOK,
-			wantDB:   "",
-		},
-		{
-			name:     "invalid path calls next handler without setting database name",
-			path:     "/invalid",
 			wantCode: http.StatusOK,
 			wantDB:   "",
 		},

@@ -19,7 +19,7 @@ func WithDatabaseName(ctx context.Context, databaseName string) context.Context 
 	return context.WithValue(ctx, databaseNameKey, databaseName)
 }
 
-// GetDatabaseName returns ("", false) if not set
+// GetDatabaseName retrieves the database name from the context
 func GetDatabaseName(ctx context.Context) (string, bool) {
 	dbName, ok := ctx.Value(databaseNameKey).(string)
 	return dbName, ok
