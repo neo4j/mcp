@@ -164,13 +164,13 @@ func getMockedDBService(ctrl *gomock.Controller, withGDS bool) *db.MockService {
 			},
 		},
 	}, nil)
-	gdsVersionQuery := "RETURN gds.version() as gdsVersion"
+	gdsVersionQuery := "CALL gds.list() YIELD name"
 	if withGDS {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
-				Keys: []string{"gdsVersion"},
+				Keys: []string{"name"},
 				Values: []any{
-					string("2.22.0"),
+					string("gds.allShortestPaths.delta.mutate"),
 				},
 			},
 		}, nil)
