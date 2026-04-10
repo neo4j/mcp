@@ -227,7 +227,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		dbFromEnv := os.Getenv("NEO4J_DATABASE") != ""
 		dbFromCLI := cliOverrides != nil && cliOverrides.Database != ""
 		if dbFromEnv || dbFromCLI {
-			return nil, fmt.Errorf("NEO4J_DATABASE environment variable and --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+			return nil, fmt.Errorf("NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
 		}
 	}
 
