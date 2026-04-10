@@ -56,9 +56,8 @@ func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool
 	return probe.Method == jsonRPCMethod, nil
 }
 
-// extractDatabaseFromPath checks if the URL path matches the expected format for database-specific endpoints (/db/{databaseName}/mcp)
+// extractDatabaseFromPath checks if the URL path matches the expected format
 func extractDatabaseFromPath(path string) (string, bool) {
-	// Expected path format with database name: /db/{databaseName}/*
 	parts := strings.Split(path, "/")
 	// ["", "db", "{name}", "*"]
 	if len(parts) >= 4 && parts[1] == "db" {
