@@ -55,8 +55,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	}
 
 	if s.transportMode == config.TransportModeHTTP {
-		// HTTP mode: use explicit database from URL path if provided, else user's home database
-		if name, ok := auth.GetDatabaseName(ctx); ok && name != "" {
+		if name, ok := auth.GetDatabaseName(ctx); ok {
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(name))
 		}
 	} else {
