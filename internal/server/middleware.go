@@ -195,7 +195,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 	}
 }
 
-// pathValidationMiddleware validates that requests are only sent to /mcp or /db/{databaseName}/mcp paths
+// pathValidationMiddleware validates that requests are only sent to /db/{databaseName}/mcp paths
 // and that the HTTP method is allowed. Returns 404 for all other paths to avoid
 // hanging connections, and 405 for any method other than POST or OPTIONS since
 // the MCP StreamableHTTP Transport spec requires all client messages to be POST
@@ -204,15 +204,14 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			// Allow /mcp, /mcp/, and /db/{databaseName}/mcp paths
 			if _, ok := parseMCPPath(path); !ok {
-				http.Error(w, "Not Found: This server only handles requests to /mcp or /db/{databaseName}/mcp", http.StatusNotFound)
+				http.Error(w, "Not Found: This server only handles requests to /db/{databaseName}/mcp", http.StatusNotFound)
 				return
 			}
 			// Only POST and OPTIONS are supported.
 			if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 				w.Header().Set("Allow", "POST, OPTIONS")
-				http.Error(w, "Method Not Allowed: only POST is supported on /mcp", http.StatusMethodNotAllowed)
+				http.Error(w, "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp", http.StatusMethodNotAllowed)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -221,24 +220,17 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 }
 
 // dbNameMiddleware extracts the database name from the URL path and stores it in the request context.
-// Only processes /db/{databaseName}/mcp paths; passes through /mcp requests without modification.
 func dbNameMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			database, _ := parseMCPPath(r.URL.Path)
-			if database == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
 
 			if !isValidDatabaseName(database) {
 				http.Error(w, "Bad Request: Invalid database name", http.StatusBadRequest)
 				return
 			}
 
-			ctx := r.Context()
-			ctx = auth.WithDatabaseName(ctx, database)
-
+			ctx := auth.WithDatabaseName(r.Context(), database)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
