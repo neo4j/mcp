@@ -197,19 +197,16 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	if !ok || !apocMetaSchemaAvailable {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
 	}
-	// Call gds.version procedure to determine if GDS is installed
-	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
+	// Call gds.list procedure to determine if GDS is installed
+	records, err = s.dbService.ExecuteReadQuery(ctx, "CALL gds.list() YIELD name", nil)
 	if err != nil {
 		// GDS is optional, so we log a warning and continue, assuming it's not installed.
 		log.Print("Impossible to verify GDS installation.")
 		s.gdsInstalled = false
 		return nil
 	}
-	if len(records) == 1 && len(records[0].Values) == 1 {
-		_, ok := records[0].Values[0].(string)
-		if ok {
-			s.gdsInstalled = true
-		}
+	if len(records) > 0 {
+		s.gdsInstalled = true
 	}
 
 	return nil
