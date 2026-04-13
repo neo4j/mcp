@@ -44,7 +44,7 @@ func handleDropGdsProjection(ctx context.Context, request mcp.CallToolRequest, d
 	records, err := deps.DBService.ExecuteReadQuery(ctx, fmt.Sprintf(dropGdsProjectionQueryFmt, args.ProjectionName), nil)
 	if err != nil {
 		formattedErrorMessage := fmt.Errorf("failed to execute list-gds-procedure query: %v. Ensure that the Graph Data Science (GDS) library is installed and properly configured in your Neo4j database", err)
-		slog.Error("failed to execute list gds procedures query", "error", err)
+		slog.Error("failed to execute drop gds procedures query", "error", err)
 		return mcp.NewToolResultError(formattedErrorMessage.Error()), nil
 	}
 
