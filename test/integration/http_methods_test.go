@@ -112,7 +112,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
 
-	dbPath := "/db/" + testCFG.Database + "/mcp"
+	dbPath := "/db/neo4j/mcp"
 	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 
