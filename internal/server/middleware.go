@@ -27,7 +27,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	}
 
 	// Chain middleware in reverse order (last added = first to execute)
-	// Middleware execution order: DB name extractor -> Path validation -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
+	// Middleware execution order: Path validation -> DB name extractor -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 
 	handler := next
 
@@ -43,8 +43,8 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 
 	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
-	handler = pathValidationMiddleware()(handler)
 	handler = dbNameMiddleware()(handler)
+	handler = pathValidationMiddleware()(handler)
 
 	return handler
 }
@@ -219,7 +219,8 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// dbNameMiddleware extracts the database name from the URL path and stores it in the request context.
+// dbNameMiddleware extracts and validates the database name from the URL path,
+// storing it in the request context.
 func dbNameMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
