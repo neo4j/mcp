@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -55,7 +55,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	}
 
 	if s.transportMode == config.TransportModeHTTP {
-		if name, ok := auth.GetDatabaseName(ctx); ok {
+		if name, ok := mcpcontext.GetDatabaseName(ctx); ok {
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(name))
 		}
 	} else {
@@ -79,10 +79,10 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 
 // Collect HTTP Auth token from Context.
 func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
-	if token, hasBearerToken := auth.GetBearerToken(ctx); hasBearerToken {
+	if token, hasBearerToken := mcpcontext.GetBearerToken(ctx); hasBearerToken {
 		authToken := neo4j.BearerAuth(token)
 		return &authToken
-	} else if username, password, hasBasicAuth := auth.GetBasicAuthCredentials(ctx); hasBasicAuth {
+	} else if username, password, hasBasicAuth := mcpcontext.GetBasicAuthCredentials(ctx); hasBasicAuth {
 		// Fall back to basic auth
 		authToken := neo4j.BasicAuth(username, password, "")
 		return &authToken

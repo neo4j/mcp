@@ -12,7 +12,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
-	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/mcp/internal/config"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
 	"go.uber.org/mock/gomock"
@@ -58,7 +58,7 @@ func mockHandler() http.Handler {
 // authCheckHandler verifies if credentials are in context
 func authCheckHandler(t *testing.T, expectAuth bool, expectedUser, expectedPass string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := auth.GetBasicAuthCredentials(r.Context())
+		user, pass, ok := mcpcontext.GetBasicAuthCredentials(r.Context())
 		if expectAuth {
 			if !ok {
 				t.Error("Expected auth credentials in context, but none found")
@@ -79,7 +79,7 @@ func authCheckHandler(t *testing.T, expectAuth bool, expectedUser, expectedPass 
 // bearerTokenCheckHandler verifies if bearer token is in context
 func bearerTokenCheckHandler(t *testing.T, expectToken bool, expectedToken string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := auth.GetBearerToken(r.Context())
+		token, ok := mcpcontext.GetBearerToken(r.Context())
 		if expectToken {
 			if !ok {
 				t.Error("Expected bearer token in context, but none found")
@@ -810,7 +810,7 @@ func TestDBNameMiddleware(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var gotDB string
 			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				gotDB, _ = auth.GetDatabaseName(r.Context())
+				gotDB, _ = mcpcontext.GetDatabaseName(r.Context())
 				w.WriteHeader(http.StatusOK)
 			})
 			handler := dbNameMiddleware()(inner)

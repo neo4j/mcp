@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -37,8 +37,8 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "HTTP mode with bearer token and database from context should use explicit database",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
-				ctx = auth.WithBearerToken(ctx, "test-bearer-token")
-				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				ctx = mcpcontext.WithBearerToken(ctx, "test-bearer-token")
+				ctx = mcpcontext.WithDatabaseName(ctx, "explicit-db")
 				return ctx
 			},
 			expectedDB: "explicit-db",
@@ -48,7 +48,7 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "HTTP mode with bearer token, no database provided in context, should resolve to user's home database",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
-				return auth.WithBearerToken(ctx, "test-bearer-token")
+				return mcpcontext.WithBearerToken(ctx, "test-bearer-token")
 			},
 			expectedDB: "",
 			expectAuth: true,
@@ -58,8 +58,8 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "HTTP mode with basic auth and explicit database",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
-				ctx = auth.WithBasicAuth(ctx, "testuser", "testpass")
-				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				ctx = mcpcontext.WithBasicAuth(ctx, "testuser", "testpass")
+				ctx = mcpcontext.WithDatabaseName(ctx, "explicit-db")
 				return ctx
 			},
 			expectedDB: "explicit-db",
@@ -69,7 +69,7 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "HTTP mode with basic auth, should resolve to user's home database",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
-				return auth.WithBasicAuth(ctx, "testuser", "testpass")
+				return mcpcontext.WithBasicAuth(ctx, "testuser", "testpass")
 			},
 			expectedDB: "",
 			expectAuth: true,
@@ -88,7 +88,7 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "HTTP mode without auth, explicit database",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
-				return auth.WithDatabaseName(ctx, "custom-db")
+				return mcpcontext.WithDatabaseName(ctx, "custom-db")
 			},
 			expectedDB: "custom-db",
 			expectAuth: false,
@@ -98,8 +98,8 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "STDIO mode ignores bearer token, uses default database",
 			transportMode: config.TransportModeStdio,
 			setupCtx: func(ctx context.Context) context.Context {
-				ctx = auth.WithBearerToken(ctx, "test-token")
-				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				ctx = mcpcontext.WithBearerToken(ctx, "test-token")
+				ctx = mcpcontext.WithDatabaseName(ctx, "explicit-db")
 				return ctx
 			},
 			expectedDB: "testdb",
@@ -109,8 +109,8 @@ func TestBuildQueryOptions(t *testing.T) {
 			name:          "STDIO mode ignores basic auth, uses default database",
 			transportMode: config.TransportModeStdio,
 			setupCtx: func(ctx context.Context) context.Context {
-				ctx = auth.WithBasicAuth(ctx, "user", "pass")
-				ctx = auth.WithDatabaseName(ctx, "explicit-db")
+				ctx = mcpcontext.WithBasicAuth(ctx, "user", "pass")
+				ctx = mcpcontext.WithDatabaseName(ctx, "explicit-db")
 				return ctx
 			},
 			expectedDB: "testdb",

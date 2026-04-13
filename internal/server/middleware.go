@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/neo4j/mcp/internal/auth"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 )
 
 const (
@@ -101,7 +101,7 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 				}
 
 				// Bearer token provided - store in context
-				ctx := auth.WithBearerToken(r.Context(), token)
+				ctx := mcpcontext.WithBearerToken(r.Context(), token)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -144,7 +144,7 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 			}
 
 			// Basic auth credentials provided - store in context
-			ctx := auth.WithBasicAuth(r.Context(), user, pass)
+			ctx := mcpcontext.WithBasicAuth(r.Context(), user, pass)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -231,7 +231,7 @@ func dbNameMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := auth.WithDatabaseName(r.Context(), database)
+			ctx := mcpcontext.WithDatabaseName(r.Context(), database)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
