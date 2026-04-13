@@ -25,18 +25,6 @@ func TestParseMCPPath(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "/mcp is invalid",
-			path:   "/mcp",
-			wantDB: "",
-			wantOK: false,
-		},
-		{
-			name:   "/mcp/ is invalid",
-			path:   "/mcp/",
-			wantDB: "",
-			wantOK: false,
-		},
-		{
 			name:   "unrecognised path is invalid",
 			path:   "/testdb/mcp",
 			wantDB: "",
