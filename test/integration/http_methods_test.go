@@ -112,7 +112,8 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
 
-	const methodNotAllowedMsg = "Method Not Allowed: only POST is supported on /mcp"
+	dbPath := "/db/" + testCFG.Database + "/mcp"
+	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 
 	tests := []struct {
@@ -127,9 +128,9 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 		assertErr    func(t *testing.T, err error)
 	}{
 		{
-			name:   "POST /mcp with valid credentials returns 200",
+			name:   "POST /db/{db}/mcp with valid credentials returns 200",
 			method: http.MethodPost,
-			path:   "/mcp",
+			path:   dbPath,
 			body:   pingBody,
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
@@ -141,9 +142,9 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 		{
 			// CORS middleware intercepts OPTIONS before auth runs (AllowedOrigins: "*"
 			// is set on the test server). Preflight returns 204 No Content per spec.
-			name:   "OPTIONS /mcp returns 204 CORS preflight",
+			name:   "OPTIONS /db/{db}/mcp returns 204 CORS preflight",
 			method: http.MethodOptions,
-			path:   "/mcp",
+			path:   dbPath,
 			setupReq: func(req *http.Request) {
 				req.Header.Set("Origin", "http://example.com")
 			},
@@ -151,36 +152,36 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			assertErr:  noErr,
 		},
 		{
-			name:         "GET /mcp is rejected",
+			name:         "GET /db/{db}/mcp is rejected",
 			method:       http.MethodGet,
-			path:         "/mcp",
+			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "PATCH /mcp is rejected",
+			name:         "PATCH /db/{db}/mcp is rejected",
 			method:       http.MethodPatch,
-			path:         "/mcp",
+			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "GET /mcp/ (trailing slash) is rejected",
+			name:         "GET /db/{db}/mcp/ (trailing slash) is rejected",
 			method:       http.MethodGet,
-			path:         "/mcp/",
+			path:         dbPath + "/",
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "PATCH /mcp/ (trailing slash) is rejected",
+			name:         "PATCH /db/{db}/mcp/ (trailing slash) is rejected",
 			method:       http.MethodPatch,
-			path:         "/mcp/",
+			path:         dbPath + "/",
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
