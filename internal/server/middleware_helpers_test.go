@@ -19,16 +19,22 @@ func TestParseMCPPath(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "/mcp is valid with no database",
-			path:   "/mcp",
-			wantDB: "",
+			name:   "/db/{name}/mcp/ (trailing slash) returns database name",
+			path:   "/db/testdb/mcp/",
+			wantDB: "testdb",
 			wantOK: true,
 		},
 		{
-			name:   "/mcp/ (trailing slash) is valid with no database",
+			name:   "/mcp is invalid",
+			path:   "/mcp",
+			wantDB: "",
+			wantOK: false,
+		},
+		{
+			name:   "/mcp/ is invalid",
 			path:   "/mcp/",
 			wantDB: "",
-			wantOK: true,
+			wantOK: false,
 		},
 		{
 			name:   "unrecognised path is invalid",

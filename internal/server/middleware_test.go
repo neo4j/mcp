@@ -229,7 +229,7 @@ func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
 
 	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "custom-token-789"))
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	req.Header.Set("X-Test-Auth", "Bearer custom-token-789")
 	rec := httptest.NewRecorder()
 
@@ -247,7 +247,7 @@ func TestAuthMiddleware_CustomHeaderName_OverridesAuthHeader(t *testing.T) {
 
 	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "new-token-123"))
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	// Existing Authorization header with an old token
 	req.Header.Set("Authorization", "Bearer old-token-999")
 	// Custom header with the token that should take precedence
@@ -449,7 +449,7 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 	mockServer := mockNeo4jMCPServer(t)
 	handler := mockServer.chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	req.SetBasicAuth("user", "pass")
 	rec := httptest.NewRecorder()
@@ -471,7 +471,7 @@ func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	mockServer := mockNeo4jMCPServer(t)
 	handler := mockServer.chainMiddleware(allowedOrigins, mockHandler())
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	// No auth credentials
 	rec := httptest.NewRecorder()
@@ -499,14 +499,14 @@ func TestPathValidationMiddleware_DisallowedMethodReturns405InFullChain(t *testi
 			mockServer := mockNeo4jMCPServer(t)
 			handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
-			req := httptest.NewRequest(method, "/mcp", nil)
+			req := httptest.NewRequest(method, "/db/testdb/mcp", nil)
 			req.SetBasicAuth("user", "pass")
 			rec := httptest.NewRecorder()
 
 			handler.ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusMethodNotAllowed {
-				t.Errorf("Expected status 405 for %s /mcp, got %d", method, rec.Code)
+				t.Errorf("Expected status 405 for %s /db/testdb/mcp, got %d", method, rec.Code)
 			}
 		})
 	}
@@ -564,7 +564,7 @@ func TestParseAllowedOrigins_WithSpaces(t *testing.T) {
 }
 
 func TestPathValidationMiddleware_ValidPath(t *testing.T) {
-	validPaths := []string{"/mcp", "/mcp/", "/db/mydb/mcp"}
+	validPaths := []string{"/db/mydb/mcp", "/db/mydb/mcp/"}
 
 	for _, path := range validPaths {
 		t.Run(path, func(t *testing.T) {
@@ -589,7 +589,8 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 	}{
 		{"root path", "/"},
 		{"other path", "/api"},
-		{"nested path", "/mcp/test"},
+		{"mcp without db prefix", "/mcp"},
+		{"mcp with trailing slash", "/mcp/"},
 		{"similar path", "/mcpserver"},
 		{"extra segments after db mcp", "/db/mydb/mcp/extra"},
 	}
@@ -607,7 +608,7 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 				t.Errorf("Expected status 404 for path %s, got %d", tc.path, rec.Code)
 			}
 
-			expectedBody := "Not Found: This server only handles requests to /mcp or /db/{databaseName}/mcp\n"
+			expectedBody := "Not Found: This server only handles requests to /db/{databaseName}/mcp\n"
 			if rec.Body.String() != expectedBody {
 				t.Errorf("Expected body %q, got %q", expectedBody, rec.Body.String())
 			}
@@ -638,13 +639,13 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 func TestPathValidationMiddleware_TrailingSlashAllowed(t *testing.T) {
 	handler := pathValidationMiddleware()(mockHandler())
 
-	req := httptest.NewRequest("POST", "/mcp/", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp/", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for /mcp/ path, got %d", rec.Code)
+		t.Errorf("Expected status 200 for /db/testdb/mcp/ path, got %d", rec.Code)
 	}
 }
 
@@ -656,7 +657,7 @@ func TestAuthMiddleware_AllowsUnauthenticatedPing(t *testing.T) {
 
 	// Create a POST request to /mcp with JSON-RPC ping body and no auth header
 	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -672,7 +673,7 @@ func TestAuthMiddleware_BlocksUnauthenticatedPingWhenDisabled(t *testing.T) {
 	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
 	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -710,7 +711,7 @@ func TestAuthMiddleware_AllowsUnauthenticatedToolsList(t *testing.T) {
 	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
 	body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -726,7 +727,7 @@ func TestAuthMiddleware_BlocksUnauthenticatedToolsListWhenDisabled(t *testing.T)
 	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
 	body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -750,7 +751,7 @@ func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
 	pad := strings.Repeat("x", maxUnauthenticatedBodyBytes+10)
 	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4,"pad":"` + pad + `"}`
 
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	// Force the middleware to read from the body instead of using ContentLength
 	req.ContentLength = -1
@@ -784,16 +785,10 @@ func TestDBNameMiddleware(t *testing.T) {
 			wantDB:   "my-db",
 		},
 		{
-			name:     "valid path without database name",
-			path:     "/mcp",
-			wantCode: http.StatusOK,
-			wantDB:   "",
-		},
-		{
 			name:     "valid path with trailing slash",
-			path:     "/mcp/",
+			path:     "/db/mydb/mcp/",
 			wantCode: http.StatusOK,
-			wantDB:   "",
+			wantDB:   "mydb",
 		},
 		{
 			name:     "invalid database name in path should return 400",
