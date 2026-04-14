@@ -37,7 +37,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 
 	t.Run("starts server successfully", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(9).Return([]*neo4j.Record{
 			{
 				Keys: []string{"first"},
 				Values: []any{
