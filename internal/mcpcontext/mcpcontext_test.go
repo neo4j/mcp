@@ -6,6 +6,8 @@ package mcpcontext
 import (
 	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBearerToken(t *testing.T) {
@@ -32,12 +34,8 @@ func TestBearerToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			token, ok := GetBearerToken(tc.setupCtx)
-			if ok != tc.wantOK {
-				t.Errorf("ok: got %v, want %v", ok, tc.wantOK)
-			}
-			if token != tc.wantToken {
-				t.Errorf("token: got %q, want %q", token, tc.wantToken)
-			}
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.wantToken, token)
 		})
 	}
 }
@@ -68,15 +66,9 @@ func TestBasicAuth(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			user, pass, ok := GetBasicAuthCredentials(tc.setupCtx)
-			if ok != tc.wantOK {
-				t.Errorf("ok: got %v, want %v", ok, tc.wantOK)
-			}
-			if user != tc.wantUser {
-				t.Errorf("user: got %q, want %q", user, tc.wantUser)
-			}
-			if pass != tc.wantPass {
-				t.Errorf("pass: got %q, want %q", pass, tc.wantPass)
-			}
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.wantUser, user)
+			assert.Equal(t, tc.wantPass, pass)
 		})
 	}
 }
@@ -107,9 +99,7 @@ func TestHasAuth(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := HasAuth(tc.setupCtx); got != tc.want {
-				t.Errorf("HasAuth: got %v, want %v", got, tc.want)
-			}
+			assert.Equal(t, tc.want, HasAuth(tc.setupCtx))
 		})
 	}
 }
@@ -138,12 +128,8 @@ func TestDatabaseName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			name, ok := GetDatabaseName(tc.setupCtx)
-			if ok != tc.wantOK {
-				t.Errorf("ok: got %v, want %v", ok, tc.wantOK)
-			}
-			if name != tc.wantName {
-				t.Errorf("name: got %q, want %q", name, tc.wantName)
-			}
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.wantName, name)
 		})
 	}
 }
