@@ -6,6 +6,10 @@ on:
     paths:
       - ".changes/unreleased/**"
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   check-unreleased:
     runs-on: ubuntu-latest

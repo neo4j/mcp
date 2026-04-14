@@ -4,6 +4,9 @@ on:
   pull_request_target:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 jobs:
   cla-check:
     #if: github.event.pull_request.user.login != 'renovate[bot]'

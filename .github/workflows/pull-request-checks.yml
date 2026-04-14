@@ -1,0 +1,35 @@
+name: Pull request checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/build-and-test.yml
+    secrets: inherit
+
+  license:
+    uses: ./.github/workflows/licence-checker.yml
+
+  quality-gate:
+    if: ${{ always() }}
+    needs:
+      - build-and-test
+      - license
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Job Status
+        run: |
+          if [ "${{ needs.build-and-test.result }}" != 'success' ] ||
+            [ "${{ needs.license.result }}" != 'success' ]; then
+            echo "One or more jobs failed"
+            exit 1
+          else
+            echo "Passed!"
+          fi
