@@ -7,8 +7,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
@@ -31,10 +34,11 @@ func TestBuildQueryOptions(t *testing.T) {
 		setupCtx      func(context.Context) context.Context
 		expectedDB    string
 		expectAuth    bool
+		expectError   string
 	}{
 		// HTTP mode with bearer token
 		{
-			name:          "HTTP mode with bearer token and database from context should use explicit database",
+			name:          "HTTP mode with bearer token and database from context",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
 				ctx = mcpcontext.WithBearerToken(ctx, "test-bearer-token")
@@ -45,17 +49,16 @@ func TestBuildQueryOptions(t *testing.T) {
 			expectAuth: true,
 		},
 		{
-			name:          "HTTP mode with bearer token, no database provided in context, should resolve to user's home database",
+			name:          "HTTP mode with bearer token but no database in context returns error",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
 				return mcpcontext.WithBearerToken(ctx, "test-bearer-token")
 			},
-			expectedDB: "",
-			expectAuth: true,
+			expectError: "database name is required in HTTP mode but was not found in context",
 		},
 		// HTTP mode with basic auth
 		{
-			name:          "HTTP mode with basic auth and explicit database",
+			name:          "HTTP mode with basic auth and database from context",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
 				ctx = mcpcontext.WithBasicAuth(ctx, "testuser", "testpass")
@@ -66,26 +69,24 @@ func TestBuildQueryOptions(t *testing.T) {
 			expectAuth: true,
 		},
 		{
-			name:          "HTTP mode with basic auth, should resolve to user's home database",
+			name:          "HTTP mode with basic auth but no database in context returns error",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
 				return mcpcontext.WithBasicAuth(ctx, "testuser", "testpass")
 			},
-			expectedDB: "",
-			expectAuth: true,
+			expectError: "database name is required in HTTP mode but was not found in context",
 		},
 		// HTTP mode without auth
 		{
-			name:          "HTTP mode without auth, user's home database",
+			name:          "HTTP mode without auth and no database in context returns error",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
 				return ctx
 			},
-			expectedDB: "",
-			expectAuth: false,
+			expectError: "database name is required in HTTP mode but was not found in context",
 		},
 		{
-			name:          "HTTP mode without auth, explicit database",
+			name:          "HTTP mode without auth but with database from context",
 			transportMode: config.TransportModeHTTP,
 			setupCtx: func(ctx context.Context) context.Context {
 				return mcpcontext.WithDatabaseName(ctx, "custom-db")
@@ -136,17 +137,17 @@ func TestBuildQueryOptions(t *testing.T) {
 			}
 
 			ctx := tt.setupCtx(context.Background())
-			options := service.buildQueryOptions(ctx)
+			options, err := service.buildQueryOptions(ctx)
+
+			if tt.expectError != "" {
+				require.EqualError(t, err, tt.expectError)
+				return
+			}
+			require.NoError(t, err)
+
 			cfg := applyOptions(options)
-
-			if cfg.Database != tt.expectedDB {
-				t.Errorf("Expected database %q, got %q", tt.expectedDB, cfg.Database)
-			}
-
-			hasAuth := cfg.Auth != nil
-			if hasAuth != tt.expectAuth {
-				t.Errorf("Expected auth=%v, got auth=%v (Auth=%+v)", tt.expectAuth, hasAuth, cfg.Auth)
-			}
+			assert.Equal(t, tt.expectedDB, cfg.Database)
+			assert.Equal(t, tt.expectAuth, cfg.Auth != nil)
 		})
 	}
 }
