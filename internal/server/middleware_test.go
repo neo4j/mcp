@@ -11,10 +11,11 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/stretchr/testify/assert"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
-	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/mcp/internal/config"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"go.uber.org/mock/gomock"
 )
 
@@ -821,12 +822,8 @@ func TestDBNameMiddleware(t *testing.T) {
 
 			handler.ServeHTTP(rec, req)
 
-			if rec.Code != tt.wantCode {
-				t.Errorf("dbNameMiddleware() status = %v, want %v", rec.Code, tt.wantCode)
-			}
-			if gotDB != tt.wantDB {
-				t.Errorf("database in context = %q, want %q", gotDB, tt.wantDB)
-			}
+			assert.Equal(t, tt.wantCode, rec.Code)
+			assert.Equal(t, tt.wantDB, gotDB)
 		})
 	}
 }
