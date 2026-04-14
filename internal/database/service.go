@@ -40,14 +40,13 @@ func NewNeo4jService(driver neo4j.Driver, database string, transportMode config.
 }
 
 // buildQueryOptions builds Neo4j query options based on transport mode.
-// For HTTP mode: extracts credentials from context and uses impersonation.
+// For HTTP mode: database name must be present in context (set by dbNameMiddleware from URL path).
+// Extracts credentials from context and uses impersonation.
 // Supports both Bearer token auth (preferred for SSO/OAuth) and Basic Auth (fallback).
-// Bearer tokens are passed directly to Neo4j for SSO/OAuth scenarios.
-// If credentials are absent, they are not added to the query options (driver defaults apply).
-// For STDIO mode: uses driver's built-in credentials (no auth token added).
+// For STDIO mode: uses driver's built-in credentials and configured database.
 // The baseOptions parameter allows adding routing-specific options (readers/writers).
 // TxMetadata is added to recognize queries coming from Neo4j MCP.
-func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
+func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) ([]neo4j.ExecuteQueryConfigurationOption, error) {
 	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
 
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
@@ -55,9 +54,11 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	}
 
 	if s.transportMode == config.TransportModeHTTP {
-		if name, ok := mcpcontext.GetDatabaseName(ctx); ok {
-			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(name))
+		name, ok := mcpcontext.GetDatabaseName(ctx)
+		if !ok {
+			return nil, fmt.Errorf("database name is required in HTTP mode but was not found in context")
 		}
+		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(name))
 	} else {
 		// STDIO mode: always use configured database
 		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(s.database))
@@ -74,7 +75,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 		}
 	}
 	// For STDIO mode, driver's built-in credentials are used automatically (no auth token needed)
-	return queryOptions
+	return queryOptions, nil
 }
 
 // Collect HTTP Auth token from Context.
@@ -92,7 +93,10 @@ func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
 
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
+	queryOptions, err := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
+	if err != nil {
+		return nil, err
+	}
 
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
@@ -107,7 +111,10 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithWritersRouting())
+	queryOptions, err := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithWritersRouting())
+	if err != nil {
+		return nil, err
+	}
 
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
@@ -124,7 +131,10 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error) {
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 
-	queryOptions := s.buildQueryOptions(ctx)
+	queryOptions, err := s.buildQueryOptions(ctx)
+	if err != nil {
+		return neo4j.QueryTypeUnknown, err
+	}
 
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
