@@ -6,6 +6,8 @@ on:
     types: [completed]
     branches: [main]
 
+permissions: {}
+
 env:
   DOCKER_REPOSITORY: neo4j/mcp
 
