@@ -1,4 +1,4 @@
-# Neo4j MCP
+# Neo4j MCP (THIS SHOULD TRIGGER THE WORKFLOW)
 
 Official Model Context Protocol (MCP) server for Neo4j.
 
