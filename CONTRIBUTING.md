@@ -58,7 +58,7 @@ export NEO4J_TRANSPORT_MODE="http"
 ### Optional Variables (Both Modes)
 
 ```bash
-export NEO4J_DATABASE="neo4j"          # Default: neo4j
+export NEO4J_DATABASE="neo4j"          # Optional (STDIO only): omit to use driver home database. Not supported in HTTP mode
 export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
 export NEO4J_TELEMETRY="true"          # Default: true
 export NEO4J_LOG_LEVEL="info"          # Default: info (debug, info, notice, warning, error, critical, alert, emergency)

@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/neo4j/mcp/internal/testutil"
 )
 
@@ -853,13 +856,7 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		_, err := LoadConfig(nil)
-		if err == nil {
-			t.Errorf("LoadConfig() expected error but got none")
-			return
-		}
-		if !strings.Contains(err.Error(), "NEO4J_DATABASE environment variable") {
-			t.Errorf("LoadConfig() error = %v, want error containing 'NEO4J_DATABASE environment variable'", err)
-		}
+		require.ErrorContains(t, err, "NEO4J_DATABASE environment variable")
 	})
 
 	t.Run("--neo4j-database flag in HTTP mode should raise error", func(t *testing.T) {
@@ -869,13 +866,27 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 		_, err := LoadConfig(&CLIOverrides{
 			Database: "custom-db",
 		})
-		if err == nil {
-			t.Errorf("LoadConfig() expected error but got none")
-			return
-		}
-		if !strings.Contains(err.Error(), "--neo4j-database flag") {
-			t.Errorf("LoadConfig() error = %v, want error containing '--neo4j-database flag'", err)
-		}
+		require.ErrorContains(t, err, "--neo4j-database flag")
+	})
+
+	t.Run("HTTP mode without NEO4J_DATABASE should have empty database", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+
+		cfg, err := LoadConfig(nil)
+		require.NoError(t, err)
+		assert.Empty(t, cfg.Database)
+	})
+
+	t.Run("STDIO mode without NEO4J_DATABASE should have empty database", func(t *testing.T) {
+		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+		t.Setenv("NEO4J_USERNAME", "neo4j")
+		t.Setenv("NEO4J_PASSWORD", "password")
+
+		cfg, err := LoadConfig(nil)
+		require.NoError(t, err)
+		assert.Empty(t, cfg.Database)
 	})
 
 	t.Run("STDIO mode with NEO4J_DATABASE should work fine", func(t *testing.T) {
@@ -886,12 +897,7 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		cfg, err := LoadConfig(nil)
-		if err != nil {
-			t.Fatalf("LoadConfig() unexpected error: %v", err)
-		}
-
-		if cfg.Database != "neo4j" {
-			t.Errorf("LoadConfig() Database = %v, want neo4j", cfg.Database)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "neo4j", cfg.Database)
 	})
 }
