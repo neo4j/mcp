@@ -1,0 +1,7 @@
+kind: Minor
+body: |
+  HTTP mode: URL path changed from /mcp to /db/{databaseName}/mcp, which allows targeting specific databases in a multi-database Neo4j instance.
+  All HTTP mode requests must now include the target database name in the URL path. The previous /mcp endpoint no longer exists.
+  NEO4J_DATABASE / --neo4j-database are rejected in HTTP mode. Setting these in HTTP mode now causes a startup error.
+  STDIO mode: NEO4J_DATABASE no longer defaults to "neo4j". If unset, the driver's home database is used. Set NEO4J_DATABASE=neo4j explicitly to preserve the previous behaviour.
+time: 2026-04-15T17:50:39.619924+01:00
