@@ -11,48 +11,47 @@ import (
 
 func TestParseMCPPath(t *testing.T) {
 	tests := []struct {
-		name   string
-		path   string
-		wantDB string
-		wantOK bool
+		name    string
+		path    string
+		wantDB  string
+		wantErr string
 	}{
 		{
 			name:   "/db/{name}/mcp returns database name",
 			path:   "/db/testdb/mcp",
 			wantDB: "testdb",
-			wantOK: true,
 		},
 		{
 			name:   "/db/{name}/mcp/ (trailing slash) returns database name",
 			path:   "/db/testdb/mcp/",
 			wantDB: "testdb",
-			wantOK: true,
 		},
 		{
-			name:   "unrecognised path is invalid",
-			path:   "/testdb/mcp",
-			wantDB: "",
-			wantOK: false,
+			name:    "unrecognised path is invalid",
+			path:    "/testdb/mcp",
+			wantErr: "invalid path. Should be in the format /db/{databaseName}/mcp",
 		},
 		{
-			name:   "/db/{name} without mcp segment is invalid",
-			path:   "/db/userdb",
-			wantDB: "",
-			wantOK: false,
+			name:    "/db/{name} without mcp segment is invalid",
+			path:    "/db/userdb",
+			wantErr: "invalid path. Should be in the format /db/{databaseName}/mcp",
 		},
 		{
-			name:   "extra segments after mcp are invalid",
-			path:   "/db/testdb/mcp/extra",
-			wantDB: "",
-			wantOK: false,
+			name:    "extra segments after mcp are invalid",
+			path:    "/db/testdb/mcp/extra",
+			wantErr: "invalid path. Should be in the format /db/{databaseName}/mcp",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, ok := parseMCPPath(tt.path)
+			db, err := parseMCPPath(tt.path)
 			assert.Equal(t, tt.wantDB, db)
-			assert.Equal(t, tt.wantOK, ok)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

@@ -204,7 +204,7 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			if _, ok := parseMCPPath(path); !ok {
+			if _, err := parseMCPPath(path); err != nil {
 				http.Error(w, "Not Found: This server only handles requests to /db/{databaseName}/mcp", http.StatusNotFound)
 				return
 			}
@@ -224,7 +224,11 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 func dbNameMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			database, _ := parseMCPPath(r.URL.Path)
+			database, err := parseMCPPath(r.URL.Path)
+			if err != nil {
+				http.Error(w, "Bad Request: Invalid path", http.StatusBadRequest)
+				return
+			}
 
 			if !isValidDatabaseName(database) {
 				http.Error(w, "Bad Request: Invalid database name", http.StatusBadRequest)
