@@ -11,7 +11,6 @@ Please read and follow these guidelines to ensure a welcoming environment for ev
 ## Prerequisites
 
 - Go 1.25+ (see `go.mod`)
-- A Neo4j instance with APOC plugin installed.
 
 ## Clone the repository (forks are currently disabled)
 
@@ -278,7 +277,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
         // Bind and validate arguments
         var args MyToolInput
         if err := request.BindArguments(&args); err != nil {
-            return mcp.NewToolResultError("Invalid arguments: " + err.Error()), nil
+            return mcp.NewToolResultError("Invalid arguments"), nil
         }
 
         // Business logic validation
