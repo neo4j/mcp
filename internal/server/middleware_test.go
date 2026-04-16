@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/stretchr/testify/assert"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
 
@@ -26,9 +26,6 @@ func mockNeo4jMCPServer(t *testing.T) *Neo4jMCPServer {
 
 	cfg := &config.Config{
 		URI:           "bolt://localhost:7687",
-		Username:      "neo4j",
-		Password:      "password",
-		Database:      "neo4j",
 		TransportMode: config.TransportModeHTTP,
 		Telemetry:     false,
 	}
