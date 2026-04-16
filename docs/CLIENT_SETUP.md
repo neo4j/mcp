@@ -19,12 +19,12 @@ See [README.md](../README.md#transport-modes) for more details on transport mode
 export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
+export NEO4J_DATABASE="neo4j"               # Required: target database name
 ```
 
 **Optional:**
 
 ```bash
-export NEO4J_DATABASE="neo4j"               # Optional: omit to use driver home database
 export NEO4J_READ_ONLY="false"              # Default: false
 export NEO4J_TELEMETRY="true"               # Default: true
 export NEO4J_LOG_LEVEL="info"               # Default: info
