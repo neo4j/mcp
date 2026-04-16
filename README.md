@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.neo4j/mcp -->
 # Neo4j MCP
 
 Official Model Context Protocol (MCP) server for Neo4j.
