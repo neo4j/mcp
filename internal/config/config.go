@@ -72,8 +72,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
 	}
 
-	// For STDIO mode, require username and password from environment
-	// For HTTP mode, credentials come from per-request Basic Auth headers
+	// For STDIO mode, require username, password, and database from environment.
+	// For HTTP mode, credentials and database come per-request (Auth headers and URL path).
 	if c.TransportMode == TransportModeStdio {
 		if c.Username == "" {
 			return fmt.Errorf("Neo4j username is required for STDIO mode")
@@ -81,8 +81,16 @@ func (c *Config) Validate() error {
 		if c.Password == "" {
 			return fmt.Errorf("Neo4j password is required for STDIO mode")
 		}
-	} else if c.Username != "" || c.Password != "" {
-		return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers")
+		if c.Database == "" {
+			return fmt.Errorf("Neo4j database is required for STDIO mode (set NEO4J_DATABASE or use --neo4j-database flag)")
+		}
+	} else {
+		if c.Username != "" || c.Password != "" {
+			return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers")
+		}
+		if c.Database != "" {
+			return fmt.Errorf("NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+		}
 	}
 
 	// For HTTP mode with TLS enabled, require certificate and key files
@@ -218,14 +226,6 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.AllowUnauthenticatedToolsList != "" {
 			cfg.AllowUnauthenticatedToolsList = ParseBool(cliOverrides.AllowUnauthenticatedToolsList, false)
-		}
-	}
-
-	// For HTTP mode, database selection must be per-request via URL path (/db/{databaseName}/mcp)
-	// Reject if NEO4J_DATABASE env var or --neo4j-database flag is explicitly set
-	if cfg.TransportMode == TransportModeHTTP {
-		if cfg.Database != "" {
-			return nil, fmt.Errorf("NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
 		}
 	}
 

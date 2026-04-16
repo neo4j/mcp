@@ -75,7 +75,7 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "Neo4j password is required for STDIO mode",
 		},
 		{
-			name: "empty database should not raise error",
+			name: "empty database in STDIO mode should raise error",
 			cfg: &Config{
 				Telemetry: true,
 				URI:       "bolt://localhost:7687",
@@ -83,8 +83,19 @@ func TestConfig_Validate(t *testing.T) {
 				Password:  "password",
 				Database:  "",
 			},
-			wantErr: false,
-			errMsg:  "",
+			wantErr: true,
+			errMsg:  "Neo4j database is required for STDIO mode",
+		},
+		{
+			name: "database set for HTTP mode should raise error",
+			cfg: &Config{
+				Telemetry:     true,
+				URI:           "bolt://localhost:7687",
+				Database:      "neo4j",
+				TransportMode: TransportModeHTTP,
+			},
+			wantErr: true,
+			errMsg:  "NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode",
 		},
 		{
 			name: "credentials set for HTTP mode should raise error",
@@ -289,6 +300,7 @@ func TestLoadConfig_InvalidBooleanValues(t *testing.T) {
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 	t.Setenv("NEO4J_TELEMETRY", "invalid-value")
 	t.Setenv("NEO4J_READ_ONLY", "not-a-boolean")
 
@@ -314,6 +326,7 @@ func TestLoadConfig_ValidBooleanValues(t *testing.T) {
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 	t.Setenv("NEO4J_TELEMETRY", "false")
 	t.Setenv("NEO4J_READ_ONLY", "true")
 
@@ -339,6 +352,7 @@ func TestLoadConfig_ValidIntValue(t *testing.T) {
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 
 	t.Run("default value", func(t *testing.T) {
 		// Unset the env var to test default
@@ -444,6 +458,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 				URI:             "bolt://localhost:7687",
 				Username:        "neo4j",
 				Password:        "password",
+				Database:        "neo4j",
 				TransportMode:   TransportModeStdio,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "",
@@ -507,6 +522,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		cfg, err := LoadConfig(nil)
 		if err != nil {
@@ -699,6 +715,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://example.com,https://example2.com")
 
 		cfg, err := LoadConfig(nil)
@@ -716,6 +733,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "*")
 
 		cfg, err := LoadConfig(nil)
@@ -733,6 +751,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		// Don't set NEO4J_MCP_HTTP_ALLOWED_ORIGINS
 
 		cfg, err := LoadConfig(nil)
@@ -750,6 +769,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://env-example.com")
 
 		overrides := &CLIOverrides{
@@ -774,6 +794,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		cfg, err := LoadConfig(nil)
 		if err != nil {
@@ -791,6 +812,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_HTTP_AUTH_HEADER_NAME", "X-Test-Auth")
 
 		cfg, err := LoadConfig(nil)
@@ -809,6 +831,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_HTTP_AUTH_HEADER_NAME", "X-Env-Auth")
 
 		overrides := &CLIOverrides{
@@ -831,6 +854,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		overrides := &CLIOverrides{
 			AuthHeaderName: "   ", // non-empty but only whitespace -> should be trimmed to empty and cause an error
@@ -878,15 +902,14 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 		assert.Empty(t, cfg.Database)
 	})
 
-	t.Run("STDIO mode without NEO4J_DATABASE should have empty database", func(t *testing.T) {
+	t.Run("STDIO mode without NEO4J_DATABASE should raise error", func(t *testing.T) {
 		t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
 
-		cfg, err := LoadConfig(nil)
-		require.NoError(t, err)
-		assert.Empty(t, cfg.Database)
+		_, err := LoadConfig(nil)
+		require.ErrorContains(t, err, "Neo4j database is required for STDIO mode")
 	})
 
 	t.Run("STDIO mode with NEO4J_DATABASE should work fine", func(t *testing.T) {
