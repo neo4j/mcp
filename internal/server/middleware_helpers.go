@@ -58,14 +58,14 @@ func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool
 
 // parseMCPPath parses a URL path and returns the database name and whether the path is a valid MCP endpoint.
 // The only valid path form is /db/{databaseName}/mcp (trailing slash permitted).
-func parseMCPPath(path string) (database string, ok bool) {
+func parseMCPPath(path string) (database string, err error) {
 	path = strings.TrimSuffix(path, "/")
 	parts := strings.Split(path, "/")
 	// ["", "db", "{name}", "mcp"]
 	if len(parts) == 4 && parts[1] == "db" && parts[3] == "mcp" {
-		return parts[2], true
+		return parts[2], nil
 	}
-	return "", false
+	return "", errors.New("invalid path. Should be in the format /db/{databaseName}/mcp")
 }
 
 // isAlphanumeric checks if a character is an ASCII letter or digit
