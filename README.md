@@ -16,6 +16,48 @@ Neo4j MCP enables AI agents to:
 * Run Cypher queries - execute, read, and write queries against your database in response to natural language prompts.
 * Inspect and analyze data - retrieve nodes, relationships, and paths to answer questions, generate summaries, or feed data to other workflows.
 
+## Quickstart with Homebrew
+
+On a Mac, do:
+
+
+```bash
+brew install neo4j-mcp
+```
+
+Otherwise see [MCP documentation > Installation](https://neo4j.com/docs/mcp/current/installation).
+
+
+## Server configuration (VSCode)
+
+Create / edit `mcp.json`:
+
+
+```json
+{
+  "servers": {
+    "neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "password",
+        "NEO4J_DATABASE": "neo4j",
+        "NEO4J_READ_ONLY": "true",
+        "NEO4J_TELEMETRY": "false",
+        "NEO4J_LOG_LEVEL": "info",
+        "NEO4J_LOG_FORMAT": "text",
+        "NEO4J_SCHEMA_SAMPLE_SIZE": "100"
+      }
+    }
+  }
+}
+```
+
+See [MCP documentation > Installation](https://neo4j.com/docs/mcp/current/installation) for more details.
+
+
 ## Links
 
 - [Documentation](https://neo4j.com/docs/mcp/current/)

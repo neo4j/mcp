@@ -8,16 +8,6 @@ If you're an external contributor you must sign the [https://neo4j.com/developer
 
 Please read and follow these guidelines to ensure a welcoming environment for everyone.
 
-## Prerequisites
-
-- Go 1.25+ (see `go.mod`)
-
-## Clone the repository (forks are currently disabled)
-
-```bash
-git clone git@github.com:neo4j/mcp.git && cd mcp
-```
-
 ## Install Dependencies
 
 ```bash
@@ -29,48 +19,6 @@ go install go.uber.org/mock/mockgen@latest
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-## Environment Variables
-
-The MCP server supports two transport modes: **STDIO** (default) and **HTTP**. Required environment variables differ based on the mode.
-
-### STDIO Mode (Default)
-
-**Required variables:**
-
-```bash
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USERNAME="neo4j"
-export NEO4J_PASSWORD="password"
-```
-
-### HTTP Mode
-
-**Required variables:**
-
-```bash
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_TRANSPORT_MODE="http"
-```
-
-**Note:** In HTTP mode, do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD`. Credentials come from per-request Basic Auth headers.
-
-### Optional Variables (Both Modes)
-
-```bash
-export NEO4J_DATABASE="neo4j"          # Default: neo4j
-export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
-export NEO4J_TELEMETRY="true"          # Default: true
-export NEO4J_LOG_LEVEL="info"          # Default: info (debug, info, notice, warning, error, critical, alert, emergency)
-export NEO4J_LOG_FORMAT="text"         # Default: text (text or json)
-export NEO4J_SCHEMA_SAMPLE_SIZE="100"  # Default: 100 (number of nodes to sample for schema inference)
-
-# HTTP mode specific (ignored in STDIO mode)
-export NEO4J_MCP_HTTP_HOST="127.0.0.1" # Default: 127.0.0.1
-export NEO4J_MCP_HTTP_PORT="80"        # Default: 80
-export NEO4J_MCP_HTTP_ALLOWED_ORIGINS="*" # Default: empty (no CORS)
-```
-
-**Note:** Make sure your local Neo4j instance is running with the correct credentials before testing.
 
 ## Build / Test / Run
 
@@ -147,108 +95,6 @@ go test ./internal/database -v
 go test ./... -cover
 ```
 
-### Manual Testing
-
-Start the server in HTTP mode:
-
-```bash
-# Set up environment
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_TRANSPORT_MODE ="http"
-
-# Run server
-go run ./cmd/neo4j-mcp
-```
-
-Test with curl:
-
-**Basic Authentication:**
-
-```bash
-# List available tools
-curl -X POST http://localhost:80/mcp \
-  -u "neo4j:password" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-
-# Get Neo4j schema
-curl -X POST http://localhost:80/mcp \
-  -u "neo4j:password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/call",
-    "params": {
-      "name": "get-schema",
-      "arguments": {}
-    }
-  }'
-```
-
-**Bearer Token Authentication (Enterprise/Aura with SSO):**
-
-```bash
-# List available tools
-curl -X POST http://localhost:80/mcp \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/list",
-    "params": {}
-  }'
-
-# Get Neo4j schema
-curl -X POST http://localhost:80/mcp \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/call",
-    "params": {
-      "name": "get-schema",
-      "arguments": {}
-    }
-  }'
-```
-
-**General Testing:**
-
-```bash
-# Test authentication (should return 401)
-curl -X POST http://localhost:80/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/list"}'
-
-# Test CORS (if configured)
-curl -X OPTIONS http://localhost:80/mcp \
-  -H "Origin: http://localhost:3000" \
-  -H "Access-Control-Request-Method: POST"
-
-# Test multi-user/multi-tenant (different credentials per request)
-curl -X POST http://localhost:80/mcp \
-  -u "userA:passwordA" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}'
-
-curl -X POST http://localhost:80/mcp \
-  -u "userB:passwordB" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}'
-```
-
-## TLS/HTTPS Configuration
-
-For detailed instructions on generating certificates and testing TLS configurations, see the [TLS Setup Guide](https://neo4j.com/docs/mcp/current/tls-setup).
-
-This guide includes:
-- Self-signed certificate generation for testing
-- Testing TLS with curl and openssl
-- TLS verification commands
-- Production considerations (using Let's Encrypt certificates)
 
 ## MCP Error Handling
 
@@ -289,7 +135,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
         result, err := someOperation(ctx, args)
         if err != nil {
             // Use MCP error for business/operational errors
-            return mcp.NewToolResultError("Operation failed: " + err.Error()), nil
+            return mcp.NewToolResultError("Operation failed"), nil
         }
 
         // Success case
