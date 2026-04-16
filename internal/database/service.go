@@ -54,11 +54,11 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	}
 
 	if s.transportMode == config.TransportModeHTTP {
-		name, ok := mcpcontext.GetDatabaseName(ctx)
+		dbName, ok := mcpcontext.GetDatabaseName(ctx)
 		if !ok {
 			return nil, fmt.Errorf("database name is required in HTTP mode but was not found in context")
 		}
-		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(name))
+		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(dbName))
 	} else {
 		// STDIO mode: always use configured database
 		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(s.database))
