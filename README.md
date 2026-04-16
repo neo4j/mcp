@@ -1,4 +1,4 @@
-# Neo4j MCP
+# Neo4j MCP (v2 beta)
 
 Official Model Context Protocol (MCP) server for Neo4j.
 
