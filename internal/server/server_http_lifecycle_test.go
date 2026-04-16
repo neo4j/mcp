@@ -68,7 +68,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		HTTPHost:      "127.0.0.1",
 		HTTPPort:      strconv.Itoa(port),
 	}
-	uri := fmt.Sprintf("http://%s:%s/mcp", cfg.HTTPHost, cfg.HTTPPort)
+	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()

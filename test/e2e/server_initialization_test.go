@@ -51,27 +51,6 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Log("Server initialized successfully with expected name and capabilities")
 	})
 
-	t.Run("initialization without a database name", func(t *testing.T) {
-		t.Parallel()
-
-		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-		}
-
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
-
-		defer mcpClient.Close()
-
-		// Test should pass as the default database is neo4j
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, _ := mcpClient.Initialize(ctx, initRequest)
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
-
-	})
-
 	t.Run("initialization with read-only mode enabled", func(t *testing.T) {
 		t.Parallel()
 

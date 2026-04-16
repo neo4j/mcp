@@ -1,7 +1,7 @@
 // Copyright (c) "Neo4j"
 // Neo4j Sweden AB [http://neo4j.com]
 
-package auth
+package mcpcontext
 
 import "context"
 
@@ -11,7 +11,19 @@ const (
 	basicAuthUserKey contextKey = "basicAuthUser"
 	basicAuthPassKey contextKey = "basicAuthPass"
 	bearerTokenKey   contextKey = "bearerToken"
+	databaseNameKey  contextKey = "databaseName"
 )
+
+// WithDatabaseName adds the target database name to the context
+func WithDatabaseName(ctx context.Context, databaseName string) context.Context {
+	return context.WithValue(ctx, databaseNameKey, databaseName)
+}
+
+// GetDatabaseName retrieves the database name from the context
+func GetDatabaseName(ctx context.Context) (string, bool) {
+	dbName, ok := ctx.Value(databaseNameKey).(string)
+	return dbName, ok
+}
 
 // WithBasicAuth adds basic auth credentials to the context
 func WithBasicAuth(ctx context.Context, user, pass string) context.Context {

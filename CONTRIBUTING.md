@@ -42,6 +42,7 @@ The MCP server supports two transport modes: **STDIO** (default) and **HTTP**. R
 export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="password"
+export NEO4J_DATABASE="neo4j"
 ```
 
 ### HTTP Mode
@@ -58,7 +59,6 @@ export NEO4J_TRANSPORT_MODE="http"
 ### Optional Variables (Both Modes)
 
 ```bash
-export NEO4J_DATABASE="neo4j"          # Default: neo4j
 export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
 export NEO4J_TELEMETRY="true"          # Default: true
 export NEO4J_LOG_LEVEL="info"          # Default: info (debug, info, notice, warning, error, critical, alert, emergency)
@@ -246,6 +246,7 @@ curl -X POST http://localhost:80/mcp \
 For detailed instructions on generating certificates and testing TLS configurations, see the **[TLS Setup Guide](docs/TLS_SETUP.md)**.
 
 This guide includes:
+
 - Self-signed certificate generation for testing
 - Testing TLS with curl and openssl
 - TLS verification commands
@@ -258,7 +259,6 @@ MCP error handling follows a specific pattern that differs from standard Go erro
 ### When to use MCP tool result errors vs direct Go errors:
 
 - **Use MCP tool result errors** (`NewToolResultError`) for:
-
   - Business logic errors (invalid input, database constraints, etc.)
   - Operational errors that the client should handle gracefully
   - Any error that represents a meaningful response to the client

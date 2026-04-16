@@ -1,10 +1,7 @@
-name: Build and Test
+name: Neo4j MCP Server tests and linting
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
