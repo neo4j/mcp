@@ -4,11 +4,11 @@ Thank you for your interest in contributing to the Neo4j MCP server! This docume
 
 If you're an external contributor you must sign the [https://neo4j.com/developer/contributing-code/#sign-cla](https://neo4j.com/developer/contributing-code/#sign-cla)
 
-## Code of Conduct
+## Code of conduct
 
 Please read and follow these guidelines to ensure a welcoming environment for everyone.
 
-## Install Dependencies
+## Install dependencies
 
 ```bash
 # Install Go dependencies
@@ -20,7 +20,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
 
-## Build / Test / Run
+## Build, test and Run
 
 ```bash
 # Tests (coverage)
@@ -75,9 +75,9 @@ The Neo4j MCP capabilities can be tested using the `@modelcontextprotocol/inspec
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
 ```
 
-## Testing HTTP Mode
+## Testing HTTP mode
 
-### Unit Tests
+### Unit tests
 
 HTTP mode has comprehensive unit tests:
 
@@ -95,8 +95,18 @@ go test ./internal/database -v
 go test ./... -cover
 ```
 
+## TLS/HTTPS configuration
 
-## MCP Error Handling
+For detailed instructions on generating certificates and testing TLS configurations, see the **[TLS Setup Guide](docs/TLS_SETUP.md)**.
+
+This guide includes:
+- Self-signed certificate generation for testing
+- Testing TLS with curl and openssl
+- TLS verification commands
+- Production considerations (using Let's Encrypt certificates)
+
+
+## MCP error handling
 
 MCP error handling follows a specific pattern that differs from standard Go error handling. According to the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#error-handling), tool handlers should communicate errors through the tool result structure rather than returning Go errors directly.
 
@@ -146,7 +156,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
 
 **Note:** Always return `nil` as the second parameter when using `NewToolResultError`, as the error information is embedded within the `CallToolResult` structure.
 
-## Adding New MCP Tools
+## Adding new MCP tools
 
 1. **Define tool specifications** in `internal/tools/`:
 
@@ -190,7 +200,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
 
 4. **Write tests** with mocked dependencies
 
-### Database Interface Extensions
+### Database interface extensions
 
 When adding new database operations:
 
@@ -199,19 +209,19 @@ When adding new database operations:
 3. **Regenerate mocks**: `go generate ./...`
 4. **Update tests** to use new mock methods
 
-### Quick Fixes
+### Quick fixes
 
 - Mock generation fails → ensure `mockgen` on PATH.
 - Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
 - Dependency/build issues → `go mod tidy`.
 
-## Update MCPB Bundle (for Claude Desktop)
+## Update the MCPB bundle (for Claude Desktop)
 
 If your changes impact the end-user configuration (e.g., adding new environment variables or modifying tool definitions), you must update the `manifest.json` file. This ensures that integrations like Claude Desktop are aware of the new server configuration.
 
 For more information refer to the dedicated guide: [the MCPB build documentation](https://neo4j.com/docs/mcp/current/installation#mcpb).
 
-### Getting Help
+### Getting help
 
 - Check existing [GitHub Issues](https://github.com/neo4j/mcp/issues)
 - Ask questions in pull request discussions
