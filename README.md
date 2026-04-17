@@ -18,7 +18,7 @@ Neo4j MCP enables AI agents to:
 
 ## Quickstart with Homebrew
 
-On a Mac, do:
+To install using homebrew, do:
 
 
 ```bash
