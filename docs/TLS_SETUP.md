@@ -1,14 +1,19 @@
-# TLS/HTTPS Setup for Neo4j MCP Server
+# TLS/HTTPS setup for Neo4j MCP server
 
 This guide covers TLS/HTTPS configuration for the Neo4j MCP server, including certificate generation, testing, and production deployment.
 
-## Important Certificate Requirements
+**Note**: This guide is meant for contributors who are manually testing the server, not for users and deployments of the server.
 
-### Certificate Format
+
+## Important certificate requirements
+
+
+### Certificate format
 
 All certificates must be in **PEM format** (text-based format with `-----BEGIN CERTIFICATE-----` headers). The server does not support other formats like DER or PKCS12.
 
-### Certificate Authority
+
+### Certificate authority
 
 **Self-Signed Certificates**: Self-signed certificates do not work out of the box with many MCP clients (e.g., VSCode Copilot, Claude Desktop). These clients require certificates signed by a trusted Certificate Authority (CA).
 
@@ -26,15 +31,17 @@ Self-signed certificates are only suitable for:
 
 See the [Production Use](#production-use) section below for proper setup.
 
-**Note**: Automated tests generate certificates dynamically. For manual testing or production deployment, follow the steps below.
+**Note**: Automated tests generate certificates dynamically.
+For manual testing or production deployment, follow the steps below.
 
 **Security**: `.pem` files are in `.gitignore` and should never be committed.
 
-## Quick Start
+## Quickstart
 
-### 1. Generate Self-Signed Certificate (For Manual Testing)
+### Generate a self-signed certificate
 
-**Note**: The CN (Common Name) should match the hostname you'll use to connect. For localhost testing, use `CN=localhost`. For a specific domain, use `CN=your-domain.com`.
+**Note**: The CN (Common Name) should match the hostname you'll use to connect.
+For localhost testing, use `CN=localhost`. For a specific domain, use `CN=your-domain.com`.
 
 ```bash
 # For localhost testing
@@ -53,7 +60,7 @@ openssl req -x509 -newkey rsa:4096 \
   -addext "subjectAltName=DNS:your-domain.com,DNS:www.your-domain.com"
 ```
 
-### 2. Start the Server with TLS
+### Start the server with TLS
 
 ```bash
 # Default port 443 when TLS is enabled
@@ -89,13 +96,16 @@ export NEO4J_MCP_HTTP_TLS_KEY_FILE="key.pem"
 ./bin/neo4j-mcp
 ```
 
-### 3. Test the Server
+
+### Test the server
 
 Use the test commands below to verify TLS setup and MCP functionality.
 
-## Test Commands
 
-### Basic Tests
+## Test commands
+
+
+### Basic tests
 
 ```bash
 # Test root path (should return 404 - server only handles /mcp)
@@ -111,7 +121,7 @@ curl -k -v https://127.0.0.1:8443/ 2>&1 | grep -E "SSL|TLS"
 curl -u neo4j:password https://127.0.0.1:8443/
 ```
 
-### MCP Protocol Tests
+### MCP protocol tests
 
 ```bash
 # Initialize MCP session
@@ -153,7 +163,7 @@ curl -k -u neo4j:password \
   https://127.0.0.1:8443/mcp
 ```
 
-### TLS Verification
+### TLS verification
 
 ```bash
 # Check TLS certificate details
@@ -173,7 +183,8 @@ openssl s_client -connect 127.0.0.1:8443 </dev/null 2>/dev/null | grep "Cipher"
 - **Content-Type**: MCP requests need `Content-Type: application/json` header
 - **Port**: Default port is 443 when TLS is enabled, 80 when TLS is disabled (configurable via `--neo4j-http-port` or `NEO4J_MCP_HTTP_PORT`)
 
-## Production Use
+
+## Production use
 
 For production, use a proper certificate from a Certificate Authority (e.g., Let's Encrypt).
 
