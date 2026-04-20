@@ -13,18 +13,6 @@ This guide covers TLS/HTTPS configuration for contributors who are manually test
 
 **Self-Signed Certificates**: Self-signed certificates do not work out of the box with many MCP clients (e.g., VSCode Copilot, Claude Desktop). These clients require certificates signed by a trusted Certificate Authority (CA).
 
-**For Production**: Use certificates from a trusted CA like:
-
-- Let's Encrypt (free, automated)
-- Your organization's internal CA
-- Commercial certificate providers
-
-Self-signed certificates are only suitable for:
-
-- Local development on `localhost`
-- Testing environments with relaxed security checks
-- Development scenarios where you control the client configuration
-
 See the [Production Use](#production-use) section below for proper setup.
 
 **Note**: Automated tests generate certificates dynamically.
@@ -74,21 +62,6 @@ openssl req -x509 -newkey rsa:4096 \
   --neo4j-http-tls-enabled true \
   --neo4j-http-tls-cert-file cert.pem \
   --neo4j-http-tls-key-file key.pem
-```
-
-Or using environment variables:
-
-```bash
-export NEO4J_URI="bolt://localhost:7687"
-# Note: In HTTP mode, NEO4J_USERNAME and NEO4J_PASSWORD are not used
-# Credentials come from per-request Basic Auth headers
-export NEO4J_TRANSPORT_MODE="http"
-export NEO4J_MCP_HTTP_TLS_ENABLED="true"
-export NEO4J_MCP_HTTP_TLS_CERT_FILE="cert.pem"
-export NEO4J_MCP_HTTP_TLS_KEY_FILE="key.pem"
-# NEO4J_MCP_HTTP_PORT defaults to 443 when TLS is enabled
-
-./bin/neo4j-mcp
 ```
 
 
