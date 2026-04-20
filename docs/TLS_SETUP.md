@@ -1,16 +1,12 @@
 # TLS/HTTPS setup for Neo4j MCP server
 
-This guide covers TLS/HTTPS configuration for the Neo4j MCP server, including certificate generation, testing, and production deployment.
+This guide covers TLS/HTTPS configuration for contributors who are manually testing the Neo4j MCP server during development. It uses self-signed certificates which are not suitable for production deployments.
 
-**Note**: This guide is meant for contributors who are manually testing the server, not for users and deployments of the server.
 
 
 ## Important certificate requirements
 
 
-### Certificate format
-
-All certificates must be in **PEM format** (text-based format with `-----BEGIN CERTIFICATE-----` headers). The server does not support other formats like DER or PKCS12.
 
 
 ### Certificate authority
@@ -32,7 +28,6 @@ Self-signed certificates are only suitable for:
 See the [Production Use](#production-use) section below for proper setup.
 
 **Note**: Automated tests generate certificates dynamically.
-For manual testing or production deployment, follow the steps below.
 
 **Security**: `.pem` files are in `.gitignore` and should never be committed.
 
