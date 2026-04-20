@@ -10,13 +10,53 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/neo4j/mcp/internal/auth"
+	"github.com/mark3labs/mcp-go/server"
+	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
+	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
+
+// mockNeo4jMCPServer creates a Neo4jMCPServer with mock dependencies for use in tests.
+func mockNeo4jMCPServer(t *testing.T) *Neo4jMCPServer {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+
+	cfg := &config.Config{
+		URI:           "bolt://localhost:7687",
+		TransportMode: config.TransportModeHTTP,
+		Telemetry:     false,
+	}
+
+	mockDBService := db_mocks.NewMockService(ctrl)
+	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
+
+	mcpServer := server.NewMCPServer("test-server", "1.0.0")
+
+	return &Neo4jMCPServer{
+		MCPServer:    mcpServer,
+		config:       cfg,
+		dbService:    mockDBService,
+		anService:    mockAnalyticsService,
+		version:      "1.0.0",
+		gdsInstalled: false,
+	}
+}
+
+// mockHandler is a simple HTTP handler that always returns 200 OK.
+func mockHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+}
 
 // authCheckHandler verifies if credentials are in context
 func authCheckHandler(t *testing.T, expectAuth bool, expectedUser, expectedPass string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := auth.GetBasicAuthCredentials(r.Context())
+		user, pass, ok := mcpcontext.GetBasicAuthCredentials(r.Context())
 		if expectAuth {
 			if !ok {
 				t.Error("Expected auth credentials in context, but none found")
@@ -37,7 +77,7 @@ func authCheckHandler(t *testing.T, expectAuth bool, expectedUser, expectedPass 
 // bearerTokenCheckHandler verifies if bearer token is in context
 func bearerTokenCheckHandler(t *testing.T, expectToken bool, expectedToken string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := auth.GetBearerToken(r.Context())
+		token, ok := mcpcontext.GetBearerToken(r.Context())
 		if expectToken {
 			if !ok {
 				t.Error("Expected bearer token in context, but none found")
@@ -187,7 +227,7 @@ func TestAuthMiddleware_WithCustomHeaderName(t *testing.T) {
 
 	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "custom-token-789"))
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	req.Header.Set("X-Test-Auth", "Bearer custom-token-789")
 	rec := httptest.NewRecorder()
 
@@ -205,7 +245,7 @@ func TestAuthMiddleware_CustomHeaderName_OverridesAuthHeader(t *testing.T) {
 
 	handler := mock.chainMiddleware([]string{}, bearerTokenCheckHandler(t, true, "new-token-123"))
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	// Existing Authorization header with an old token
 	req.Header.Set("Authorization", "Bearer old-token-999")
 	// Custom header with the token that should take precedence
@@ -407,7 +447,7 @@ func TestAddMiddleware_FullChain(t *testing.T) {
 	mockServer := mockNeo4jMCPServer(t)
 	handler := mockServer.chainMiddleware(allowedOrigins, authCheckHandler(t, true, "user", "pass"))
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	req.SetBasicAuth("user", "pass")
 	rec := httptest.NewRecorder()
@@ -429,7 +469,7 @@ func TestAddMiddleware_FullChain_NoAuth(t *testing.T) {
 	mockServer := mockNeo4jMCPServer(t)
 	handler := mockServer.chainMiddleware(allowedOrigins, mockHandler())
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", nil)
 	req.Header.Set("Origin", "http://example.com")
 	// No auth credentials
 	rec := httptest.NewRecorder()
@@ -457,14 +497,14 @@ func TestPathValidationMiddleware_DisallowedMethodReturns405InFullChain(t *testi
 			mockServer := mockNeo4jMCPServer(t)
 			handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
-			req := httptest.NewRequest(method, "/mcp", nil)
+			req := httptest.NewRequest(method, "/db/testdb/mcp", nil)
 			req.SetBasicAuth("user", "pass")
 			rec := httptest.NewRecorder()
 
 			handler.ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusMethodNotAllowed {
-				t.Errorf("Expected status 405 for %s /mcp, got %d", method, rec.Code)
+				t.Errorf("Expected status 405 for %s /db/testdb/mcp, got %d", method, rec.Code)
 			}
 		})
 	}
@@ -522,19 +562,21 @@ func TestParseAllowedOrigins_WithSpaces(t *testing.T) {
 }
 
 func TestPathValidationMiddleware_ValidPath(t *testing.T) {
-	handler := pathValidationMiddleware()(mockHandler())
+	validPaths := []string{"/db/mydb/mcp", "/db/mydb/mcp/"}
 
-	req := httptest.NewRequest("POST", "/mcp", nil)
-	rec := httptest.NewRecorder()
+	for _, path := range validPaths {
+		t.Run(path, func(t *testing.T) {
+			handler := pathValidationMiddleware()(mockHandler())
 
-	handler.ServeHTTP(rec, req)
+			req := httptest.NewRequest("POST", path, nil)
+			rec := httptest.NewRecorder()
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for /mcp path, got %d", rec.Code)
-	}
+			handler.ServeHTTP(rec, req)
 
-	if rec.Body.String() != "OK" {
-		t.Errorf("Expected body 'OK', got %q", rec.Body.String())
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected status 200 for %s path, got %d", path, rec.Code)
+			}
+		})
 	}
 }
 
@@ -545,8 +587,10 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 	}{
 		{"root path", "/"},
 		{"other path", "/api"},
-		{"nested path", "/mcp/test"},
+		{"mcp without db prefix", "/mcp"},
+		{"mcp with trailing slash", "/mcp/"},
 		{"similar path", "/mcpserver"},
+		{"extra segments after db mcp", "/db/mydb/mcp/extra"},
 	}
 
 	for _, tc := range testCases {
@@ -562,7 +606,7 @@ func TestPathValidationMiddleware_InvalidPaths(t *testing.T) {
 				t.Errorf("Expected status 404 for path %s, got %d", tc.path, rec.Code)
 			}
 
-			expectedBody := "Not Found: This server only handles requests to /mcp\n"
+			expectedBody := "Not Found: This server only handles requests to /db/{databaseName}/mcp\n"
 			if rec.Body.String() != expectedBody {
 				t.Errorf("Expected body %q, got %q", expectedBody, rec.Body.String())
 			}
@@ -593,13 +637,13 @@ func TestPathValidationMiddleware_InFullChain(t *testing.T) {
 func TestPathValidationMiddleware_TrailingSlashAllowed(t *testing.T) {
 	handler := pathValidationMiddleware()(mockHandler())
 
-	req := httptest.NewRequest("POST", "/mcp/", nil)
+	req := httptest.NewRequest("POST", "/db/testdb/mcp/", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for /mcp/ path, got %d", rec.Code)
+		t.Errorf("Expected status 200 for /db/testdb/mcp/ path, got %d", rec.Code)
 	}
 }
 
@@ -611,7 +655,7 @@ func TestAuthMiddleware_AllowsUnauthenticatedPing(t *testing.T) {
 
 	// Create a POST request to /mcp with JSON-RPC ping body and no auth header
 	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -627,7 +671,7 @@ func TestAuthMiddleware_BlocksUnauthenticatedPingWhenDisabled(t *testing.T) {
 	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
 	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -665,7 +709,7 @@ func TestAuthMiddleware_AllowsUnauthenticatedToolsList(t *testing.T) {
 	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
 	body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -681,7 +725,7 @@ func TestAuthMiddleware_BlocksUnauthenticatedToolsListWhenDisabled(t *testing.T)
 	handler := mockServer.chainMiddleware([]string{}, mockHandler())
 
 	body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -705,7 +749,7 @@ func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
 	pad := strings.Repeat("x", maxUnauthenticatedBodyBytes+10)
 	body := `{"jsonrpc":"2.0","method":"ping","params":null,"id":4,"pad":"` + pad + `"}`
 
-	req := httptest.NewRequest("POST", "/mcp", bytes.NewBufferString(body))
+	req := httptest.NewRequest("POST", "/db/testdb/mcp", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	// Force the middleware to read from the body instead of using ContentLength
 	req.ContentLength = -1
@@ -716,5 +760,67 @@ func TestAuthMiddleware_RejectsTooLargeUnauthenticatedPing(t *testing.T) {
 
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("Expected status 413 Payload Too Large for oversized unauthenticated ping, got %d", rec.Code)
+	}
+}
+
+func TestDBNameMiddleware(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		wantCode int
+		wantDB   string // expected database name in context; empty means not set
+	}{
+		{
+			name:     "valid path with database name",
+			path:     "/db/mydb/mcp",
+			wantCode: http.StatusOK,
+			wantDB:   "mydb",
+		},
+		{
+			name:     "valid path with dash in database name",
+			path:     "/db/my-db/mcp",
+			wantCode: http.StatusOK,
+			wantDB:   "my-db",
+		},
+		{
+			name:     "valid path with trailing slash",
+			path:     "/db/mydb/mcp/",
+			wantCode: http.StatusOK,
+			wantDB:   "mydb",
+		},
+		{
+			name:     "invalid database name in path should return 400",
+			path:     "/db/invalid$db/mcp",
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "too short database name",
+			path:     "/db/ab/mcp",
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "reserved system prefix",
+			path:     "/db/system123/mcp",
+			wantCode: http.StatusBadRequest,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotDB string
+			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotDB, _ = mcpcontext.GetDatabaseName(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+			handler := dbNameMiddleware()(inner)
+
+			body := `{"jsonrpc":"2.0","method":"tools/list","params":null,"id":1}`
+			req := httptest.NewRequest("POST", tt.path, bytes.NewBufferString(body))
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			assert.Equal(t, tt.wantDB, gotDB)
+		})
 	}
 }
