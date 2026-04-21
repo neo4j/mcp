@@ -83,7 +83,6 @@ func NewTestContext(t *testing.T, driver *neo4j.Driver) *TestContext {
 // getAnalyticsMock is used to mock the analytics service, for integration test purpose.
 func getAnalyticsMock(t *testing.T) *analytics.MockService {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
