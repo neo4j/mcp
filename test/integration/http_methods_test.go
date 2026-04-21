@@ -16,7 +16,8 @@ import (
 	"testing"
 	"time"
 
-	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/analytics"
+	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
@@ -26,7 +27,7 @@ import (
 )
 
 // startHTTPServer starts a real HTTP MCP server on a random port and returns the server and its base URL.
-func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
+func startHTTPServer(t *testing.T, analyticsService analytics.Service) (*server.Neo4jMCPServer, string) {
 	t.Helper()
 
 	testCFG := dbs.GetDriverConf()
@@ -52,18 +53,10 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 		t.Fatalf("invalid config: %v", validateErr)
 	}
 
-	ctrl := gomock.NewController(t)
-
 	dbService, err := database.NewNeo4jService(*driver, cfg.Database, config.TransportModeHTTP, "test-version")
 	if err != nil {
 		t.Fatalf("failed to create database service: %v", err)
 	}
-
-	analyticsService := analytics.NewMockService(ctrl)
-	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
-	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
 	s := server.NewNeo4jMCPServer("test-version", cfg, dbService, analyticsService)
 	if s == nil {
@@ -110,7 +103,14 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 func TestHTTPMethodRestrictions(t *testing.T) {
 	t.Parallel()
 
-	_, baseURL := startHTTPServer(t)
+	ctrl := gomock.NewController(t)
+	mockAnalytics := mockAnalytics.NewMockService(ctrl)
+	mockAnalytics.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().IsEnabled().AnyTimes().Return(true)
+	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+
+	_, baseURL := startHTTPServer(t, mockAnalytics)
 	testCFG := dbs.GetDriverConf()
 
 	const dbPath = "/db/neo4j/mcp"

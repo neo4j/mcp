@@ -7,21 +7,31 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 
+	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
-// TestHTTPDatabaseNameValidation covers the db-name validation layer
+// TestHTTPDatabaseNameValidation covers the database name validation layer
 func TestHTTPDatabaseNameValidation(t *testing.T) {
 	t.Parallel()
 
-	_, baseURL := startHTTPServer(t)
+	ctrl := gomock.NewController(t)
+	mockAnalytics := mockAnalytics.NewMockService(ctrl)
+	mockAnalytics.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().IsEnabled().AnyTimes().Return(true)
+	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+
+	_, baseURL := startHTTPServer(t, mockAnalytics)
 
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 	const invalidNameMsg = "Bad Request: Invalid database name"
@@ -152,38 +162,43 @@ func TestHTTPDatabaseNameValidation(t *testing.T) {
 	}
 }
 
-// // TestHTTPDatabaseNameInToolExecution validates the full request chain:
-// // URL parse → context → buildQueryOptions → Neo4j query.
-// // This requires a live database connection.
-// func TestHTTPDatabaseNameInToolExecution(t *testing.T) {
-// 	t.Parallel()
+// TestHTTPDatabaseNameInToolExecution validates the full request chain
+func TestHTTPDatabaseNameInToolExecution(t *testing.T) {
+	t.Parallel()
 
-// 	_, baseURL := startHTTPServer(t)
-// 	testCFG := dbs.GetDriverConf()
+	ctrl := gomock.NewController(t)
+	mockAnalytics := mockAnalytics.NewMockService(ctrl)
+	mockAnalytics.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().IsEnabled().AnyTimes().Return(true)
+	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().NewToolEvent("read-cypher", true)
 
-// 	const toolCallBody = `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"run-cypher","arguments":{"query":"RETURN 1 AS n","write":false}},"id":1}`
+	_, baseURL := startHTTPServer(t, mockAnalytics)
 
-// 	req, err := http.NewRequestWithContext(
-// 		context.Background(),
-// 		http.MethodPost,
-// 		baseURL+"/db/neo4j/mcp",
-// 		strings.NewReader(toolCallBody),
-// 	)
-// 	require.NoError(t, err)
-// 	req.SetBasicAuth(testCFG.Username, testCFG.Password)
-// 	req.Header.Set("Content-Type", "application/json")
+	const toolCallBody = `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"read-cypher","arguments":{"query":"RETURN 1 AS n","write":false}},"id":1}`
 
-// 	resp, err := http.DefaultClient.Do(req)
-// 	require.NoError(t, err)
-// 	defer resp.Body.Close()
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		baseURL+"/db/neo4j/mcp",
+		strings.NewReader(toolCallBody),
+	)
+	require.NoError(t, err)
+	req.SetBasicAuth("neo4j", "password")
+	req.Header.Set("Content-Type", "application/json")
 
-// 	require.Equal(t, http.StatusOK, resp.StatusCode)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
 
-// 	bodyBytes, err := io.ReadAll(resp.Body)
-// 	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-// 	var rpcResp map[string]any
-// 	require.NoError(t, json.Unmarshal(bodyBytes, &rpcResp), "response must be valid JSON: %s", string(bodyBytes))
-// 	assert.Contains(t, rpcResp, "result", "expected result field, not error: %s", string(bodyBytes))
-// 	assert.NotContains(t, rpcResp, "error", "expected no error field: %s", string(bodyBytes))
-// }
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var rpcResp map[string]any
+	require.NoError(t, json.Unmarshal(bodyBytes, &rpcResp), "response must be valid JSON: %s", string(bodyBytes))
+	assert.Contains(t, rpcResp, "result", "expected result field, not error: %s", string(bodyBytes))
+	assert.NotContains(t, rpcResp, "error", "expected no error field: %s", string(bodyBytes))
+}
