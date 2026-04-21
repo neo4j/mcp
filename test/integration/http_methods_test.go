@@ -7,98 +7,17 @@ package integration
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/neo4j/mcp/internal/analytics"
 	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
-	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/mcp/test/integration/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
-
-// startHTTPServer starts a real HTTP MCP server on a random port and returns the server and its base URL.
-func startHTTPServer(t *testing.T, analyticsService analytics.Service) (*server.Neo4jMCPServer, string) {
-	t.Helper()
-
-	testCFG := dbs.GetDriverConf()
-	driver := dbs.GetDriver()
-
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-
-	cfg := &config.Config{
-		URI:                testCFG.URI,
-		TransportMode:      config.TransportModeHTTP,
-		HTTPHost:           "127.0.0.1",
-		HTTPPort:           strconv.Itoa(port),
-		HTTPAllowedOrigins: "*",
-	}
-
-	validateErr := cfg.Validate()
-	if validateErr != nil {
-		t.Fatalf("invalid config: %v", validateErr)
-	}
-
-	dbService, err := database.NewNeo4jService(*driver, cfg.Database, config.TransportModeHTTP, "test-version")
-	if err != nil {
-		t.Fatalf("failed to create database service: %v", err)
-	}
-
-	s := server.NewNeo4jMCPServer("test-version", cfg, dbService, analyticsService)
-	if s == nil {
-		t.Fatal("NewNeo4jMCPServer() returned nil")
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		if err := s.Start(); err != nil {
-			errChan <- err
-		}
-	}()
-
-	// Wait for the server to signal readiness, the start goroutine to fail, or a
-	// timeout. HTTPServerReady is closed just before ListenAndServe() is called, so
-	// give the OS a moment to actually bind after the select unblocks.
-	select {
-	case <-s.HTTPServerReady:
-		time.Sleep(100 * time.Millisecond)
-	case startErr := <-errChan:
-		t.Fatalf("server failed to start: %v", startErr)
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for HTTP server to be ready")
-	}
-
-	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
-
-	t.Cleanup(func() {
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := s.Stop(stopCtx); err != nil {
-			t.Errorf("Stop() returned unexpected error: %v", err)
-		}
-		select {
-		case startErr := <-errChan:
-			t.Errorf("Start() returned unexpected error: %v", startErr)
-		default:
-		}
-	})
-
-	return s, baseURL
-}
 
 func TestHTTPMethodRestrictions(t *testing.T) {
 	t.Parallel()
@@ -110,8 +29,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 	mockAnalytics.EXPECT().IsEnabled().AnyTimes().Return(true)
 	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
-	_, baseURL := startHTTPServer(t, mockAnalytics)
-	testCFG := dbs.GetDriverConf()
+	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
 
 	const dbPath = "/db/neo4j/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
@@ -130,7 +48,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			name:   "POST with valid credentials is accepted",
 			method: http.MethodPost,
 			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.SetBasicAuth("neo4j", "password")
 				req.Header.Set("Content-Type", "application/json")
 			},
 			wantStatus: http.StatusOK,

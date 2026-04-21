@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/test/integration/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -31,7 +32,7 @@ func TestHTTPDatabaseNameValidation(t *testing.T) {
 	mockAnalytics.EXPECT().IsEnabled().AnyTimes().Return(true)
 	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
-	_, baseURL := startHTTPServer(t, mockAnalytics)
+	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
 
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 	const invalidNameMsg = "Bad Request: Invalid database name"
@@ -174,7 +175,7 @@ func TestHTTPDatabaseNameInToolExecution(t *testing.T) {
 	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 	mockAnalytics.EXPECT().NewToolEvent("read-cypher", true)
 
-	_, baseURL := startHTTPServer(t, mockAnalytics)
+	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
 
 	const toolCallBody = `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"read-cypher","arguments":{"query":"RETURN 1 AS n","write":false}},"id":1}`
 

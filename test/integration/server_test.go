@@ -15,11 +15,13 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 func TestServerLifecycle(t *testing.T) {
 	t.Parallel()
+	dbs := testdb.GetInstance()
 	testCFG := dbs.GetDriverConf()
 	testCases := []struct {
 		name        string

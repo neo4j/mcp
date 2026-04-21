@@ -11,10 +11,12 @@ import (
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 )
 
 func TestReadCypher(t *testing.T) {
 	t.Parallel()
+	dbs := testdb.GetInstance()
 	t.Run("read-cypher should able to read from a neo4j instance", func(t *testing.T) {
 		tc := helpers.NewTestContext(t, dbs.GetDriver())
 
