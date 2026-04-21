@@ -16,6 +16,7 @@ import (
 	"github.com/neo4j/mcp/test/integration/helpers"
 	"github.com/neo4j/mcp/test/testdb"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServerLifecycle(t *testing.T) {
@@ -64,55 +65,37 @@ func TestServerLifecycle(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			driver, err := neo4j.NewDriver(tc.config.URI, neo4j.BasicAuth(tc.config.Username, tc.config.Password, ""))
-			if err != nil {
-				t.Fatalf("failed to create Neo4j driver: %s", err.Error())
-			}
+			require.NoError(t, err, "failed to create Neo4j driver")
+
 			testContext := helpers.NewTestContext(t, &driver)
 
 			ctx := context.Background()
 			defer func() {
-				if err := driver.Close(ctx); err != nil {
-					t.Fatalf("error closing driver: %s", err.Error())
-				}
+				require.NoError(t, driver.Close(ctx), "error closing driver")
 			}()
 
 			dbService, err := database.NewNeo4jService(driver, tc.config.Database, tc.config.TransportMode, "test-version")
-			if err != nil {
-				t.Fatalf("failed to create database service: %v", err)
-				return
-			}
+			require.NoError(t, err, "failed to create database service")
 
 			s := server.NewNeo4jMCPServer("test-version", tc.config, dbService, testContext.AnalyticsService)
+			require.NotNil(t, s, "NewNeo4jMCPServer() returned nil")
 
-			if s == nil {
-				t.Fatal("the NewNeo4jMCPServer() returned nil")
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
-			defer cancel()
-
-			var startErr error
+			errChan := make(chan error, 1)
 			go func() {
-				startErr = s.Start()
+				errChan <- s.Start()
 			}()
 
-			for {
-				select {
-				case <-ctx.Done():
-					if tc.expectError {
-						if startErr == nil {
-							t.Fatal("expected an error but got nil")
-						}
-					} else {
-						if startErr != nil {
-							t.Fatalf("Start returned an unexpected error: %s", startErr.Error())
-						}
-					}
-					return
-				default:
-					time.Sleep(50 * time.Millisecond)
+			select {
+			case startErr := <-errChan:
+				if tc.expectError {
+					require.Error(t, startErr)
+				} else {
+					require.NoError(t, startErr, "Start returned an unexpected error")
+				}
+			case <-time.After(7 * time.Second): // 7 because we have a hardcoded(!) 5 second timeout in the server's Start() for the initial connection, we want to wait a bit longer than that to be sure
+				if tc.expectError {
+					t.Fatal("expected Start() to return an error but it did not within 7s")
 				}
 			}
 		})
@@ -120,21 +103,16 @@ func TestServerLifecycle(t *testing.T) {
 
 	t.Run("server stop should return no errors", func(t *testing.T) {
 		driver, err := neo4j.NewDriverWithContext(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
-		if err != nil {
-			t.Fatalf("failed to create Neo4j driver: %s", err.Error())
-		}
+		require.NoError(t, err, "failed to create Neo4j driver")
+
 		testContext := helpers.NewTestContext(t, &driver)
 		ctx := context.Background()
 		defer func() {
-			if err := driver.Close(ctx); err != nil {
-				t.Fatalf("error closing driver: %s", err.Error())
-			}
+			require.NoError(t, driver.Close(ctx), "error closing driver")
 		}()
 
 		dbService, err := database.NewNeo4jService(driver, testCFG.Database, testCFG.TransportMode, "test-version")
-		if err != nil {
-			t.Fatalf("failed to create database service: %v", err)
-		}
+		require.NoError(t, err, "failed to create database service")
 
 		testCFGWithTransport := &config.Config{
 			URI:           testCFG.URI,
@@ -144,25 +122,25 @@ func TestServerLifecycle(t *testing.T) {
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", testCFGWithTransport, dbService, testContext.AnalyticsService)
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() returned nil")
-		}
+		require.NotNil(t, s, "NewNeo4jMCPServer() returned nil")
 
-		var startErr error
+		errChan := make(chan error, 1)
 		go func() {
-			startErr = s.Start()
+			errChan <- s.Start()
 		}()
 
-		// Give the server a moment to start
-		time.Sleep(4 * time.Second)
-
-		if startErr != nil {
-			t.Fatalf("Start() returned an unexpected error after stop: %v", startErr)
+		// verify the server hasn't returned an error before we stop it
+		select {
+		case startErr := <-errChan:
+			if startErr != nil {
+				t.Fatalf("Start() returned unexpectedly before Stop() was called: %v", startErr)
+			}
+		case <-time.After(200 * time.Millisecond):
+			// server still running, this is expected in a real stdin environment
 		}
+
 		stopCtx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 		defer cancel()
-		if err := s.Stop(stopCtx); err != nil {
-			t.Fatalf("Stop() returned an unexpected error: %v", err)
-		}
+		require.NoError(t, s.Stop(stopCtx))
 	})
 }
