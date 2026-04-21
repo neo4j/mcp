@@ -41,11 +41,15 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 
 	cfg := &config.Config{
 		URI:                testCFG.URI,
-		Database:           testCFG.Database,
 		TransportMode:      config.TransportModeHTTP,
 		HTTPHost:           "127.0.0.1",
 		HTTPPort:           strconv.Itoa(port),
 		HTTPAllowedOrigins: "*",
+	}
+
+	validateErr := cfg.Validate()
+	if validateErr != nil {
+		t.Fatalf("invalid config: %v", validateErr)
 	}
 
 	ctrl := gomock.NewController(t)
