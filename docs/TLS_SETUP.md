@@ -3,10 +3,7 @@
 This guide covers TLS/HTTPS configuration for contributors who are manually testing the Neo4j MCP server during development. It uses self-signed certificates which are not suitable for production deployments.
 
 
-
 ## Important certificate requirements
-
-
 
 
 ### Certificate authority
@@ -18,6 +15,7 @@ See the [Production Use](#production-use) section below for proper setup.
 **Note**: Automated tests generate certificates dynamically.
 
 **Security**: `.pem` files are in `.gitignore` and should never be committed.
+
 
 ## Quickstart
 
@@ -42,6 +40,7 @@ openssl req -x509 -newkey rsa:4096 \
   -subj "/CN=your-domain.com" \
   -addext "subjectAltName=DNS:your-domain.com,DNS:www.your-domain.com"
 ```
+
 
 ### Start the server with TLS
 
@@ -89,6 +88,7 @@ curl -k -v https://127.0.0.1:8443/ 2>&1 | grep -E "SSL|TLS"
 curl -u neo4j:password https://127.0.0.1:8443/
 ```
 
+
 ### MCP protocol tests
 
 ```bash
@@ -130,6 +130,7 @@ curl -k -u neo4j:password \
   }' \
   https://127.0.0.1:8443/mcp
 ```
+
 
 ### TLS verification
 
