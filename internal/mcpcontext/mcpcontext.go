@@ -22,7 +22,7 @@ func WithDatabaseName(ctx context.Context, databaseName string) context.Context 
 // GetDatabaseName retrieves the database name from the context
 func GetDatabaseName(ctx context.Context) (string, bool) {
 	dbName, ok := ctx.Value(databaseNameKey).(string)
-	return dbName, ok
+	return dbName, ok && dbName != ""
 }
 
 // WithBasicAuth adds basic auth credentials to the context

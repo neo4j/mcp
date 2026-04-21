@@ -53,6 +53,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 	if s.transportMode == config.TransportModeHTTP {
 		if dbName, ok := mcpcontext.GetDatabaseName(ctx); ok {
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(dbName))
+			// No database fallback needed for HTTP mode since database is required in this mode and will be validated at the service layer before query execution.
 		}
 
 		authToken := s.getHTTPAuthToken(ctx)
