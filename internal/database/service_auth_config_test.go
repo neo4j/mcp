@@ -17,11 +17,11 @@ import (
 // applyOptions is a test helper that applies query options to a configuration
 // and returns the resulting configuration for inspection.
 func applyOptions(options []neo4j.ExecuteQueryConfigurationOption) *neo4j.ExecuteQueryConfiguration {
-	config := &neo4j.ExecuteQueryConfiguration{}
+	cfg := &neo4j.ExecuteQueryConfiguration{}
 	for _, opt := range options {
-		opt(config)
+		opt(cfg)
 	}
-	return config
+	return cfg
 }
 
 // TestBuildQueryOptions covers all combinations of transport mode, auth type,
