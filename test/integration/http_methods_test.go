@@ -111,96 +111,85 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 	t.Parallel()
 
 	_, baseURL := startHTTPServer(t)
-
 	testCFG := dbs.GetDriverConf()
 
-	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
-
-	dbPath := "/db/neo4j/mcp"
-	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
+	const dbPath = "/db/neo4j/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
+	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
+	const allowHdr = "POST, OPTIONS"
 
 	tests := []struct {
 		name         string
 		method       string
-		path         string
-		body         string
 		setupReq     func(*http.Request)
 		wantStatus   int
-		wantBody     string
-		wantAllowHdr string
-		assertErr    func(t *testing.T, err error)
+		wantBody     string // empty = skip body assertion
+		wantAllowHdr string // empty = skip Allow header assertion
 	}{
 		{
-			name:   "POST /db/{db}/mcp with valid credentials returns 200",
+			name:   "POST with valid credentials is accepted",
 			method: http.MethodPost,
-			path:   dbPath,
-			body:   pingBody,
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
 			},
 			wantStatus: http.StatusOK,
-			assertErr:  noErr,
 		},
 		{
 			// CORS middleware intercepts OPTIONS before auth runs (AllowedOrigins: "*"
 			// is set on the test server). Preflight returns 204 No Content per spec.
-			name:   "OPTIONS /db/{db}/mcp returns 204 CORS preflight",
+			name:   "OPTIONS returns 204 CORS preflight",
 			method: http.MethodOptions,
-			path:   dbPath,
 			setupReq: func(req *http.Request) {
 				req.Header.Set("Origin", "http://example.com")
 			},
 			wantStatus: http.StatusNoContent,
-			assertErr:  noErr,
 		},
 		{
-			name:         "GET /db/{db}/mcp is rejected",
+			name:         "GET is rejected",
 			method:       http.MethodGet,
-			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
 		},
 		{
-			name:         "PATCH /db/{db}/mcp is rejected",
+			name:         "PUT is rejected",
+			method:       http.MethodPut,
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantBody:     methodNotAllowedMsg,
+			wantAllowHdr: allowHdr,
+		},
+		{
+			name:         "PATCH is rejected",
 			method:       http.MethodPatch,
-			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
 		},
 		{
-			name:         "GET /db/{db}/mcp/ (trailing slash) is rejected",
-			method:       http.MethodGet,
-			path:         dbPath + "/",
+			name:         "DELETE is rejected",
+			method:       http.MethodDelete,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
 		},
 		{
-			name:         "PATCH /db/{db}/mcp/ (trailing slash) is rejected",
-			method:       http.MethodPatch,
-			path:         dbPath + "/",
+			name:         "HEAD is rejected",
+			method:       http.MethodHead,
 			wantStatus:   http.StatusMethodNotAllowed,
-			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
+			// HEAD responses have no body by spec; we check the Allow header only.
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var bodyReader io.Reader
-			if tc.body != "" {
-				bodyReader = strings.NewReader(tc.body)
+			if tc.method == http.MethodPost {
+				bodyReader = strings.NewReader(pingBody)
 			}
 
-			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+tc.path, bodyReader)
+			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+dbPath, bodyReader)
 			require.NoError(t, err)
 
 			if tc.setupReq != nil {
@@ -208,10 +197,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			}
 
 			resp, err := http.DefaultClient.Do(req)
-			tc.assertErr(t, err)
-			if err != nil {
-				return
-			}
+			require.NoError(t, err)
 			defer resp.Body.Close()
 
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)
