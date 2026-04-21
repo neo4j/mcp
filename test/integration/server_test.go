@@ -7,7 +7,6 @@ package integration
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -94,12 +93,8 @@ func TestServerLifecycle(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 			defer cancel()
 
-			var wg sync.WaitGroup
-			wg.Add(1)
-
 			var startErr error
 			go func() {
-				defer wg.Done()
 				startErr = s.Start()
 			}()
 
@@ -153,12 +148,8 @@ func TestServerLifecycle(t *testing.T) {
 			t.Fatal("NewNeo4jMCPServer() returned nil")
 		}
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-
 		var startErr error
 		go func() {
-			defer wg.Done()
 			startErr = s.Start()
 		}()
 
