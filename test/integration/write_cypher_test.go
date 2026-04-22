@@ -10,10 +10,12 @@ import (
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 )
 
 func TestWriteCypher(t *testing.T) {
 	t.Parallel()
+	dbs := testdb.GetInstance()
 	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	personLabel := tc.GetUniqueLabel("Person")

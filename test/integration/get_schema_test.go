@@ -11,6 +11,7 @@ import (
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 )
 
 type SchemaItem struct {
@@ -32,6 +33,7 @@ type Relationship struct {
 
 func TestGetSchema(t *testing.T) {
 	t.Parallel()
+	dbs := testdb.GetInstance()
 	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	// Use TestID as identifier to create unique labels

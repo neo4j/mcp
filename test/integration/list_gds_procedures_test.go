@@ -11,11 +11,12 @@ import (
 
 	"github.com/neo4j/mcp/internal/tools/gds"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 )
 
 func TestListGdsProcedures(t *testing.T) {
 	t.Parallel()
-
+	dbs := testdb.GetInstance()
 	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)

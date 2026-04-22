@@ -10,16 +10,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
-	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/analytics"
+	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/internal/tools"
+	"github.com/neo4j/mcp/test/testdb"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"go.uber.org/mock/gomock"
 )
@@ -40,7 +45,7 @@ type TestContext struct {
 	Service          database.Service
 	Deps             *tools.ToolDependencies
 	createdLabels    map[string]bool
-	AnalyticsService *analytics.MockService
+	AnalyticsService *mockAnalytics.MockService
 }
 
 // NewTestContext creates a new test context with automatic cleanup
@@ -81,10 +86,9 @@ func NewTestContext(t *testing.T, driver *neo4j.Driver) *TestContext {
 }
 
 // getAnalyticsMock is used to mock the analytics service, for integration test purpose.
-func getAnalyticsMock(t *testing.T) *analytics.MockService {
+func getAnalyticsMock(t *testing.T) *mockAnalytics.MockService {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService := mockAnalytics.NewMockService(ctrl)
 	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().Disable().AnyTimes()
@@ -322,4 +326,79 @@ func (tc *TestContext) AssertNodeHasLabel(node map[string]any, expectedLabel Uni
 func makeTestID() string {
 	id := fmt.Sprintf("test-%s", uuid.NewString())
 	return strings.ReplaceAll(id, "-", "_")
+}
+
+// StartHTTPServer starts a real HTTP MCP server on a random port and returns the server and its base URL.
+func StartHTTPServer(t *testing.T, analyticsService analytics.Service) (*server.Neo4jMCPServer, string) {
+	t.Helper()
+
+	dbs := testdb.GetInstance()
+	testCFG := dbs.GetDriverConf()
+	driver := dbs.GetDriver()
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to find free port: %v", err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+
+	cfg := &config.Config{
+		URI:                testCFG.URI,
+		TransportMode:      config.TransportModeHTTP,
+		HTTPHost:           "127.0.0.1",
+		HTTPPort:           strconv.Itoa(port),
+		HTTPAllowedOrigins: "*",
+	}
+
+	validateErr := cfg.Validate()
+	if validateErr != nil {
+		t.Fatalf("invalid config: %v", validateErr)
+	}
+
+	dbService, err := database.NewNeo4jService(*driver, cfg.Database, config.TransportModeHTTP, "test-version")
+	if err != nil {
+		t.Fatalf("failed to create database service: %v", err)
+	}
+
+	s := server.NewNeo4jMCPServer("test-version", cfg, dbService, analyticsService)
+	if s == nil {
+		t.Fatal("NewNeo4jMCPServer() returned nil")
+	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		if err := s.Start(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	// Wait for the server to signal readiness, the start goroutine to fail, or a
+	// timeout. HTTPServerReady is closed just before ListenAndServe() is called, so
+	// give the OS a moment to actually bind after the select unblocks.
+	select {
+	case <-s.HTTPServerReady:
+		time.Sleep(100 * time.Millisecond)
+	case startErr := <-errChan:
+		t.Fatalf("server failed to start: %v", startErr)
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for HTTP server to be ready")
+	}
+
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+
+	t.Cleanup(func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.Stop(stopCtx); err != nil {
+			t.Errorf("Stop() returned unexpected error: %v", err)
+		}
+		select {
+		case startErr := <-errChan:
+			t.Errorf("Start() returned unexpected error: %v", startErr)
+		default:
+		}
+	})
+
+	return s, baseURL
 }

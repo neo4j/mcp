@@ -14,11 +14,14 @@ import (
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 )
 
 // https://github.com/neo4j/mcp/issues/70
 func TestIssue70(t *testing.T) {
 	t.Parallel()
+
+	dbs := testdb.GetInstance()
 
 	tests := []struct {
 		name    string

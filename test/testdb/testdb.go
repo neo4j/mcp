@@ -3,7 +3,7 @@
 
 //go:build integration || e2e
 
-package dbservice
+package testdb
 
 import (
 	"context"
@@ -15,34 +15,46 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
-type dbService struct {
+var (
+	instance *TestDB
+	once     sync.Once
+)
+
+func GetInstance() *TestDB {
+	once.Do(func() {
+		instance = new()
+	})
+	return instance
+}
+
+type TestDB struct {
 	driver       *neo4j.Driver
 	driverOnce   sync.Once // Ensures driver is initialized exactly once
 	useContainer bool
 }
 
-func NewDBService() *dbService {
+func new() *TestDB {
 	useContainer := config.GetEnvWithDefault("USE_CONTAINER", "true") == "true"
 	log.Printf("Testing using container: %t", useContainer)
-	return &dbService{
+	return &TestDB{
 		driver:       nil,
 		useContainer: useContainer,
 	}
 }
 
-func (dbs *dbService) Start(ctx context.Context) {
+func (dbs *TestDB) Start(ctx context.Context) {
 	if dbs.useContainer {
 		containerrunner.Start(ctx)
 	}
 }
 
-func (dbs *dbService) Stop(ctx context.Context) {
+func (dbs *TestDB) Stop(ctx context.Context) {
 	if dbs.useContainer {
 		containerrunner.Close(ctx)
 	}
 }
 
-func (dbs *dbService) GetDriver() *neo4j.Driver {
+func (dbs *TestDB) GetDriver() *neo4j.Driver {
 	dbs.driverOnce.Do(func() {
 		if dbs.useContainer {
 			drv := containerrunner.GetDriver()
@@ -65,8 +77,8 @@ func (dbs *dbService) GetDriver() *neo4j.Driver {
 	return dbs.driver
 }
 
-func (dbs *dbService) GetDriverConf() *config.Config {
-	if dbs.useContainer == true {
+func (dbs *TestDB) GetDriverConf() *config.Config {
+	if dbs.useContainer {
 		return containerrunner.GetDriverConf()
 	}
 

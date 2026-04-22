@@ -7,196 +7,110 @@ package integration
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
-	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database"
-	"github.com/neo4j/mcp/internal/server"
+	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-// startHTTPServer starts a real HTTP MCP server on a random port and returns the server and its base URL.
-func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
-	t.Helper()
-
-	testCFG := dbs.GetDriverConf()
-	driver := dbs.GetDriver()
-
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to find free port: %v", err)
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-
-	cfg := &config.Config{
-		URI:                testCFG.URI,
-		Database:           testCFG.Database,
-		TransportMode:      config.TransportModeHTTP,
-		HTTPHost:           "127.0.0.1",
-		HTTPPort:           strconv.Itoa(port),
-		HTTPAllowedOrigins: "*",
-	}
-
-	ctrl := gomock.NewController(t)
-
-	dbService, err := database.NewNeo4jService(*driver, cfg.Database, config.TransportModeHTTP, "test-version")
-	if err != nil {
-		t.Fatalf("failed to create database service: %v", err)
-	}
-
-	analyticsService := analytics.NewMockService(ctrl)
-	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
-	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
-
-	s := server.NewNeo4jMCPServer("test-version", cfg, dbService, analyticsService)
-	if s == nil {
-		t.Fatal("NewNeo4jMCPServer() returned nil")
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		if err := s.Start(); err != nil {
-			errChan <- err
-		}
-	}()
-
-	// Wait for the server to signal readiness, the start goroutine to fail, or a
-	// timeout. HTTPServerReady is closed just before ListenAndServe() is called, so
-	// give the OS a moment to actually bind after the select unblocks.
-	select {
-	case <-s.HTTPServerReady:
-		time.Sleep(100 * time.Millisecond)
-	case startErr := <-errChan:
-		t.Fatalf("server failed to start: %v", startErr)
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for HTTP server to be ready")
-	}
-
-	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
-
-	t.Cleanup(func() {
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := s.Stop(stopCtx); err != nil {
-			t.Errorf("Stop() returned unexpected error: %v", err)
-		}
-		select {
-		case startErr := <-errChan:
-			t.Errorf("Start() returned unexpected error: %v", startErr)
-		default:
-		}
-	})
-
-	return s, baseURL
-}
-
 func TestHTTPMethodRestrictions(t *testing.T) {
 	t.Parallel()
 
-	_, baseURL := startHTTPServer(t)
+	ctrl := gomock.NewController(t)
+	mockAnalytics := mockAnalytics.NewMockService(ctrl)
+	mockAnalytics.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAnalytics.EXPECT().IsEnabled().AnyTimes().Return(true)
+	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
-	testCFG := dbs.GetDriverConf()
+	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
 
-	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
+	creds := testdb.GetInstance().GetDriverConf()
 
-	dbPath := "/db/neo4j/mcp"
-	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
+	const dbPath = "/db/neo4j/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
+	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
+	const allowHdr = "POST, OPTIONS"
 
 	tests := []struct {
 		name         string
 		method       string
-		path         string
-		body         string
 		setupReq     func(*http.Request)
 		wantStatus   int
-		wantBody     string
-		wantAllowHdr string
-		assertErr    func(t *testing.T, err error)
+		wantBody     string // empty = skip body assertion
+		wantAllowHdr string // empty = skip Allow header assertion
 	}{
 		{
-			name:   "POST /db/{db}/mcp with valid credentials returns 200",
+			name:   "POST with valid credentials is accepted",
 			method: http.MethodPost,
-			path:   dbPath,
-			body:   pingBody,
 			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.SetBasicAuth(creds.Username, creds.Password)
 				req.Header.Set("Content-Type", "application/json")
 			},
 			wantStatus: http.StatusOK,
-			assertErr:  noErr,
 		},
 		{
 			// CORS middleware intercepts OPTIONS before auth runs (AllowedOrigins: "*"
 			// is set on the test server). Preflight returns 204 No Content per spec.
-			name:   "OPTIONS /db/{db}/mcp returns 204 CORS preflight",
+			name:   "OPTIONS returns 204 CORS preflight",
 			method: http.MethodOptions,
-			path:   dbPath,
 			setupReq: func(req *http.Request) {
 				req.Header.Set("Origin", "http://example.com")
 			},
 			wantStatus: http.StatusNoContent,
-			assertErr:  noErr,
 		},
 		{
-			name:         "GET /db/{db}/mcp is rejected",
+			name:         "GET is rejected",
 			method:       http.MethodGet,
-			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
 		},
 		{
-			name:         "PATCH /db/{db}/mcp is rejected",
+			name:         "PUT is rejected",
+			method:       http.MethodPut,
+			wantStatus:   http.StatusMethodNotAllowed,
+			wantBody:     methodNotAllowedMsg,
+			wantAllowHdr: allowHdr,
+		},
+		{
+			name:         "PATCH is rejected",
 			method:       http.MethodPatch,
-			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
 		},
 		{
-			name:         "GET /db/{db}/mcp/ (trailing slash) is rejected",
-			method:       http.MethodGet,
-			path:         dbPath + "/",
+			name:         "DELETE is rejected",
+			method:       http.MethodDelete,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
 		},
 		{
-			name:         "PATCH /db/{db}/mcp/ (trailing slash) is rejected",
-			method:       http.MethodPatch,
-			path:         dbPath + "/",
+			name:         "HEAD is rejected",
+			method:       http.MethodHead,
 			wantStatus:   http.StatusMethodNotAllowed,
-			wantBody:     methodNotAllowedMsg,
-			wantAllowHdr: "POST, OPTIONS",
-			assertErr:    noErr,
+			wantAllowHdr: allowHdr,
+			// HEAD responses have no body by spec; we check the Allow header only.
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var bodyReader io.Reader
-			if tc.body != "" {
-				bodyReader = strings.NewReader(tc.body)
+			if tc.method == http.MethodPost {
+				bodyReader = strings.NewReader(pingBody)
 			}
 
-			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+tc.path, bodyReader)
+			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+dbPath, bodyReader)
 			require.NoError(t, err)
 
 			if tc.setupReq != nil {
@@ -204,10 +118,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			}
 
 			resp, err := http.DefaultClient.Do(req)
-			tc.assertErr(t, err)
-			if err != nil {
-				return
-			}
+			require.NoError(t, err)
 			defer resp.Body.Close()
 
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)

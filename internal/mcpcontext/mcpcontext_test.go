@@ -122,6 +122,13 @@ func TestDatabaseName(t *testing.T) {
 			setupCtx: context.Background(),
 			wantOK:   false,
 		},
+		{
+			name: "storing empty database name (in setter) returns empty and false",
+			setupCtx: func() context.Context {
+				return WithDatabaseName(context.Background(), "")
+			}(),
+			wantOK: false,
+		},
 	}
 
 	for _, tc := range tests {

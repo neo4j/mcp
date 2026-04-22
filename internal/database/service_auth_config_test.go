@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/mcpcontext"
@@ -18,11 +17,11 @@ import (
 // applyOptions is a test helper that applies query options to a configuration
 // and returns the resulting configuration for inspection.
 func applyOptions(options []neo4j.ExecuteQueryConfigurationOption) *neo4j.ExecuteQueryConfiguration {
-	config := &neo4j.ExecuteQueryConfiguration{}
+	cfg := &neo4j.ExecuteQueryConfiguration{}
 	for _, opt := range options {
-		opt(config)
+		opt(cfg)
 	}
-	return config
+	return cfg
 }
 
 // TestBuildQueryOptions covers all combinations of transport mode, auth type,
@@ -34,7 +33,6 @@ func TestBuildQueryOptions(t *testing.T) {
 		setupCtx      func(context.Context) context.Context
 		expectedDB    string
 		expectAuth    bool
-		expectError   string
 	}{
 		// HTTP mode with bearer token
 		{
@@ -48,14 +46,7 @@ func TestBuildQueryOptions(t *testing.T) {
 			expectedDB: "explicit-db",
 			expectAuth: true,
 		},
-		{
-			name:          "HTTP mode with bearer token but no database in context returns error",
-			transportMode: config.TransportModeHTTP,
-			setupCtx: func(ctx context.Context) context.Context {
-				return mcpcontext.WithBearerToken(ctx, "test-bearer-token")
-			},
-			expectError: "database name is required in HTTP mode but was not found in context",
-		},
+
 		// HTTP mode with basic auth
 		{
 			name:          "HTTP mode with basic auth and database from context",
@@ -68,23 +59,7 @@ func TestBuildQueryOptions(t *testing.T) {
 			expectedDB: "explicit-db",
 			expectAuth: true,
 		},
-		{
-			name:          "HTTP mode with basic auth but no database in context returns error",
-			transportMode: config.TransportModeHTTP,
-			setupCtx: func(ctx context.Context) context.Context {
-				return mcpcontext.WithBasicAuth(ctx, "testuser", "testpass")
-			},
-			expectError: "database name is required in HTTP mode but was not found in context",
-		},
 		// HTTP mode without auth
-		{
-			name:          "HTTP mode without auth and no database in context returns error",
-			transportMode: config.TransportModeHTTP,
-			setupCtx: func(ctx context.Context) context.Context {
-				return ctx
-			},
-			expectError: "database name is required in HTTP mode but was not found in context",
-		},
 		{
 			name:          "HTTP mode without auth but with database from context",
 			transportMode: config.TransportModeHTTP,
@@ -137,13 +112,7 @@ func TestBuildQueryOptions(t *testing.T) {
 			}
 
 			ctx := tt.setupCtx(context.Background())
-			options, err := service.buildQueryOptions(ctx)
-
-			if tt.expectError != "" {
-				require.EqualError(t, err, tt.expectError)
-				return
-			}
-			require.NoError(t, err)
+			options := service.buildQueryOptions(ctx)
 
 			cfg := applyOptions(options)
 			assert.Equal(t, tt.expectedDB, cfg.Database)

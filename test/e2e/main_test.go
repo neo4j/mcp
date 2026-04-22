@@ -11,11 +11,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/neo4j/mcp/test/dbservice"
 	"github.com/neo4j/mcp/test/e2e/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 )
 
-var dbs = dbservice.NewDBService()
+var dbs = testdb.GetInstance()
 var server string = ""
 
 func TestMain(m *testing.M) {

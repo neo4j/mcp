@@ -10,18 +10,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/neo4j/mcp/test/dbservice"
+	"github.com/neo4j/mcp/test/testdb"
 )
-
-var dbs = dbservice.NewDBService()
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
+	dbs := testdb.GetInstance()
 	dbs.Start(ctx)
-
 	code := m.Run()
-
 	dbs.Stop(ctx)
 
 	os.Exit(code)

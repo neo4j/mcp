@@ -10,8 +10,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
@@ -39,64 +39,55 @@ func NewNeo4jService(driver neo4j.Driver, database string, transportMode config.
 	}, nil
 }
 
-// buildQueryOptions builds Neo4j query options based on transport mode.
-// For HTTP mode: database name must be present in context (set by dbNameMiddleware from URL path).
-// Extracts credentials from context and uses impersonation.
-// Supports both Bearer token auth (preferred for SSO/OAuth) and Basic Auth (fallback).
-// For STDIO mode: uses driver's built-in credentials and configured database.
-// The baseOptions parameter allows adding routing-specific options (readers/writers).
-// TxMetadata is added to recognize queries coming from Neo4j MCP.
-func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) ([]neo4j.ExecuteQueryConfigurationOption, error) {
+// buildQueryOptions creates Neo4j query options for the current transport mode.
+// HTTP mode uses database/auth from context; STDIO mode uses the configured database and driver auth.
+func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo4j.ExecuteQueryConfigurationOption) []neo4j.ExecuteQueryConfigurationOption {
 	txMetadata := neo4j.WithTxMetadata(map[string]any{"app": strings.Join([]string{appName, s.neo4jMCPVersion}, "/")})
 
 	queryOptions := []neo4j.ExecuteQueryConfigurationOption{
 		neo4j.ExecuteQueryWithTransactionConfig(txMetadata),
 	}
 
-	if s.transportMode == config.TransportModeHTTP {
-		dbName, ok := mcpcontext.GetDatabaseName(ctx)
-		if !ok {
-			return nil, fmt.Errorf("database name is required in HTTP mode but was not found in context")
-		}
-		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(dbName))
-	} else {
-		// STDIO mode: always use configured database
-		queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(s.database))
-	}
-
-	// Add any base options (routing, etc.)
 	queryOptions = append(queryOptions, baseOptions...)
 
-	// For HTTP mode, extract credentials from context and use impersonation
 	if s.transportMode == config.TransportModeHTTP {
+		if dbName, ok := mcpcontext.GetDatabaseName(ctx); ok {
+			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(dbName))
+			// No database fallback needed for HTTP mode since database is required in this mode and will be validated at the service layer before query execution.
+		}
+
 		authToken := s.getHTTPAuthToken(ctx)
 		if authToken != nil {
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(*authToken))
 		}
+
+		return queryOptions
 	}
-	// For STDIO mode, driver's built-in credentials are used automatically (no auth token needed)
-	return queryOptions, nil
+
+	// STDIO mode: always use configured database and driver's built-in credentials
+	queryOptions = append(queryOptions, neo4j.ExecuteQueryWithDatabase(s.database))
+
+	return queryOptions
 }
 
-// Collect HTTP Auth token from Context.
+// getHTTPAuthToken obtains HTTP Auth token from Context.
 func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
 	if token, hasBearerToken := mcpcontext.GetBearerToken(ctx); hasBearerToken {
 		authToken := neo4j.BearerAuth(token)
 		return &authToken
-	} else if username, password, hasBasicAuth := mcpcontext.GetBasicAuthCredentials(ctx); hasBasicAuth {
-		// Fall back to basic auth
+	}
+
+	if username, password, hasBasicAuth := mcpcontext.GetBasicAuthCredentials(ctx); hasBasicAuth {
 		authToken := neo4j.BasicAuth(username, password, "")
 		return &authToken
 	}
+
 	return nil
 }
 
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	queryOptions, err := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
-	if err != nil {
-		return nil, err
-	}
+	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithReadersRouting())
 
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
@@ -111,10 +102,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 
 // ExecuteWriteQuery executes a write-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
-	queryOptions, err := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithWritersRouting())
-	if err != nil {
-		return nil, err
-	}
+	queryOptions := s.buildQueryOptions(ctx, neo4j.ExecuteQueryWithWritersRouting())
 
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
@@ -131,10 +119,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error) {
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 
-	queryOptions, err := s.buildQueryOptions(ctx)
-	if err != nil {
-		return neo4j.QueryTypeUnknown, err
-	}
+	queryOptions := s.buildQueryOptions(ctx)
 
 	res, err := neo4j.ExecuteQuery(ctx, s.driver, explainedQuery, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
