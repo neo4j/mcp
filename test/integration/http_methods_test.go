@@ -14,6 +14,7 @@ import (
 
 	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -30,6 +31,8 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 	mockAnalytics.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
 
 	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
+
+	creds := testdb.GetInstance().GetDriverConf()
 
 	const dbPath = "/db/neo4j/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
@@ -48,7 +51,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			name:   "POST with valid credentials is accepted",
 			method: http.MethodPost,
 			setupReq: func(req *http.Request) {
-				req.SetBasicAuth("neo4j", "password")
+				req.SetBasicAuth(creds.Username, creds.Password)
 				req.Header.Set("Content-Type", "application/json")
 			},
 			wantStatus: http.StatusOK,

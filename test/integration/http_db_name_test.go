@@ -16,6 +16,7 @@ import (
 
 	mockAnalytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/test/integration/helpers"
+	"github.com/neo4j/mcp/test/testdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -34,12 +35,14 @@ func TestHTTPDatabaseNameValidation(t *testing.T) {
 
 	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
 
+	creds := testdb.GetInstance().GetDriverConf()
+
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 	const invalidNameMsg = "Bad Request: Invalid database name"
 	const notFoundMsg = "Not Found: This server only handles requests to /db/{databaseName}/mcp"
 
 	withAuth := func(req *http.Request) {
-		req.SetBasicAuth("neo4j", "password")
+		req.SetBasicAuth(creds.Username, creds.Password)
 		req.Header.Set("Content-Type", "application/json")
 	}
 
@@ -177,6 +180,8 @@ func TestHTTPDatabaseNameInToolExecution(t *testing.T) {
 
 	_, baseURL := helpers.StartHTTPServer(t, mockAnalytics)
 
+	creds := testdb.GetInstance().GetDriverConf()
+
 	const toolCallBody = `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"read-cypher","arguments":{"query":"RETURN 1 AS n","write":false}},"id":1}`
 
 	req, err := http.NewRequestWithContext(
@@ -186,7 +191,7 @@ func TestHTTPDatabaseNameInToolExecution(t *testing.T) {
 		strings.NewReader(toolCallBody),
 	)
 	require.NoError(t, err)
-	req.SetBasicAuth("neo4j", "password")
+	req.SetBasicAuth(creds.Username, creds.Password)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
