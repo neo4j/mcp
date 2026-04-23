@@ -8,8 +8,8 @@ import (
 )
 
 type ReadCypherInput struct {
-	Query  string `json:"query" jsonschema:"default=MATCH(n) RETURN n,description=The Cypher query to execute"`
-	Params Params `json:"params,omitempty" jsonschema:"default={},description=Parameters to pass to the Cypher query"`
+	Query  string `json:"query" jsonschema:"The Cypher query to execute"`
+	Params Params `json:"params,omitempty" jsonschema:"Parameters to pass to the Cypher query"`
 }
 
 func ReadCypherSpec() mcp.Tool {
