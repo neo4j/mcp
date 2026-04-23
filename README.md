@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.neo4j/mcp -->
 # Neo4j MCP
 
 Neo4j MCP gives AI assistants and LLM-powered tools direct, structured access to your Neo4j graph database.
