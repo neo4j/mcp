@@ -38,7 +38,8 @@ Create / edit `mcp.json`:
   "servers": {
     "neo4j": {
       "type": "stdio",
-      "command": "neo4j-mcp",
+      "command": "python",
+      "args": ["-m", "neo4j_mcp_server"],
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
