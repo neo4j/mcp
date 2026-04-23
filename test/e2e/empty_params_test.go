@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWriteCypherE2E(t *testing.T) {
+func TestEmptyParamsE2E(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -39,21 +39,43 @@ func TestWriteCypherE2E(t *testing.T) {
 
 	t.Run("write-cypher succeeds without params argument", func(t *testing.T) {
 		t.Parallel()
+		helpers.NewE2ETestContext(t, dbs.GetDriver())
 		tc := helpers.NewE2ETestContext(t, dbs.GetDriver())
-		label := tc.GetUniqueLabel("NoPrams")
-
+		label := tc.GetUniqueLabel("NoParams")
 		// Call write-cypher with only the required `query` field — no `params`.
 		// This verifies that `params` is truly optional.
 		resp, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Name: "write-cypher",
 				Arguments: map[string]any{
-					"query": "CREATE (n:" + label.String() + " {ok: true}) RETURN n",
+					"query": "CREATE (n:" + label.String() + " ) SET n.prop = \"test\" RETURN n",
 				},
 			},
 		})
 		require.NoError(t, err, "CallTool returned an unexpected transport error")
 		require.False(t, resp.IsError, "write-cypher failed: %v", resp.Content)
+
+		textContent, ok := mcp.AsTextContent(resp.Content[0])
+		require.True(t, ok, "expected TextContent in response")
+		assert.NotEmpty(t, textContent.Text, "expected non-empty response body")
+	})
+
+	t.Run("read-cypher succeeds without params argument", func(t *testing.T) {
+		t.Parallel()
+		helpers.NewE2ETestContext(t, dbs.GetDriver())
+
+		// Call read-cypher with only the required `query` field — no `params`.
+		// This verifies that `params` is truly optional.
+		resp, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Name: "read-cypher",
+				Arguments: map[string]any{
+					"query": "RETURN 1",
+				},
+			},
+		})
+		require.NoError(t, err, "CallTool returned an unexpected transport error")
+		require.False(t, resp.IsError, "read-cypher failed: %v", resp.Content)
 
 		textContent, ok := mcp.AsTextContent(resp.Content[0])
 		require.True(t, ok, "expected TextContent in response")
