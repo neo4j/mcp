@@ -1,6 +1,0 @@
-kind: Patch
-body: >-
-  Fix read-cypher/write-cypher tools/list: invopop-style jsonschema tags failed
-  silently under google/jsonschema-go, so inputSchema was empty (no
-  query/params).
-time: 2026-04-23T11:47:27.958139+01:00
