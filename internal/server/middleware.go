@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -169,8 +170,9 @@ func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistr
 				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
 				return
 			}
+
 			defer func() {
-				if closeErr := driver.Close(r.Context()); closeErr != nil {
+				if closeErr := driver.Close(context.Background()); closeErr != nil {
 					slog.Warn("Error closing per-request driver", "error", closeErr)
 				}
 			}()
