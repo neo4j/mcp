@@ -135,6 +135,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
 			},
 			wantStatus: http.StatusOK,
 			assertErr:  noErr,

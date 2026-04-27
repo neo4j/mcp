@@ -394,8 +394,8 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
 
-	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Auth" {
-		t.Error("Expected Access-Control-Allow-Headers header to be set")
+	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Neo4j-MCP-URI, X-Auth" {
+		t.Errorf("Expected Access-Control-Allow-Headers to include X-Neo4j-MCP-URI, got: %q", rec.Header().Get("Access-Control-Allow-Headers"))
 	}
 
 	if rec.Header().Get("Access-Control-Max-Age") != corsMaxAgeSeconds {
