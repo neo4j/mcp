@@ -5,6 +5,7 @@ package database
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -21,7 +22,8 @@ type PerRequestDriverRegistry struct{}
 func (r *PerRequestDriverRegistry) GetDriver(boltURI string) (neo4j.Driver, error) {
 	driver, err := neo4j.NewDriver(boltURI, neo4j.NoAuth())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Neo4j driver for %s: %w", boltURI, err)
+		slog.Error("Failed to create Neo4j driver", "boltURI", boltURI, "error", err)
+		return nil, fmt.Errorf("failed to create Neo4j driver")
 	}
 	return driver, nil
 }
