@@ -43,10 +43,11 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 		unauthMethods = append(unauthMethods, "tools/list")
 	}
 
-	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
 	if s.uriResolver != nil && s.driverRegistry != nil {
 		handler = neo4jDriverMiddleware(s.uriResolver, s.driverRegistry)(handler)
 	}
+
+	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
 	handler = dbNameMiddleware()(handler)
 	handler = pathValidationMiddleware()(handler)
@@ -71,6 +72,34 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 
 			// Call the next handler
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// neo4jDriverMiddleware resolves the Neo4j bolt URI from the header
+func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistry) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uri, err := resolver.Resolve(r)
+			if err != nil {
+				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			driver, err := registry.GetDriver(uri)
+			if err != nil {
+				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			defer func() {
+				if closeErr := driver.Close(context.Background()); closeErr != nil {
+					slog.Warn("Error closing per-request driver", "error", closeErr)
+				}
+			}()
+
+			ctx := mcpcontext.WithDriver(r.Context(), driver)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
@@ -150,34 +179,6 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 
 			// Basic auth credentials provided - store in context
 			ctx := mcpcontext.WithBasicAuth(r.Context(), user, pass)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-// neo4jDriverMiddleware resolves the Neo4j bolt URI from the header
-func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistry) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			uri, err := resolver.Resolve(r)
-			if err != nil {
-				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			driver, err := registry.GetDriver(uri)
-			if err != nil {
-				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			defer func() {
-				if closeErr := driver.Close(context.Background()); closeErr != nil {
-					slog.Warn("Error closing per-request driver", "error", closeErr)
-				}
-			}()
-
-			ctx := mcpcontext.WithDriver(r.Context(), driver)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
