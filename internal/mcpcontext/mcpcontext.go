@@ -3,7 +3,11 @@
 
 package mcpcontext
 
-import "context"
+import (
+	"context"
+
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
+)
 
 type contextKey string
 
@@ -12,6 +16,7 @@ const (
 	basicAuthPassKey contextKey = "basicAuthPass"
 	bearerTokenKey   contextKey = "bearerToken"
 	databaseNameKey  contextKey = "databaseName"
+	driverKey        contextKey = "neo4jDriver"
 )
 
 // WithDatabaseName adds the target database name to the context
@@ -55,4 +60,15 @@ func HasAuth(ctx context.Context) bool {
 	_, _, okBasic := GetBasicAuthCredentials(ctx)
 	_, okBearer := GetBearerToken(ctx)
 	return okBasic || okBearer
+}
+
+// WithDriver stores a Neo4j driver in the context
+func WithDriver(ctx context.Context, driver neo4j.Driver) context.Context {
+	return context.WithValue(ctx, driverKey, driver)
+}
+
+// GetDriver retrieves the Neo4j driver from the context
+func GetDriver(ctx context.Context) (neo4j.Driver, bool) {
+	driver, ok := ctx.Value(driverKey).(neo4j.Driver)
+	return driver, ok
 }

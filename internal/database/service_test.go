@@ -125,8 +125,8 @@ func TestNewNeo4jService(t *testing.T) {
 		if service != nil {
 			t.Errorf("expected nil service when driver is nil, got %v", service)
 		}
-		if err.Error() != "driver cannot be nil" {
-			t.Errorf("expected error 'driver cannot be nil', got: %v", err)
+		if err.Error() != "driver cannot be nil for STDIO mode" {
+			t.Errorf("expected error 'driver cannot be nil for STDIO mode', got: %v", err)
 		}
 	})
 }

@@ -57,11 +57,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("configuration is required but was nil")
 	}
 
-	// URI is always required
-	if c.URI == "" {
-		return fmt.Errorf("Neo4j URI is required but was empty")
-	}
-
 	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 	if c.TransportMode == "" {
 		c.TransportMode = TransportModeStdio
@@ -72,9 +67,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
 	}
 
-	// For STDIO mode, require username, password, and database from environment.
-	// For HTTP mode, credentials and database come per-request (Auth headers and URL path).
+	// For STDIO mode, require URI, username, password, and database from environment.
+	// For HTTP mode, credentials and database come per-request (Auth headers and URL path);
 	if c.TransportMode == TransportModeStdio {
+		if c.URI == "" {
+			return fmt.Errorf("Neo4j URI is required for STDIO mode but was empty")
+		}
 		if c.Username == "" {
 			return fmt.Errorf("Neo4j username is required for STDIO mode")
 		}

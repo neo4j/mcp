@@ -48,7 +48,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:  "neo4j",
 			},
 			wantErr: true,
-			errMsg:  "Neo4j URI is required but was empty",
+			errMsg:  "Neo4j URI is required for STDIO mode but was empty",
 		},
 		{
 			name: "empty username",

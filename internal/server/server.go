@@ -49,6 +49,8 @@ type Neo4jMCPServer struct {
 	gdsInstalled       bool
 	initMu             sync.Mutex
 	connectionVerified atomic.Bool
+	uriResolver        URIResolver
+	driverRegistry     database.DriverRegistry
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -63,6 +65,11 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		version:         version,
 		anService:       anService,
 		gdsInstalled:    false,
+	}
+
+	if cfg.TransportMode == config.TransportModeHTTP {
+		neo4jServer.uriResolver = &HeaderURIResolver{}
+		neo4jServer.driverRegistry = &database.PerRequestDriverRegistry{}
 	}
 
 	hooks := neo4jServer.configureHooks()
