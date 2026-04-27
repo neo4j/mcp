@@ -21,12 +21,6 @@ By implementing the Model Context Protocol (MCP), it acts as a bridge between an
 pip install neo4j-mcp-server
 ```
 
-**Install with Homebrew:**
-
-```bash
-brew install neo4j-mcp
-```
-
 Otherwise see [MCP documentation -> Installation](https://neo4j.com/docs/mcp/current/installation).
 
 
