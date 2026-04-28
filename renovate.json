@@ -4,7 +4,7 @@
     "rebaseWhen": "conflicted",
     "automerge": false,
     "timezone": "Europe/London",
-    "schedule": ["before 3am on Tuesday"],
+    "schedule": ["* 0-4 1,15 * *"],
     "vulnerabilityAlerts": {
         "labels": ["security"]
     },
