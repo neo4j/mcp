@@ -120,11 +120,9 @@ func TestDriver(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name: "missing driver returns nil and false",
-			setupCtx: func() context.Context {
-				return context.Background()
-			},
-			wantOK: false,
+			name:     "missing driver returns nil and false",
+			setupCtx: context.Background,
+			wantOK:   false,
 		},
 		{
 			name: "setting driver multiple times still returns a driver",
