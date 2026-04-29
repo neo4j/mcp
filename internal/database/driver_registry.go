@@ -23,7 +23,7 @@ func (r *PerRequestDriverRegistry) GetDriver(boltURI string) (neo4j.Driver, erro
 	driver, err := neo4j.NewDriver(boltURI, neo4j.NoAuth())
 	if err != nil {
 		slog.Error("Failed to create Neo4j driver", "boltURI", boltURI, "error", err)
-		return nil, fmt.Errorf("failed to create Neo4j driver")
+		return nil, fmt.Errorf("failed to create Neo4j driver: %w", err)
 	}
 	return driver, nil
 }

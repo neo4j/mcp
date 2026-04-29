@@ -44,7 +44,8 @@ func TestPerRequestDriverRegistry_GetDriver(t *testing.T) {
 			driver, err := registry.GetDriver(tt.uri)
 
 			if tt.wantErr != "" {
-				require.EqualError(t, err, tt.wantErr)
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
 				assert.Nil(t, driver)
 				return
 			}
