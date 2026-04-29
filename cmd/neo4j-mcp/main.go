@@ -60,28 +60,25 @@ func main() {
 	// Initialize global logger
 	logger.Init(cfg.LogLevel, cfg.LogFormat, os.Stderr)
 
-	// Initialize Neo4j driver
-	// For STDIO mode: use environment credentials
-	// For HTTP mode: create driver without auth, per-request credentials will be used via impersonation
-	// Credentials come from per-request Basic Auth headers
-	var authToken neo4j.AuthToken
-	if cfg.TransportMode == config.TransportModeStdio {
-		authToken = neo4j.BasicAuth(cfg.Username, cfg.Password, "")
-	}
-
-	driver, err := neo4j.NewDriver(cfg.URI, authToken)
-	if err != nil {
-		slog.Error("Failed to create Neo4j driver", "error", err)
-		os.Exit(1)
-	}
-
-	// Gracefully handle shutdown
+	// Initialize Neo4j driver for STDIO mode only.
+	// In HTTP mode the bolt URI comes per-request via the X-Neo4j-MCP-URI header;
+	// neo4jDriverMiddleware creates and closes a driver for each request.
 	ctx := context.Background()
-	defer func() {
-		if err := driver.Close(ctx); err != nil {
-			slog.Error("Error closing driver", "error", err)
+	var driver neo4j.Driver
+
+	if cfg.TransportMode == config.TransportModeStdio {
+		var driverErr error
+		driver, driverErr = neo4j.NewDriver(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
+		if driverErr != nil {
+			slog.Error("Failed to create Neo4j driver", "error", driverErr)
+			os.Exit(1)
 		}
-	}()
+		defer func() {
+			if err := driver.Close(ctx); err != nil {
+				slog.Error("Error closing driver", "error", err)
+			}
+		}()
+	}
 
 	// Create database service
 	dbService, err := database.NewNeo4jService(driver, cfg.Database, cfg.TransportMode, Version)

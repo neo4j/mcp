@@ -4,12 +4,14 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 )
 
@@ -21,13 +23,11 @@ const (
 var errRequestBodyTooLarge = errors.New("request body too large")
 
 // chainMiddleware chains together all HTTP middleware for this server instance
+// last added middleware will be executed first
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	if s == nil || s.config == nil {
 		panic("chainMiddleware: server or config is nil")
 	}
-
-	// Chain middleware in reverse order (last added = first to execute)
-	// Middleware execution order: Path validation -> DB name extractor -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
 
 	handler := next
 
@@ -39,6 +39,10 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	}
 	if s.config.AllowUnauthenticatedToolsList {
 		unauthMethods = append(unauthMethods, "tools/list")
+	}
+
+	if s.uriResolver != nil && s.driverRegistry != nil {
+		handler = neo4jDriverMiddleware(s.uriResolver, s.driverRegistry)(handler)
 	}
 
 	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
@@ -66,6 +70,34 @@ func loggingMiddleware() func(http.Handler) http.Handler {
 
 			// Call the next handler
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// neo4jDriverMiddleware resolves the Neo4j bolt URI from the header
+func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistry) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uri, err := resolver.Resolve(r)
+			if err != nil {
+				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			driver, err := registry.GetDriver(uri)
+			if err != nil {
+				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			defer func() {
+				if closeErr := driver.Close(context.Background()); closeErr != nil {
+					slog.Warn("Error closing per-request driver", "error", closeErr)
+				}
+			}()
+
+			ctx := mcpcontext.WithDriver(r.Context(), driver)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
@@ -173,8 +205,8 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
 
-			// Build allowed headers list, always include Content-Type and Authorization.
-			allowedHeaders := []string{"Content-Type", "Authorization"}
+			// Build allowed headers list, always include Content-Type, Authorization, and X-Neo4j-MCP-URI.
+			allowedHeaders := []string{"Content-Type", "Authorization", uriHeader}
 			// If a custom auth header is configured, and it's not the default, include it
 			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
 				allowedHeaders = append(allowedHeaders, authHeaderName)

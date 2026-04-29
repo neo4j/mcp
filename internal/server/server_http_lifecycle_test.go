@@ -303,7 +303,8 @@ func createStreamableHTTPClient(url string) *client.Client {
 		transport.WithHTTPTimeout(30*time.Second),
 		// Set custom headers
 		transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Basic bmVvNGo6cGFzc3dvcmQ=",
+			"Authorization":   "Basic bmVvNGo6cGFzc3dvcmQ=",
+			"X-Neo4j-MCP-URI": "bolt://test-host:7687",
 		}),
 		// With custom HTTP client
 		transport.WithHTTPBasicClient(&http.Client{}),
