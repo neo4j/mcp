@@ -23,13 +23,11 @@ const (
 var errRequestBodyTooLarge = errors.New("request body too large")
 
 // chainMiddleware chains together all HTTP middleware for this server instance
+// last added middleware will be executed first
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	if s == nil || s.config == nil {
 		panic("chainMiddleware: server or config is nil")
 	}
-
-	// Chain middleware in reverse order (last added = first to execute)
-	// Middleware execution order: Path validation -> DB name extractor -> CORS -> URI/driver resolver -> Auth (Bearer/Basic) -> Logging -> Handler
 
 	handler := next
 
