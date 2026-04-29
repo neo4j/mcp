@@ -20,6 +20,8 @@ type DriverRegistry interface {
 type PerRequestDriverRegistry struct{}
 
 func (r *PerRequestDriverRegistry) GetDriver(boltURI string) (neo4j.Driver, error) {
+	// NoAuth here is intentional. Per-request credentials (Basic or Bearer) are
+	// applied at query time via neo4j.ExecuteQueryWithAuthToken in buildQueryOptions
 	driver, err := neo4j.NewDriver(boltURI, neo4j.NoAuth())
 	if err != nil {
 		slog.Error("Failed to create Neo4j driver", "boltURI", boltURI, "error", err)
