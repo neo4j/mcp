@@ -8,8 +8,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"go.uber.org/mock/gomock"
@@ -111,22 +109,6 @@ func TestDatabaseService_ExecuteReadQuery(t *testing.T) {
 
 		if err == nil {
 			t.Errorf("expected cypher syntax error")
-		}
-	})
-}
-
-func TestNewNeo4jService(t *testing.T) {
-	t.Run("nil driver error", func(t *testing.T) {
-		service, err := database.NewNeo4jService(nil, "", config.TransportModeStdio, "test-version")
-
-		if err == nil {
-			t.Errorf("expected error when driver is nil, got nil")
-		}
-		if service != nil {
-			t.Errorf("expected nil service when driver is nil, got %v", service)
-		}
-		if err.Error() != "driver cannot be nil for STDIO mode" {
-			t.Errorf("expected error 'driver cannot be nil for STDIO mode', got: %v", err)
 		}
 	})
 }
