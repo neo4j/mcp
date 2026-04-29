@@ -42,9 +42,13 @@ func NewNeo4jService(driver neo4j.Driver, database string, transportMode config.
 // getDriver retrieves the appropriate Neo4j driver based on the transport mode
 func (s *Neo4jService) getDriver(ctx context.Context) (neo4j.Driver, error) {
 	if s.transportMode == config.TransportModeHTTP {
-		driver, ok := mcpcontext.GetDriver(ctx)
+		val, ok := mcpcontext.GetDriver(ctx)
 		if !ok {
 			return nil, fmt.Errorf("Neo4j driver not available: X-Neo4j-MCP-URI header is required for database operations in HTTP mode")
+		}
+		driver, ok := val.(neo4j.Driver)
+		if !ok {
+			return nil, fmt.Errorf("Neo4j driver not available: unexpected type in context")
 		}
 		return driver, nil
 	}

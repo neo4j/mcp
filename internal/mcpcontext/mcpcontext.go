@@ -3,11 +3,7 @@
 
 package mcpcontext
 
-import (
-	"context"
-
-	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
-)
+import "context"
 
 type contextKey string
 
@@ -63,12 +59,13 @@ func HasAuth(ctx context.Context) bool {
 }
 
 // WithDriver stores a Neo4j driver in the context
-func WithDriver(ctx context.Context, driver neo4j.Driver) context.Context {
+// The driver is stored as any to avoid importing the neo4j driver package
+func WithDriver(ctx context.Context, driver any) context.Context {
 	return context.WithValue(ctx, driverKey, driver)
 }
 
 // GetDriver retrieves the Neo4j driver from the context
-func GetDriver(ctx context.Context) (neo4j.Driver, bool) {
-	driver, ok := ctx.Value(driverKey).(neo4j.Driver)
-	return driver, ok
+func GetDriver(ctx context.Context) (any, bool) {
+	driver := ctx.Value(driverKey)
+	return driver, driver != nil
 }
