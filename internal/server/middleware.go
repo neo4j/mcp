@@ -86,7 +86,8 @@ func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistr
 
 			driver, err := registry.GetDriver(uri)
 			if err != nil {
-				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				slog.Error("Failed to create Neo4j driver for request", "error", err)
+				http.Error(w, "Bad Request: failed to connect to the specified Neo4j instance", http.StatusBadRequest)
 				return
 			}
 
