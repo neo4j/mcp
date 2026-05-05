@@ -68,7 +68,7 @@ func (c *Config) Validate() error {
 	}
 
 	// For STDIO mode, require URI, username, password, and database from environment.
-	// For HTTP mode, credentials and database come per-request (Auth headers and URL path);
+	// For HTTP mode, URI, credentials and database come per-request (Auth headers and URL path);
 	if c.TransportMode == TransportModeStdio {
 		if c.URI == "" {
 			return fmt.Errorf("Neo4j URI is required for STDIO mode but was empty")
