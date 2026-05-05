@@ -87,10 +87,19 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "Neo4j database is required for STDIO mode",
 		},
 		{
-			name: "database set for HTTP mode should raise error",
+			name: "URI set for HTTP mode should raise error",
 			cfg: &Config{
 				Telemetry:     true,
 				URI:           "bolt://localhost:7687",
+				TransportMode: TransportModeHTTP,
+			},
+			wantErr: true,
+			errMsg:  "Neo4j URI should not be set for HTTP transport mode",
+		},
+		{
+			name: "database set for HTTP mode should raise error",
+			cfg: &Config{
+				Telemetry:     true,
 				Database:      "neo4j",
 				TransportMode: TransportModeHTTP,
 			},
@@ -101,10 +110,8 @@ func TestConfig_Validate(t *testing.T) {
 			name: "credentials set for HTTP mode should raise error",
 			cfg: &Config{
 				Telemetry:     true,
-				URI:           "bolt://localhost:7687",
 				Username:      "neo4j",
 				Password:      "password",
-				Database:      "neo4j",
 				TransportMode: TransportModeHTTP,
 			},
 			wantErr: true,
@@ -409,7 +416,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled and both cert files provided",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: certPath,
@@ -420,7 +426,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled but missing cert file",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "",
@@ -432,7 +437,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled but missing key file",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "/path/to/cert.pem",
@@ -444,7 +448,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS disabled and no cert files",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  false,
 				HTTPTLSCertFile: "",
@@ -495,7 +498,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 		// Generate test certificates dynamically
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -538,7 +540,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 		// Generate test certificates dynamically
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -565,7 +566,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 
 	t.Run("TLS validation error when missing cert file", func(t *testing.T) {
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/path/to/key.pem")
@@ -584,7 +584,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 
 	t.Run("TLS validation error with invalid cert/key files", func(t *testing.T) {
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", "/nonexistent/cert.pem")
@@ -606,7 +605,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 
 func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Default port 80 when TLS disabled", func(t *testing.T) {
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		// NEO4J_MCP_HTTP_TLS_ENABLED is not set (defaults to false)
 
@@ -623,7 +621,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Default port 443 when TLS enabled", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -643,7 +640,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Explicit port overrides default", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -663,7 +659,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("CLI override for port takes precedence", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -687,7 +682,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("CLI TLS enable changes default port", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -903,7 +897,6 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("NEO4J_TRANSPORT_MODE", tt.transport)
-			t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 			if tt.databaseEnv != "" {
 				t.Setenv("NEO4J_DATABASE", tt.databaseEnv)
 			}
