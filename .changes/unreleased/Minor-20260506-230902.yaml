@@ -1,6 +1,6 @@
 kind: Minor
 body: |
-  HTTP mode now accepts X-Neo4j-MCP-URI header to specify which Neo4j instance to connect to per-request.
+  HTTP mode now accepts X-Neo4j-MCP-URI header to specify which Neo4j instance to connect to per-request. (#278)
   NEO4J_URI env var is no longer required in HTTP mode — URI comes from the header instead.
   Requests without a valid X-Neo4j-MCP-URI get 400 Bad Request.
   X-Neo4j-MCP-URI added to CORS Access-Control-Allow-Headers.
