@@ -1,4 +1,4 @@
-kind: Minor
+kind: Major
 body: |
   HTTP mode now accepts X-Neo4j-MCP-URI header to specify which Neo4j instance to connect to per-request. (#278)
   NEO4J_URI env var is no longer required in HTTP mode — URI comes from the header instead.
