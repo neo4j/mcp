@@ -5,6 +5,7 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,8 +14,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/database"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -394,8 +397,8 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
 
-	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Auth" {
-		t.Error("Expected Access-Control-Allow-Headers header to be set")
+	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Neo4j-MCP-URI, X-Auth" {
+		t.Errorf("Expected Access-Control-Allow-Headers to include X-Neo4j-MCP-URI, got: %q", rec.Header().Get("Access-Control-Allow-Headers"))
 	}
 
 	if rec.Header().Get("Access-Control-Max-Age") != corsMaxAgeSeconds {
@@ -821,6 +824,49 @@ func TestDBNameMiddleware(t *testing.T) {
 
 			assert.Equal(t, tt.wantCode, rec.Code)
 			assert.Equal(t, tt.wantDB, gotDB)
+		})
+	}
+}
+
+type stubURIResolver struct {
+	uri string
+	err error
+}
+
+func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.uri, s.err }
+
+type stubDriverRegistry struct {
+	driver neo4j.Driver
+	err    error
+}
+
+func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) { return s.driver, s.err }
+
+func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		resolver URIResolver
+		registry database.DriverRegistry
+	}{
+		{
+			name:     "resolver error returns 400",
+			resolver: &stubURIResolver{err: errors.New("missing required header X-Neo4j-MCP-URI")},
+			registry: &stubDriverRegistry{},
+		},
+		{
+			name:     "registry error returns 400",
+			resolver: &stubURIResolver{uri: "bolt://localhost:7687"},
+			registry: &stubDriverRegistry{err: errors.New("failed to create Neo4j driver")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := neo4jDriverMiddleware(tt.resolver, tt.registry)(mockHandler())
+			req := httptest.NewRequest(http.MethodPost, "/db/neo4j/mcp", nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}
 }

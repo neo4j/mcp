@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,6 +101,51 @@ func TestHasAuth(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tc.want, HasAuth(tc.setupCtx))
+		})
+	}
+}
+
+func TestDriver(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupCtx func() context.Context
+		wantOK   bool
+	}{
+		{
+			name: "driver stored and retrieved",
+			setupCtx: func() context.Context {
+				driver, _ := neo4j.NewDriver("bolt://localhost:7687", neo4j.NoAuth())
+				return WithDriver(context.Background(), driver)
+			},
+			wantOK: true,
+		},
+		{
+			name:     "missing driver returns nil and false",
+			setupCtx: context.Background,
+			wantOK:   false,
+		},
+		{
+			name: "setting driver multiple times still returns a driver",
+			setupCtx: func() context.Context {
+				driver1, _ := neo4j.NewDriver("bolt://localhost:7687", neo4j.NoAuth())
+				driver2, _ := neo4j.NewDriver("bolt://localhost:7687", neo4j.NoAuth())
+				return WithDriver(WithDriver(context.Background(), driver1), driver2)
+			},
+			wantOK: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := tc.setupCtx()
+			gotDriver, ok := GetDriver(ctx)
+			assert.Equal(t, tc.wantOK, ok)
+			if tc.wantOK {
+				assert.NotNil(t, gotDriver)
+			} else {
+				assert.Nil(t, gotDriver)
+			}
 		})
 	}
 }

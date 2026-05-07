@@ -135,6 +135,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
 			},
 			wantStatus: http.StatusOK,
 			assertErr:  noErr,
@@ -221,6 +222,63 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			if tc.wantAllowHdr != "" {
 				assert.Equal(t, tc.wantAllowHdr, resp.Header.Get("Allow"))
 			}
+		})
+	}
+}
+
+func TestHTTPMode_URIHeader(t *testing.T) {
+	t.Parallel()
+
+	_, baseURL := startHTTPServer(t)
+	testCFG := dbs.GetDriverConf()
+	path := "/db/neo4j/mcp"
+	body := `{"jsonrpc":"2.0","method":"ping","id":1}`
+
+	tests := []struct {
+		name       string
+		setupReq   func(*http.Request)
+		wantStatus int
+	}{
+		{
+			name: "valid X-Neo4j-MCP-URI returns 200",
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "missing X-Neo4j-MCP-URI returns 400",
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "invalid URI scheme in X-Neo4j-MCP-URI returns 400",
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", "http://localhost:7687")
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+path, strings.NewReader(body))
+			require.NoError(t, err)
+			tc.setupReq(req)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.wantStatus, resp.StatusCode)
 		})
 	}
 }
