@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/neo4j/mcp/internal/testutil"
 )
 
@@ -45,7 +48,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database:  "neo4j",
 			},
 			wantErr: true,
-			errMsg:  "Neo4j URI is required but was empty",
+			errMsg:  "Neo4j URI is required for STDIO mode but was empty",
 		},
 		{
 			name: "empty username",
@@ -72,7 +75,7 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "Neo4j password is required for STDIO mode",
 		},
 		{
-			name: "empty database should not raise error",
+			name: "empty database in STDIO mode should raise error",
 			cfg: &Config{
 				Telemetry: true,
 				URI:       "bolt://localhost:7687",
@@ -80,21 +83,39 @@ func TestConfig_Validate(t *testing.T) {
 				Password:  "password",
 				Database:  "",
 			},
-			wantErr: false,
-			errMsg:  "",
+			wantErr: true,
+			errMsg:  "Neo4j database is required for STDIO mode",
+		},
+		{
+			name: "URI set for HTTP mode should raise error",
+			cfg: &Config{
+				Telemetry:     true,
+				URI:           "bolt://localhost:7687",
+				TransportMode: TransportModeHTTP,
+			},
+			wantErr: true,
+			errMsg:  "Neo4j URI should not be set for HTTP transport mode",
+		},
+		{
+			name: "database set for HTTP mode should raise error",
+			cfg: &Config{
+				Telemetry:     true,
+				Database:      "neo4j",
+				TransportMode: TransportModeHTTP,
+			},
+			wantErr: true,
+			errMsg:  "NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode",
 		},
 		{
 			name: "credentials set for HTTP mode should raise error",
 			cfg: &Config{
 				Telemetry:     true,
-				URI:           "bolt://localhost:7687",
 				Username:      "neo4j",
 				Password:      "password",
-				Database:      "neo4j",
 				TransportMode: TransportModeHTTP,
 			},
 			wantErr: true,
-			errMsg:  "Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers",
+			errMsg:  "Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers",
 		},
 	}
 
@@ -286,6 +307,7 @@ func TestLoadConfig_InvalidBooleanValues(t *testing.T) {
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 	t.Setenv("NEO4J_TELEMETRY", "invalid-value")
 	t.Setenv("NEO4J_READ_ONLY", "not-a-boolean")
 
@@ -311,6 +333,7 @@ func TestLoadConfig_ValidBooleanValues(t *testing.T) {
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 	t.Setenv("NEO4J_TELEMETRY", "false")
 	t.Setenv("NEO4J_READ_ONLY", "true")
 
@@ -336,6 +359,7 @@ func TestLoadConfig_ValidIntValue(t *testing.T) {
 	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 	t.Setenv("NEO4J_USERNAME", "testuser")
 	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
 
 	t.Run("default value", func(t *testing.T) {
 		// Unset the env var to test default
@@ -392,7 +416,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled and both cert files provided",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: certPath,
@@ -403,7 +426,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled but missing cert file",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "",
@@ -415,7 +437,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS enabled but missing key file",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "/path/to/cert.pem",
@@ -427,7 +448,6 @@ func TestConfig_Validate_TLS(t *testing.T) {
 		{
 			name: "HTTP mode with TLS disabled and no cert files",
 			cfg: &Config{
-				URI:             "bolt://localhost:7687",
 				TransportMode:   TransportModeHTTP,
 				HTTPTLSEnabled:  false,
 				HTTPTLSCertFile: "",
@@ -441,6 +461,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 				URI:             "bolt://localhost:7687",
 				Username:        "neo4j",
 				Password:        "password",
+				Database:        "neo4j",
 				TransportMode:   TransportModeStdio,
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "",
@@ -477,7 +498,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 		// Generate test certificates dynamically
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -504,6 +524,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		cfg, err := LoadConfig(nil)
 		if err != nil {
@@ -519,7 +540,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 		// Generate test certificates dynamically
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -546,7 +566,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 
 	t.Run("TLS validation error when missing cert file", func(t *testing.T) {
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/path/to/key.pem")
@@ -565,7 +584,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 	})
 
 	t.Run("TLS validation error with invalid cert/key files", func(t *testing.T) {
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", "/nonexistent/cert.pem")
@@ -587,7 +605,6 @@ func TestLoadConfig_TLS(t *testing.T) {
 
 func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Default port 80 when TLS disabled", func(t *testing.T) {
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		// NEO4J_MCP_HTTP_TLS_ENABLED is not set (defaults to false)
 
@@ -604,7 +621,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Default port 443 when TLS enabled", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -624,7 +640,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Explicit port overrides default", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -644,7 +659,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("CLI override for port takes precedence", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -668,7 +682,6 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("CLI TLS enable changes default port", func(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
-		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_TRANSPORT_MODE", "http")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
@@ -696,6 +709,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://example.com,https://example2.com")
 
 		cfg, err := LoadConfig(nil)
@@ -713,6 +727,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "*")
 
 		cfg, err := LoadConfig(nil)
@@ -730,6 +745,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		// Don't set NEO4J_MCP_HTTP_ALLOWED_ORIGINS
 
 		cfg, err := LoadConfig(nil)
@@ -747,6 +763,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://env-example.com")
 
 		overrides := &CLIOverrides{
@@ -771,6 +788,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		cfg, err := LoadConfig(nil)
 		if err != nil {
@@ -788,6 +806,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_HTTP_AUTH_HEADER_NAME", "X-Test-Auth")
 
 		cfg, err := LoadConfig(nil)
@@ -806,6 +825,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 		t.Setenv("NEO4J_HTTP_AUTH_HEADER_NAME", "X-Env-Auth")
 
 		overrides := &CLIOverrides{
@@ -828,6 +848,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_USERNAME", "neo4j")
 		t.Setenv("NEO4J_PASSWORD", "password")
+		t.Setenv("NEO4J_DATABASE", "neo4j")
 
 		overrides := &CLIOverrides{
 			AuthHeaderName: "   ", // non-empty but only whitespace -> should be trimmed to empty and cause an error
@@ -844,4 +865,50 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 			t.Errorf("LoadConfig() error = %v, want error containing 'invalid auth header name'", err)
 		}
 	})
+}
+
+func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
+	tests := []struct {
+		name         string
+		transport    string
+		databaseEnv  string
+		cliOverrides *CLIOverrides
+		wantErr      string
+		wantDatabase string
+	}{
+		{
+			name:        "HTTP mode: NEO4J_DATABASE env var should raise error",
+			transport:   "http",
+			databaseEnv: "neo4j",
+			wantErr:     "NEO4J_DATABASE environment variable",
+		},
+		{
+			name:         "--neo4j-database flag in HTTP mode should raise error",
+			transport:    "http",
+			cliOverrides: &CLIOverrides{Database: "custom-db"},
+			wantErr:      "--neo4j-database flag",
+		},
+		{
+			name:      "HTTP mode without NEO4J_DATABASE should have empty database",
+			transport: "http",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("NEO4J_TRANSPORT_MODE", tt.transport)
+			if tt.databaseEnv != "" {
+				t.Setenv("NEO4J_DATABASE", tt.databaseEnv)
+			}
+
+			cfg, err := LoadConfig(tt.cliOverrides)
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDatabase, cfg.Database)
+		})
+	}
 }

@@ -33,17 +33,17 @@ func startHTTPModeServer(t *testing.T) string {
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 
-	// In HTTP mode the config validation rejects NEO4J_USERNAME / NEO4J_PASSWORD —
-	// credentials are supplied per-request via Basic Auth headers instead.
-	// Strip those keys so the e2e suite's env values don't cause a startup error.
+	// In HTTP mode the config validation rejects NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, and
+	// NEO4J_DATABASE — the URI, credentials, and database are supplied per-request via the
+	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
+	// Strip those keys so any locally-set env values don't cause a startup validation error.
 	cmd := exec.Command(server, // #nosec G204 -- server is a binary path built by the test harness, not user input
-		"--neo4j-uri", dbs.GetDriverConf().URI,
 		"--neo4j-transport-mode", "http",
 		"--neo4j-http-host", "127.0.0.1",
 		"--neo4j-http-port", fmt.Sprintf("%d", port),
 		"--neo4j-telemetry", "false",
 	)
-	cmd.Env = stripEnv(os.Environ(), "NEO4J_USERNAME", "NEO4J_PASSWORD")
+	cmd.Env = stripEnv(os.Environ(), "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "NEO4J_DATABASE")
 
 	require.NoError(t, cmd.Start(), "failed to start HTTP server")
 
@@ -129,9 +129,9 @@ func TestHealthzE2E(t *testing.T) {
 
 		require.NoError(t, mcpClient.Start(context.Background()))
 
-		// Ping sends a JSON-RPC ping to /mcp. The auth middleware rejects it
-		// with 401 before any MCP protocol handling occurs.
+		// Ping sends a JSON-RPC ping to /mcp. pathValidationMiddleware rejects it
+		// (path does not match /db/{name}/mcp) before any MCP protocol handling occurs.
 		err = mcpClient.Ping(context.Background())
-		assert.Error(t, err, "expected auth rejection when no credentials are provided")
+		assert.Error(t, err, "expected rejection when no credentials are provided")
 	})
 }

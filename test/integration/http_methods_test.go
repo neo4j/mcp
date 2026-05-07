@@ -112,7 +112,8 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
 
-	const methodNotAllowedMsg = "Method Not Allowed: only POST is supported on /mcp"
+	dbPath := "/db/neo4j/mcp"
+	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 
 	tests := []struct {
@@ -127,13 +128,14 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 		assertErr    func(t *testing.T, err error)
 	}{
 		{
-			name:   "POST /mcp with valid credentials returns 200",
+			name:   "POST /db/{db}/mcp with valid credentials returns 200",
 			method: http.MethodPost,
-			path:   "/mcp",
+			path:   dbPath,
 			body:   pingBody,
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
 			},
 			wantStatus: http.StatusOK,
 			assertErr:  noErr,
@@ -141,9 +143,9 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 		{
 			// CORS middleware intercepts OPTIONS before auth runs (AllowedOrigins: "*"
 			// is set on the test server). Preflight returns 204 No Content per spec.
-			name:   "OPTIONS /mcp returns 204 CORS preflight",
+			name:   "OPTIONS /db/{db}/mcp returns 204 CORS preflight",
 			method: http.MethodOptions,
-			path:   "/mcp",
+			path:   dbPath,
 			setupReq: func(req *http.Request) {
 				req.Header.Set("Origin", "http://example.com")
 			},
@@ -151,36 +153,36 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			assertErr:  noErr,
 		},
 		{
-			name:         "GET /mcp is rejected",
+			name:         "GET /db/{db}/mcp is rejected",
 			method:       http.MethodGet,
-			path:         "/mcp",
+			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "PATCH /mcp is rejected",
+			name:         "PATCH /db/{db}/mcp is rejected",
 			method:       http.MethodPatch,
-			path:         "/mcp",
+			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "GET /mcp/ (trailing slash) is rejected",
+			name:         "GET /db/{db}/mcp/ (trailing slash) is rejected",
 			method:       http.MethodGet,
-			path:         "/mcp/",
+			path:         dbPath + "/",
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "PATCH /mcp/ (trailing slash) is rejected",
+			name:         "PATCH /db/{db}/mcp/ (trailing slash) is rejected",
 			method:       http.MethodPatch,
-			path:         "/mcp/",
+			path:         dbPath + "/",
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
@@ -220,6 +222,63 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			if tc.wantAllowHdr != "" {
 				assert.Equal(t, tc.wantAllowHdr, resp.Header.Get("Allow"))
 			}
+		})
+	}
+}
+
+func TestHTTPMode_URIHeader(t *testing.T) {
+	t.Parallel()
+
+	_, baseURL := startHTTPServer(t)
+	testCFG := dbs.GetDriverConf()
+	path := "/db/neo4j/mcp"
+	body := `{"jsonrpc":"2.0","method":"ping","id":1}`
+
+	tests := []struct {
+		name       string
+		setupReq   func(*http.Request)
+		wantStatus int
+	}{
+		{
+			name: "valid X-Neo4j-MCP-URI returns 200",
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "missing X-Neo4j-MCP-URI returns 400",
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "invalid URI scheme in X-Neo4j-MCP-URI returns 400",
+			setupReq: func(req *http.Request) {
+				req.SetBasicAuth(testCFG.Username, testCFG.Password)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-Neo4j-MCP-URI", "http://localhost:7687")
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+path, strings.NewReader(body))
+			require.NoError(t, err)
+			tc.setupReq(req)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.wantStatus, resp.StatusCode)
 		})
 	}
 }

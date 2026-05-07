@@ -57,11 +57,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("configuration is required but was nil")
 	}
 
-	// URI is always required
-	if c.URI == "" {
-		return fmt.Errorf("Neo4j URI is required but was empty")
-	}
-
 	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 	if c.TransportMode == "" {
 		c.TransportMode = TransportModeStdio
@@ -72,17 +67,31 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
 	}
 
-	// For STDIO mode, require username and password from environment
-	// For HTTP mode, credentials come from per-request Basic Auth headers
+	// For STDIO mode, require URI, username, password, and database from environment.
+	// For HTTP mode, URI, credentials and database come per-request (X-Neo4j-MCP-URI header, Auth headers, and URL path);
 	if c.TransportMode == TransportModeStdio {
+		if c.URI == "" {
+			return fmt.Errorf("Neo4j URI is required for STDIO mode but was empty")
+		}
 		if c.Username == "" {
 			return fmt.Errorf("Neo4j username is required for STDIO mode")
 		}
 		if c.Password == "" {
 			return fmt.Errorf("Neo4j password is required for STDIO mode")
 		}
-	} else if c.Username != "" || c.Password != "" {
-		return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers")
+		if c.Database == "" {
+			return fmt.Errorf("Neo4j database is required for STDIO mode (set NEO4J_DATABASE or use --neo4j-database flag)")
+		}
+	} else {
+		if c.URI != "" {
+			return fmt.Errorf("Neo4j URI should not be set for HTTP transport mode; URI is provided per-request via X-Neo4j-MCP-URI header")
+		}
+		if c.Username != "" || c.Password != "" {
+			return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers")
+		}
+		if c.Database != "" {
+			return fmt.Errorf("NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+		}
 	}
 
 	// For HTTP mode with TLS enabled, require certificate and key files
@@ -151,7 +160,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		URI:                           GetEnv("NEO4J_URI"),
 		Username:                      GetEnv("NEO4J_USERNAME"),
 		Password:                      GetEnv("NEO4J_PASSWORD"),
-		Database:                      GetEnvWithDefault("NEO4J_DATABASE", "neo4j"),
+		Database:                      GetEnv("NEO4J_DATABASE"),
 		ReadOnly:                      ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
 		Telemetry:                     ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
 		LogLevel:                      logLevel,

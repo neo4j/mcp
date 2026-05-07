@@ -68,7 +68,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		HTTPHost:      "127.0.0.1",
 		HTTPPort:      strconv.Itoa(port),
 	}
-	uri := fmt.Sprintf("http://%s:%s/mcp", cfg.HTTPHost, cfg.HTTPPort)
+	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
@@ -303,7 +303,8 @@ func createStreamableHTTPClient(url string) *client.Client {
 		transport.WithHTTPTimeout(30*time.Second),
 		// Set custom headers
 		transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Basic bmVvNGo6cGFzc3dvcmQ=",
+			"Authorization":   "Basic bmVvNGo6cGFzc3dvcmQ=",
+			"X-Neo4j-MCP-URI": "bolt://test-host:7687",
 		}),
 		// With custom HTTP client
 		transport.WithHTTPBasicClient(&http.Client{}),
