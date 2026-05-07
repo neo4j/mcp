@@ -4,22 +4,11 @@ Thank you for your interest in contributing to the Neo4j MCP server! This docume
 
 If you're an external contributor you must sign the [https://neo4j.com/developer/contributing-code/#sign-cla](https://neo4j.com/developer/contributing-code/#sign-cla)
 
-## Code of Conduct
+## Code of conduct
 
 Please read and follow these guidelines to ensure a welcoming environment for everyone.
 
-## Prerequisites
-
-- Go 1.25+ (see `go.mod`)
-- A Neo4j instance with APOC plugin installed.
-
-## Clone the repository (forks are currently disabled)
-
-```bash
-git clone git@github.com:neo4j/mcp.git && cd mcp
-```
-
-## Install Dependencies
+## Install dependencies
 
 ```bash
 # Install Go dependencies
@@ -30,50 +19,8 @@ go install go.uber.org/mock/mockgen@latest
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-## Environment Variables
 
-The MCP server supports two transport modes: **STDIO** (default) and **HTTP**. Required environment variables differ based on the mode.
-
-### STDIO Mode (Default)
-
-**Required variables:**
-
-```bash
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USERNAME="neo4j"
-export NEO4J_PASSWORD="password"
-```
-
-### HTTP Mode
-
-**Required variables:**
-
-```bash
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_TRANSPORT_MODE="http"
-```
-
-**Note:** In HTTP mode, do NOT set `NEO4J_USERNAME` or `NEO4J_PASSWORD`. Credentials come from per-request Basic Auth headers.
-
-### Optional Variables (Both Modes)
-
-```bash
-export NEO4J_DATABASE="neo4j"          # Default: neo4j
-export NEO4J_READ_ONLY="false"         # Default: false (set to "true" to disable write tools)
-export NEO4J_TELEMETRY="true"          # Default: true
-export NEO4J_LOG_LEVEL="info"          # Default: info (debug, info, notice, warning, error, critical, alert, emergency)
-export NEO4J_LOG_FORMAT="text"         # Default: text (text or json)
-export NEO4J_SCHEMA_SAMPLE_SIZE="100"  # Default: 100 (number of nodes to sample for schema inference)
-
-# HTTP mode specific (ignored in STDIO mode)
-export NEO4J_MCP_HTTP_HOST="127.0.0.1" # Default: 127.0.0.1
-export NEO4J_MCP_HTTP_PORT="80"        # Default: 80
-export NEO4J_MCP_HTTP_ALLOWED_ORIGINS="*" # Default: empty (no CORS)
-```
-
-**Note:** Make sure your local Neo4j instance is running with the correct credentials before testing.
-
-## Build / Test / Run
+## Build, test and Run
 
 ```bash
 # Tests (coverage)
@@ -128,9 +75,9 @@ The Neo4j MCP capabilities can be tested using the `@modelcontextprotocol/inspec
 npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
 ```
 
-## Testing HTTP Mode
+## Testing HTTP mode
 
-### Unit Tests
+### Unit tests
 
 HTTP mode has comprehensive unit tests:
 
@@ -148,100 +95,7 @@ go test ./internal/database -v
 go test ./... -cover
 ```
 
-### Manual Testing
-
-Start the server in HTTP mode:
-
-```bash
-# Set up environment
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_TRANSPORT_MODE ="http"
-
-# Run server
-go run ./cmd/neo4j-mcp
-```
-
-Test with curl:
-
-**Basic Authentication:**
-
-```bash
-# List available tools
-curl -X POST http://localhost:80/mcp \
-  -u "neo4j:password" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-
-# Get Neo4j schema
-curl -X POST http://localhost:80/mcp \
-  -u "neo4j:password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/call",
-    "params": {
-      "name": "get-schema",
-      "arguments": {}
-    }
-  }'
-```
-
-**Bearer Token Authentication (Enterprise/Aura with SSO):**
-
-```bash
-# List available tools
-curl -X POST http://localhost:80/mcp \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/list",
-    "params": {}
-  }'
-
-# Get Neo4j schema
-curl -X POST http://localhost:80/mcp \
-  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/call",
-    "params": {
-      "name": "get-schema",
-      "arguments": {}
-    }
-  }'
-```
-
-**General Testing:**
-
-```bash
-# Test authentication (should return 401)
-curl -X POST http://localhost:80/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/list"}'
-
-# Test CORS (if configured)
-curl -X OPTIONS http://localhost:80/mcp \
-  -H "Origin: http://localhost:3000" \
-  -H "Access-Control-Request-Method: POST"
-
-# Test multi-user/multi-tenant (different credentials per request)
-curl -X POST http://localhost:80/mcp \
-  -u "userA:passwordA" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}'
-
-curl -X POST http://localhost:80/mcp \
-  -u "userB:passwordB" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{}}'
-```
-
-## TLS/HTTPS Configuration
+## TLS/HTTPS configuration
 
 For detailed instructions on generating certificates and testing TLS configurations, see the **[TLS Setup Guide](docs/TLS_SETUP.md)**.
 
@@ -251,7 +105,8 @@ This guide includes:
 - TLS verification commands
 - Production considerations (using Let's Encrypt certificates)
 
-## MCP Error Handling
+
+## MCP error handling
 
 MCP error handling follows a specific pattern that differs from standard Go error handling. According to the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#error-handling), tool handlers should communicate errors through the tool result structure rather than returning Go errors directly.
 
@@ -278,7 +133,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
         // Bind and validate arguments
         var args MyToolInput
         if err := request.BindArguments(&args); err != nil {
-            return mcp.NewToolResultError("Invalid arguments: " + err.Error()), nil
+            return mcp.NewToolResultError("Invalid arguments"), nil
         }
 
         // Business logic validation
@@ -290,7 +145,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
         result, err := someOperation(ctx, args)
         if err != nil {
             // Use MCP error for business/operational errors
-            return mcp.NewToolResultError("Operation failed: " + err.Error()), nil
+            return mcp.NewToolResultError("Operation failed"), nil
         }
 
         // Success case
@@ -301,7 +156,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
 
 **Note:** Always return `nil` as the second parameter when using `NewToolResultError`, as the error information is embedded within the `CallToolResult` structure.
 
-## Adding New MCP Tools
+## Adding new MCP tools
 
 1. **Define tool specifications** in `internal/tools/`:
 
@@ -345,7 +200,7 @@ func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
 
 4. **Write tests** with mocked dependencies
 
-### Database Interface Extensions
+### Database interface extensions
 
 When adding new database operations:
 
@@ -354,22 +209,26 @@ When adding new database operations:
 3. **Regenerate mocks**: `go generate ./...`
 4. **Update tests** to use new mock methods
 
-### Quick Fixes
+### Quick fixes
 
 - Mock generation fails → ensure `mockgen` on PATH.
 - Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
 - Dependency/build issues → `go mod tidy`.
 
-## Update MCPB Bundle (for Claude Desktop)
+## Update the MCPB bundle (for Claude Desktop)
 
 If your changes impact the end-user configuration (e.g., adding new environment variables or modifying tool definitions), you must update the `manifest.json` file. This ensures that integrations like Claude Desktop are aware of the new server configuration.
 
-For more information refer to the dedicated guide: [the MCPB build documentation](docs/BUILD_MCPB.md).
+For more information refer to the dedicated guide: [the MCPB build documentation](https://neo4j.com/docs/mcp/current/installation#mcpb).
 
-### Getting Help
+### Getting help
 
 - Check existing [GitHub Issues](https://github.com/neo4j/mcp/issues)
 - Ask questions in pull request discussions
 - Reach out to maintainers for complex architectural questions
 
 Thank you for contributing to making Neo4j MCP better!
+
+## Documentation
+
+If you would like to contribute to the Neo4j MCP documentation, checkout the [documentation source on GitHub](https://github.com/neo4j/docs-mcp).
