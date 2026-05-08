@@ -78,24 +78,12 @@ Create / edit `mcp.json`:
 See [MCP documentation > Configuration](https://neo4j.com/docs/mcp/current/configuration) for more details.
 
 
-## Transport Modes
-
-| Aspect | STDIO | HTTP |
-|--------|-------|------|
-| Startup verification | Required — verifies APOC, connectivity | Skipped — server starts immediately |
-| Credentials | `NEO4J_USERNAME` / `NEO4J_PASSWORD` env vars | Per-request via Bearer token or Basic Auth |
-| Database | `NEO4J_DATABASE` env var (required, no default) | URL path: `/db/{name}/mcp` |
-| Neo4j URI | `NEO4J_URI` env var | `X-Neo4j-MCP-URI` request header |
-
-
 ## Tools
 
-| Tool | Read-only | Purpose |
-|------|-----------|---------|
-| `get-schema` | yes | Introspect labels, relationship types, property keys |
-| `read-cypher` | yes | Execute read-only Cypher queries |
-| `write-cypher` | no | Execute write Cypher queries. Disabled if `NEO4J_READ_ONLY=true`. |
-| `list-gds-procedures` | yes | List GDS procedures available in the instance |
+- `get-schema` — introspect labels, relationship types, property keys
+- `read-cypher` — execute read-only Cypher queries
+- `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
+- `list-gds-procedures` — list available GDS procedures
 
 
 ## Links
