@@ -45,7 +45,6 @@ openssl req -x509 -newkey rsa:4096 \
 ```bash
 # Default port 443 when TLS is enabled
 ./bin/neo4j-mcp \
-  --neo4j-uri bolt://localhost:7687 \
   --neo4j-transport-mode http \
   --neo4j-http-tls-enabled true \
   --neo4j-http-tls-cert-file cert.pem \
@@ -53,7 +52,6 @@ openssl req -x509 -newkey rsa:4096 \
 
 # Or specify a custom port like 8443
 ./bin/neo4j-mcp \
-  --neo4j-uri bolt://localhost:7687 \
   --neo4j-transport-mode http \
   --neo4j-http-port 8443 \
   --neo4j-http-tls-enabled true \
@@ -73,11 +71,11 @@ Use the test commands below to verify TLS setup and MCP functionality.
 ### Basic tests
 
 ```bash
-# Test root path (should return 404 - server only handles /mcp)
+# Test root path (should return 404 - server only handles /db/{name}/mcp)
 curl -k https://127.0.0.1:8443/
 
-# Test /mcp without authentication (should return 401)
-curl -k https://127.0.0.1:8443/mcp
+# Test endpoint without authentication (should return 401)
+curl -k https://127.0.0.1:8443/db/neo4j/mcp
 
 # Show TLS handshake details
 curl -k -v https://127.0.0.1:8443/ 2>&1 | grep -E "SSL|TLS"
@@ -92,6 +90,7 @@ curl -u neo4j:password https://127.0.0.1:8443/
 ```bash
 # Initialize MCP session
 curl -k -u neo4j:password \
+  -H "X-Neo4j-MCP-URI: bolt://localhost:7687" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -103,20 +102,22 @@ curl -k -u neo4j:password \
     },
     "id": 1
   }' \
-  https://127.0.0.1:8443/mcp
+  https://127.0.0.1:8443/db/neo4j/mcp
 
 # List available tools
 curl -k -u neo4j:password \
+  -H "X-Neo4j-MCP-URI: bolt://localhost:7687" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/list",
     "id": 1
   }' \
-  https://127.0.0.1:8443/mcp
+  https://127.0.0.1:8443/db/neo4j/mcp
 
 # Call get-schema tool
 curl -k -u neo4j:password \
+  -H "X-Neo4j-MCP-URI: bolt://localhost:7687" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -126,7 +127,7 @@ curl -k -u neo4j:password \
     },
     "id": 1
   }' \
-  https://127.0.0.1:8443/mcp
+  https://127.0.0.1:8443/db/neo4j/mcp
 ```
 
 
