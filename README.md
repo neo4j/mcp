@@ -1,17 +1,16 @@
 <!-- mcp-name: io.github.neo4j/mcp -->
-# Neo4j MCP (v2)
+
+# Neo4j MCP
 
 Neo4j MCP gives AI assistants and LLM-powered tools direct, structured access to your Neo4j graph database.
 By implementing the Model Context Protocol (MCP), it acts as a bridge between any MCP-compatible client, such as Claude, Cursor, or VS Code with MCP support, and your Neo4j instance.
 
-
 ## Features
 
-* Explore your graph schema - discover node labels, relationship types, and property keys
-* Let AI reason on your data model without prior knowledge
-* Run Cypher queries - execute, read, and write queries against your database in response to natural language prompts
-* Inspect and analyze data - retrieve nodes, relationships, and paths to answer questions, generate summaries, or feed data to other workflows
-
+- Explore your graph schema - discover node labels, relationship types, and property keys
+- Let AI reason on your data model without prior knowledge
+- Run Cypher queries - execute, read, and write queries against your database in response to natural language prompts
+- Inspect and analyze data - retrieve nodes, relationships, and paths to answer questions, generate summaries, or feed data to other workflows
 
 ## Migrating from v1 to v2
 
@@ -40,8 +39,11 @@ Request:
   Authorization: Basic <base64>
 ```
 
-If `NEO4J_DATABASE` is still set in HTTP mode, the server refuses to start with `NEO4J_DATABASE … should not be set for HTTP transport mode; database is selected per-request via URL path`. Requests missing `X-Neo4j-MCP-URI` get `400 Bad Request: missing required header X-Neo4j-MCP-URI`.
+### Breaking changes in HTTP mode to be aware of when migrating:
 
+- If `NEO4J_DATABASE` is still set in HTTP mode, the server refuses to start with `NEO4J_DATABASE … should not be set for HTTP transport mode; database is selected per-request via URL path`.
+- Similarly, setting `NEO4J_USERNAME` or `NEO4J_PASSWORD` in HTTP mode causes startup failure, since credentials must be provided via Basic Auth on each request.
+- `NEO4J_URI` must also be empty at startup in HTTP mode, since the target Neo4j instance is determined per-request via the `X-Neo4j-MCP-URI` header. Setting `NEO4J_URI` in HTTP mode results in startup failure with `Neo4j URI should not be set for HTTP transport mode; URI is provided per-request via X-Neo4j-MCP-URI header`.
 
 ## Installation
 
@@ -51,8 +53,7 @@ If `NEO4J_DATABASE` is still set in HTTP mode, the server refuses to start with 
 pip install neo4j-mcp-server
 ```
 
-Otherwise see [MCP documentation -> Installation](https://neo4j.com/docs/mcp/current/installation).
-
+For manual installation or using `brew`, please see [MCP documentation -> Installation](https://neo4j.com/docs/mcp/current/installation).
 
 ## Server configuration (VSCode - STDIO)
 
@@ -63,7 +64,8 @@ Create / edit `mcp.json`:
   "servers": {
     "neo4j": {
       "type": "stdio",
-      "command": "neo4j-mcp",
+      "command": "python",
+      "args": ["-m", "neo4j_mcp_server"],
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
         "NEO4J_USERNAME": "neo4j",
@@ -77,14 +79,12 @@ Create / edit `mcp.json`:
 
 See [MCP documentation > Configuration](https://neo4j.com/docs/mcp/current/configuration) for more details.
 
-
 ## Tools
 
 - `get-schema` — introspect labels, relationship types, property keys
 - `read-cypher` — execute read-only Cypher queries
 - `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
 - `list-gds-procedures` — list available GDS procedures
-
 
 ## Links
 
