@@ -95,6 +95,16 @@ go test ./internal/database -v
 go test ./... -cover
 ```
 
+### Manual test
+
+```bash
+curl -X POST http://localhost:8080/db/neo4j/mcp \
+  -u neo4j:password \
+  -H "Content-Type: application/json" \
+  -H "X-Neo4j-MCP-URI: bolt://localhost:7687" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
 ## TLS/HTTPS configuration
 
 For detailed instructions on generating certificates and testing TLS configurations, see the **[TLS Setup Guide](docs/TLS_SETUP.md)**.
