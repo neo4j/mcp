@@ -15,7 +15,7 @@ By implementing the Model Context Protocol (MCP), it acts as a bridge between an
 ## Tools
 
 - `get-schema` — introspect labels, relationship types, property keys
-- `read-cypher` — execute read-only Cypher queries that do not modify database data, enforced via `EXPLAIN` and Neo4j's query-type classification. **Note: custom procedures or functions incorrectly classified as read-only by Neo4j may bypass this check; ensuring correct classification is the responsibility of the procedure/function maintainer.**
+- `read-cypher` — execute read-only Cypher queries that do not modify database data, enforced via `EXPLAIN` and Neo4j's query-type classification. **Note:** custom procedures or functions incorrectly classified as read-only by Neo4j may bypass this check; ensuring correct classification is the responsibility of the procedure/function maintainer.
 - `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
 - `list-gds-procedures` — list available GDS procedures
 
