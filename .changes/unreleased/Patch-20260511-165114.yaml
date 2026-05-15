@@ -1,3 +1,0 @@
-kind: Patch
-body: "Clarify read-cypher tool description and GetQueryType comment to document EXPLAIN-based enforcement and its limitations."
-time: 2026-05-11T16:51:14.106233+01:00
