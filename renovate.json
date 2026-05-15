@@ -2,7 +2,10 @@
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": ["config:best-practices"],
     "rebaseWhen": "conflicted",
-    "automerge": false,
+    "automerge": true,
+    "major": {
+        "automerge": false
+    },    
     "timezone": "Europe/London",
     "schedule": ["* 0-4 1,15 * *"],
     "vulnerabilityAlerts": {
