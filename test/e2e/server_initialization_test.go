@@ -251,7 +251,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		// (tools/list response shape: name, description, inputSchema with type/properties/required, and tool annotations).
 		expected := map[string]toolExpectation{
 			"read-cypher": {
-				description: "executes read-only Cypher queries that do not modify database data. Validation uses EXPLAIN and Neo4j's query classification—only queries classified as read-only ('r') are executed. Limitation: custom procedures/functions incorrectly classified as read-only by Neo4j may bypass this check. For write operations, schema/admin commands, or PROFILE queries, use write-cypher instead.",
+				description: "read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead.",
 				annotations: mcp.ToolAnnotation{
 					Title:           "Read Cypher",
 					ReadOnlyHint:    mcp.ToBoolPtr(true),

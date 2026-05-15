@@ -14,7 +14,7 @@ type ReadCypherInput struct {
 
 func ReadCypherSpec() mcp.Tool {
 	return mcp.NewTool("read-cypher",
-		mcp.WithDescription("executes read-only Cypher queries that do not modify database data. Validation uses EXPLAIN and Neo4j's query classification—only queries classified as read-only ('r') are executed. Limitation: custom procedures/functions incorrectly classified as read-only by Neo4j may bypass this check. For write operations, schema/admin commands, or PROFILE queries, use write-cypher instead."),
+		mcp.WithDescription("read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead."),
 		mcp.WithInputSchema[ReadCypherInput](),
 		mcp.WithTitleAnnotation("Read Cypher"),
 		mcp.WithReadOnlyHintAnnotation(true),
