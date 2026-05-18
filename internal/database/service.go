@@ -111,8 +111,10 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	return res.Records, nil
 }
 
-// GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write, 'rw' etc.)
-// This allows read-only tools to determine if a query is safe to run in read-only context.
+// GetQueryType prefixes the provided query with EXPLAIN and returns the query type (e.g. 'r' for read, 'w' for write).
+// This allows read-only tools to determine if a query modifies database data.
+// Limitation: custom procedures or functions that are incorrectly classified as read-only by Neo4j
+// will pass this check. Correct query classification is the responsibility of the procedure/function maintainer.
 func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params map[string]any) (neo4j.QueryType, error) {
 	explainedQuery := strings.Join([]string{"EXPLAIN", cypher}, " ")
 
