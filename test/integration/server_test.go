@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
@@ -89,7 +91,7 @@ func TestServerLifecycle(t *testing.T) {
 				t.Fatal("the NewNeo4jMCPServer() returned nil")
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			var wg sync.WaitGroup
@@ -104,13 +106,21 @@ func TestServerLifecycle(t *testing.T) {
 			for {
 				select {
 				case <-ctx.Done():
+					client, err := client.NewInProcessClient(s.MCPServer)
+					if err != nil {
+						t.Fatalf("error during client initilization: %s", err.Error())
+					}
+					_, err = client.Initialize(context.Background(), mcp.InitializeRequest{})
+					if startErr != nil {
+						t.Fatal("error while starting the MCP Server")
+					}
 					if tc.expectError {
-						if startErr == nil {
+						if err == nil {
 							t.Fatal("expected an error but got nil")
 						}
 					} else {
-						if startErr != nil {
-							t.Fatalf("Start returned an unexpected error: %s", startErr.Error())
+						if err != nil {
+							t.Fatalf("start returned an unexpected error: %s", startErr.Error())
 						}
 					}
 					return
@@ -122,7 +132,7 @@ func TestServerLifecycle(t *testing.T) {
 	}
 
 	t.Run("server stop should return no errors", func(t *testing.T) {
-		driver, err := neo4j.NewDriverWithContext(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
+		driver, err := neo4j.NewDriver(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
 		if err != nil {
 			t.Fatalf("failed to create Neo4j driver: %s", err.Error())
 		}

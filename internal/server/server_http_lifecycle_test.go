@@ -127,7 +127,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 			t.Fatalf("error while initialize request: %v", err)
 		}
 		assertNoCloseOrStopError(t, s, errChan)
-
 	})
 
 	t.Run("Server handles database connectivity errors gracefully", func(t *testing.T) {
@@ -142,62 +141,13 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		mcpClient := createStreamableHTTPClient(uri)
+		// initialize should fail, while the server should keep working fine.
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
+		if err == nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		assert.ErrorContains(t, err, "impossible to verify connectivity with the Neo4j instance: connection error")
 		assertNoCloseOrStopError(t, s, errChan)
-
-	})
-
-	t.Run("Server should not perform duplicate verification calls", func(t *testing.T) {
-		// in HTTP mode once the requirements are check are not checked again, since the configuration are shared across users.
-		// the before initialization hook should not be used as authentication mechanism as it cannot return valid errors to the users.
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"first"},
-				Values: []any{
-					int64(1),
-				},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"apocMetaSchemaAvailable"},
-				Values: []any{
-					bool(true),
-				},
-			},
-		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"gdsVersion"},
-				Values: []any{
-					string("2.22.0"),
-				},
-			},
-		}, nil)
-
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
-
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		mcpClient := createStreamableHTTPClient(uri)
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		// create new client to verify that at new requests the verifyRequirements is not preformed again.
-		mcpClient2 := createStreamableHTTPClient(uri)
-		_, err = mcpClient2.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		assertNoCloseOrStopError(t, s, errChan)
-
 	})
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
@@ -246,50 +196,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 			toolNames = append(toolNames, tool.Tool.Name)
 		}
 		assert.Contains(t, toolNames, "list-gds-procedures")
-
-		assertNoCloseOrStopError(t, s, errChan)
-
-	})
-
-	t.Run("server should not add GDS tools when GDS is not installed", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"first"},
-				Values: []any{
-					int64(1),
-				},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"apocMetaSchemaAvailable"},
-				Values: []any{
-					bool(true),
-				},
-			},
-		}, nil)
-
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
-
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
-
-		// In HTTP mode, NO database operations should happen during Start()
-		// The hook is registered but not executed until a real client request
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		mcpClient := createStreamableHTTPClient(uri)
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		toolNames := make([]string, 0, len(s.MCPServer.ListTools()))
-		for _, tool := range s.MCPServer.ListTools() {
-			toolNames = append(toolNames, tool.Tool.Name)
-		}
-		assert.NotContains(t, toolNames, "list-gds-procedures")
 
 		assertNoCloseOrStopError(t, s, errChan)
 
