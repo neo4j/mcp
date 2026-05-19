@@ -1,0 +1,5 @@
+kind: Major
+body: | 
+  The list-gds-procedures tool is no longer automatically included in the response from the list/tools endpoint.
+  The Initialize request now provides clearer feedback or error messages when requirements are missing or there is a misconfiguration.
+time: 2026-05-19T11:24:32.375014+01:00
