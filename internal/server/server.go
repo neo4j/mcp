@@ -414,7 +414,7 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 
 	hooks.AddAfterCallTool(s.handleToolCallComplete)
 
-	hooks.AddOnRequestInitialization(func(ctx context.Context, id any, message any) error {
+	hooks.AddOnRequestInitialization(func(ctx context.Context, _ any, _ any) error {
 		slog.Info("Initialize request: verifying requirements...")
 		err := s.verifyRequirements(ctx)
 		if err != nil {
