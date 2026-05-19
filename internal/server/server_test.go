@@ -85,7 +85,7 @@ func TestInitializeRequestHook(t *testing.T) {
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
-	t.Run("initialize succesful", func(t *testing.T) {
+	t.Run("initialize successful", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
@@ -127,6 +127,9 @@ func TestInitializeRequestHook(t *testing.T) {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
+		if err != nil {
+			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
@@ -148,6 +151,9 @@ func TestInitializeRequestHook(t *testing.T) {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
+		if err != nil {
+			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err == nil {
 			t.Fatal("Expect error during initialization, when no connection can be established, go nil")
@@ -176,6 +182,9 @@ func TestInitializeRequestHook(t *testing.T) {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
+		if err != nil {
+			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err == nil {
 			t.Fatal("Expect error during initialization, when unexpected results are returned, go nil")
@@ -218,6 +227,9 @@ func TestInitializeRequestHook(t *testing.T) {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
+		if err != nil {
+			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
