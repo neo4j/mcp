@@ -43,7 +43,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 
 		err := s.Start()
@@ -58,7 +58,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 
 		err := s.Start()
@@ -117,7 +117,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 		err := s.Start()
 		if err != nil {
@@ -138,7 +138,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 		err := s.Start()
 		if err != nil {
@@ -165,7 +165,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 
 		err := s.Start()
@@ -208,7 +208,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
 		if s == nil {
-			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
+			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 
 		err := s.Start()
