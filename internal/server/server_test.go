@@ -119,11 +119,8 @@ func TestInitializeRequestHook(t *testing.T) {
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
-		var startErr error
-		go func() {
-			startErr = s.Start()
-		}()
-		if startErr != nil {
+		err := s.Start()
+		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
@@ -143,11 +140,8 @@ func TestInitializeRequestHook(t *testing.T) {
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
-		var startErr error
-		go func() {
-			startErr = s.Start()
-		}()
-		if startErr != nil {
+		err := s.Start()
+		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
@@ -156,7 +150,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err == nil {
-			t.Fatal("Expect error during initialization, when no connection can be established, go nil")
+			t.Fatal("Expect error during initialization, when no connection can be established, got nil")
 		}
 
 	})
@@ -174,11 +168,8 @@ func TestInitializeRequestHook(t *testing.T) {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
 
-		var startErr error
-		go func() {
-			startErr = s.Start()
-		}()
-		if startErr != nil {
+		err := s.Start()
+		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
@@ -187,7 +178,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err == nil {
-			t.Fatal("Expect error during initialization, when unexpected results are returned, go nil")
+			t.Fatal("Expect error during initialization, when unexpected results are returned, got nil")
 		}
 	})
 
@@ -219,11 +210,10 @@ func TestInitializeRequestHook(t *testing.T) {
 		if s == nil {
 			t.Errorf("NewNeo4jMCPServer() expected non-nil server, got nil")
 		}
-		var startErr error
-		go func() {
-			startErr = s.Start()
-		}()
-		if startErr != nil {
+
+		err := s.Start()
+
+		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
@@ -238,7 +228,6 @@ func TestInitializeRequestHook(t *testing.T) {
 }
 
 func TestNewNeo4jMCPServerEvents(t *testing.T) {
-	t.Skip()
 	// move to initialize tests
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -290,7 +279,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 	}, nil)
 	analyticsService := analytics.NewMockService(ctrl)
 
-	t.Run("emits startup and OSInfoEvent and StartupEvent events on start", func(t *testing.T) {
+	t.Run("emits ConnectionInitializedEvent and StartupEvent events on initialize", func(t *testing.T) {
 		analyticsService.EXPECT().IsEnabled().Times(1).Return(true)
 		analyticsService.EXPECT().NewStartupEvent(config.TransportModeStdio, false, "test-version").Times(1)
 		analyticsService.EXPECT().NewConnectionInitializedEvent(analyticsReal.ConnectionEventInfo{
@@ -308,6 +297,14 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 
 		if err != nil {
 			t.Errorf("Start() unexpected error = %v", err)
+		}
+		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
+		if err != nil {
+			t.Fatalf("Unexpected error during InProcessClient creation, %s", err.Error())
+		}
+		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		if err != nil {
+			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
 		}
 		// Stop should work without errors
 		ctx := context.Background()

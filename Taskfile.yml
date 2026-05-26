@@ -3,7 +3,7 @@
 version: "3"
 
 tasks:
-  # test utils: spass CLI args as task:test -- -v
+  # test utils: pass CLI args as task:test -- -v
   test:
     cmds:
       - go test ./... {{.CLI_ARGS}}
