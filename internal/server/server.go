@@ -83,9 +83,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 // Start initializes and starts the MCP server
 func (s *Neo4jMCPServer) Start() error {
 	slog.Info("Registering server tools")
-	if err := s.registerTools(); err != nil {
-		return err
-	}
+	s.registerTools()
 	s.emitServerStartupEvent()
 	switch s.config.TransportMode {
 	case config.TransportModeHTTP:

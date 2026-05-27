@@ -16,10 +16,9 @@ import (
 // any tool that performs state mutation will be excluded; only tools annotated as read-only will be registered.
 // Note: this read-only filtering relies on the tool annotation "readonly" (ReadOnlyHint). If the annotation
 // is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).
-func (s *Neo4jMCPServer) registerTools() error {
+func (s *Neo4jMCPServer) registerTools() {
 	tools := s.getTools()
 	s.MCPServer.AddTools(tools...)
-	return nil
 }
 
 type ToolDefinition struct {
