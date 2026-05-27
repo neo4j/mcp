@@ -117,6 +117,19 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers",
 		},
+		{
+			name: "invalid tool should raise error",
+			cfg: &Config{
+				Telemetry: true,
+				Username:  "neo4j",
+				Password:  "password",
+				URI:       "bolt://localhost:7687",
+				Tools:     []string{"invalid-tool"},
+				Database:  "neo4j",
+			},
+			wantErr: true,
+			errMsg:  `tool "invalid-tool" is invalid. Available tools are: read-cypher, write-cypher, list-gds-procedures, get-schema`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -911,4 +924,166 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 			assert.Equal(t, tt.wantDatabase, cfg.Database)
 		})
 	}
+}
+
+func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
+	tests := []struct {
+		name          string
+		toolsEnv      *string
+		expectedTools []string
+		wantErr       string
+	}{
+		{
+			name:          "When tool list is not provided, default tool list should be used",
+			expectedTools: AvailableTools,
+		},
+		{
+			name:          "When tool list is provided, it should replace default tool list",
+			toolsEnv:      newStringPtr("read-cypher,get-schema"),
+			expectedTools: []string{"read-cypher", "get-schema"},
+		},
+		{
+			name:     "When tool name is invalid, should raise error",
+			toolsEnv: newStringPtr("invalid-tool"),
+			wantErr:  `tool "invalid-tool" is invalid. Available tools are: read-cypher, write-cypher, list-gds-procedures, get-schema`,
+		},
+		{
+			name:          "When tool name has surrounding whitespace, it should be trimmed",
+			toolsEnv:      newStringPtr("write-cypher ,read-cypher"),
+			expectedTools: []string{"write-cypher", "read-cypher"},
+		},
+		{
+			name:          "When tool list contains only commas, no tools should be selected",
+			toolsEnv:      newStringPtr(",,"),
+			expectedTools: []string{},
+		},
+		{
+			name:          "When tool list contains a leading comma, it should be ignored",
+			toolsEnv:      newStringPtr(",read-cypher,write-cypher"),
+			expectedTools: []string{"read-cypher", "write-cypher"},
+		},
+		{
+			name:          "When tool list contains a trailing comma, it should be ignored",
+			toolsEnv:      newStringPtr("read-cypher,write-cypher,"),
+			expectedTools: []string{"read-cypher", "write-cypher"},
+		},
+		{
+			name:          "When tool list is provided as empty string, it should disable all tools",
+			toolsEnv:      newStringPtr(""),
+			expectedTools: []string{},
+		},
+		{
+			name:          "When tool list is unset, all tools should be enabled",
+			toolsEnv:      nil,
+			expectedTools: AvailableTools,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+			t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+			t.Setenv("NEO4J_USERNAME", "neo4j")
+			t.Setenv("NEO4J_PASSWORD", "password")
+			t.Setenv("NEO4J_DATABASE", "neo4j")
+			if tt.toolsEnv != nil {
+				t.Setenv("NEO4J_MCP_TOOLS", *tt.toolsEnv)
+			}
+
+			cfg, err := LoadConfig(&CLIOverrides{})
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedTools, cfg.Tools)
+		})
+	}
+}
+
+func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
+	tests := []struct {
+		name          string
+		toolsEnv      string
+		cliTools      *string
+		expectedTools []string
+		wantErr       string
+	}{
+		{
+			name:          "When tool list is provided, it should replace default tool list",
+			cliTools:      newStringPtr("write-cypher"),
+			expectedTools: []string{"write-cypher"},
+		},
+		{
+			name:          "When tool list is provided in both CLI and env var, CLI should take precedence",
+			toolsEnv:      "read-cypher,get-schema",
+			cliTools:      newStringPtr("write-cypher"),
+			expectedTools: []string{"write-cypher"},
+		},
+		{
+			name:     "When tool name is invalid, should raise error",
+			cliTools: newStringPtr("invalid-tool"),
+			wantErr:  `tool "invalid-tool" is invalid. Available tools are: read-cypher, write-cypher, list-gds-procedures, get-schema`,
+		},
+		{
+			name:          "When tool name has surrounding whitespace, it should be trimmed",
+			cliTools:      newStringPtr("write-cypher ,read-cypher"),
+			expectedTools: []string{"write-cypher", "read-cypher"},
+		},
+		{
+			name:          "When tool list contains only commas, no tools should be selected",
+			cliTools:      newStringPtr(",,"),
+			expectedTools: []string{},
+		},
+		{
+			name:          "When tool list contains a leading comma, it should be ignored",
+			cliTools:      newStringPtr(",read-cypher,write-cypher"),
+			expectedTools: []string{"read-cypher", "write-cypher"},
+		},
+		{
+			name:          "When tool list contains a trailing comma, it should be ignored",
+			cliTools:      newStringPtr("read-cypher,write-cypher,"),
+			expectedTools: []string{"read-cypher", "write-cypher"},
+		},
+		{
+			name:          "When tool list is provided as empty string, it should disable all tools",
+			cliTools:      newStringPtr(""),
+			expectedTools: []string{},
+		},
+		{
+			name:          "When tool list is unset, all tools should be enabled",
+			cliTools:      nil,
+			expectedTools: AvailableTools,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+			t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+			t.Setenv("NEO4J_USERNAME", "neo4j")
+			t.Setenv("NEO4J_PASSWORD", "password")
+			t.Setenv("NEO4J_DATABASE", "neo4j")
+			if tt.toolsEnv != "" {
+				t.Setenv("NEO4J_MCP_TOOLS", tt.toolsEnv)
+			}
+
+			cfg, err := LoadConfig(&CLIOverrides{
+				Tools: tt.cliTools,
+			})
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedTools, cfg.Tools)
+		})
+	}
+}
+
+// newStringPtr returns a new pointer to a string
+func newStringPtr(s string) *string {
+	return &s
 }

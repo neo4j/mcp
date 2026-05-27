@@ -4,6 +4,9 @@
 package server
 
 import (
+	"log/slog"
+	"slices"
+
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
@@ -12,13 +15,18 @@ import (
 
 // registerTools registers all enabled MCP tools and adds them to the provided MCP server.
 // Tools are filtered according to the server configuration. For example, when the read-only
-// mode is enabled (e.g. via the NEO4J_READ_ONLY environment variable or the Config.ReadOnly flag),
-// any tool that performs state mutation will be excluded; only tools annotated as read-only will be registered.
-// Note: this read-only filtering relies on the tool annotation "readonly" (ReadOnlyHint). If the annotation
-// is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).
+// mode is enabled (e.g. via the Config.ReadOnly flag, which can be set by the NEO4J_READ_ONLY environment variable or --neo4j-read-only flag),
+// any tool that performs state mutation will be excluded.
+// Individual tools can also be selected via Config.Tools, which can be set by the NEO4J_TOOLS environment variable or --neo4j-tools flag, with Config.ReadOnly taking precedence.
 func (s *Neo4jMCPServer) registerTools() {
 	tools := s.getTools()
 	s.MCPServer.AddTools(tools...)
+
+	toolNames := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		toolNames = append(toolNames, tool.Tool.Name)
+	}
+	slog.Info("Registered server tools", "count", len(toolNames), "tools", toolNames)
 }
 
 type ToolDefinition struct {
@@ -35,6 +43,9 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 	serverTools := make([]server.ServerTool, 0, len(toolsDefs))
 	for _, toolDef := range toolsDefs {
 		if s.config.ReadOnly && !toolDef.readonly {
+			continue
+		}
+		if !slices.Contains(s.config.Tools, toolDef.definition.Tool.Name) {
 			continue
 		}
 

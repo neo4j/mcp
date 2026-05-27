@@ -26,7 +26,7 @@ tasks:
   run:
     dotenv: [".env.task"]
     cmds:
-      - go run ./cmd/neo4j-mcp
+      - go run ./cmd/neo4j-mcp {{.CLI_ARGS}}
   run:compiled:
     dotenv: [".env.task"]
     cmds:

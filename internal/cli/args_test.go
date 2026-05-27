@@ -138,6 +138,24 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: -1, // Should not exit, flag is allowed
 		},
 		{
+			name:             "neo4j-tools flag with one tool name",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-tools flag with trailing comma after tool name",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema,"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-tools flag with two tool names",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema,read-cypher"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
 			name:             "multiple configuration flags",
 			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--neo4j-username", "user"},
 			version:          testVersion,
