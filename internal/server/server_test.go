@@ -125,7 +125,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
 		if err != nil {
-			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+			t.Fatalf("Unexpected error during InProcessClient creation, %s", err.Error())
 		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
@@ -146,7 +146,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
 		if err != nil {
-			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+			t.Fatalf("Unexpected error during InProcessClient creation, %s", err.Error())
 		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err == nil {
@@ -174,7 +174,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		}
 		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
 		if err != nil {
-			t.Fatalf("Unexpected error during InProcesClient creation, %s", err.Error())
+			t.Fatalf("Unexpected error during InProcessClient creation, %s", err.Error())
 		}
 		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err == nil {
