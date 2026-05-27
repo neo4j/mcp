@@ -1,5 +1,5 @@
 kind: Major
 body: | 
-  The list-gds-procedures tool is no longer automatically included in the response from the list/tools endpoint.
-  The Initialize request now provides clearer feedback or error messages when requirements are missing or there is a misconfiguration.
+  The list-gds-procedures tool is no longer auto-detected and included in list/tools responses; whether it is exposed now depends on server-level and/or per-request configuration settings.
+  The Initialize request may now fail when connectivity cannot be verified, required plugins (such as APOC) are missing, or configuration is invalid, with descriptive error messages.
 time: 2026-05-19T11:24:32.375014+01:00

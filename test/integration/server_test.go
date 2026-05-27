@@ -120,7 +120,7 @@ func TestServerLifecycle(t *testing.T) {
 						}
 					} else {
 						if err != nil {
-							t.Fatalf("start returned an unexpected error: %s", startErr.Error())
+							t.Fatalf("start returned an unexpected error: %s", err.Error())
 						}
 					}
 					return

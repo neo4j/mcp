@@ -37,10 +37,8 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 		if s.config.ReadOnly && !toolDef.readonly {
 			continue
 		}
-		serverTools = append(serverTools, server.ServerTool{
-			Tool:    toolDef.definition.Tool,
-			Handler: toolDef.definition.Handler,
-		})
+
+		serverTools = append(serverTools, toolDef.definition)
 	}
 	return serverTools
 }
