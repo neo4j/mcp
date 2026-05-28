@@ -2,22 +2,8 @@
 
 version: "3"
 
-dotenv: [".env.task"]
-
 tasks:
-  build:
-    cmds:
-      - go build -C cmd/neo4j-mcp -o ../../bin/ {{.CLI_ARGS}}
-  run:
-    cmds:
-      - go run ./cmd/neo4j-mcp
-  run:compiled:
-    cmds:
-      - ./bin/neo4j-mcp {{.CLI_ARGS}}
-  generate:
-    cmds:
-      - go generate ./...
-  # pass CLI args as task:test -- -v
+  # test utils: pass CLI args as task:test -- -v
   test:
     cmds:
       - go test ./... {{.CLI_ARGS}}
@@ -33,12 +19,32 @@ tasks:
   test:clean:
     cmds:
       - go clean -testcache
+  # build 'n' runs
+  build:
+    cmds:
+      - go build -C cmd/neo4j-mcp -o ../../bin/ {{.CLI_ARGS}}
+  run:
+    dotenv: [".env.task"]
+    cmds:
+      - go run ./cmd/neo4j-mcp
+  run:compiled:
+    dotenv: [".env.task"]
+    cmds:
+      - ./bin/neo4j-mcp {{.CLI_ARGS}}
+  # generation
+  generate:
+    cmds:
+      - go generate ./...
+  # dev tooling
   lint:
     cmds:
       - golangci-lint run
+  # playground 'n' debugging
   inspect:
+    dotenv: [".env.task"]
     cmds:
       - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
   interactive-client:
+    dotenv: [".env.task"]
     cmds:
       - go run ./client/... bin/neo4j-mcp

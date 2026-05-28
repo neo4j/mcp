@@ -39,12 +39,11 @@ func mockNeo4jMCPServer(t *testing.T) *Neo4jMCPServer {
 	mcpServer := server.NewMCPServer("test-server", "1.0.0")
 
 	return &Neo4jMCPServer{
-		MCPServer:    mcpServer,
-		config:       cfg,
-		dbService:    mockDBService,
-		anService:    mockAnalyticsService,
-		version:      "1.0.0",
-		gdsInstalled: false,
+		MCPServer: mcpServer,
+		config:    cfg,
+		dbService: mockDBService,
+		anService: mockAnalyticsService,
+		version:   "1.0.0",
 	}
 }
 

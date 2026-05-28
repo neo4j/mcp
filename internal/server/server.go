@@ -7,14 +7,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -38,25 +35,21 @@ const (
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer          *server.MCPServer
-	httpServer         *http.Server
-	HTTPServerReady    chan struct{}
-	shutdownChan       chan struct{}
-	config             *config.Config
-	dbService          database.Service
-	version            string
-	anService          analytics.Service
-	gdsInstalled       bool
-	initMu             sync.Mutex
-	connectionVerified atomic.Bool
-	uriResolver        URIResolver
-	driverRegistry     database.DriverRegistry
+	MCPServer       *server.MCPServer
+	httpServer      *http.Server
+	HTTPServerReady chan struct{}
+	shutdownChan    chan struct{}
+	config          *config.Config
+	dbService       database.Service
+	version         string
+	anService       analytics.Service
+	uriResolver     URIResolver
+	driverRegistry  database.DriverRegistry
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
 func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
-
 	neo4jServer := &Neo4jMCPServer{
 		HTTPServerReady: make(chan struct{}),
 		shutdownChan:    make(chan struct{}),
@@ -64,7 +57,6 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		dbService:       dbService,
 		version:         version,
 		anService:       anService,
-		gdsInstalled:    false,
 	}
 
 	if cfg.TransportMode == config.TransportModeHTTP {
@@ -90,38 +82,14 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // Start initializes and starts the MCP server
 func (s *Neo4jMCPServer) Start() error {
-
+	slog.Info("Registering server tools")
+	s.registerTools()
+	s.emitServerStartupEvent()
 	switch s.config.TransportMode {
 	case config.TransportModeHTTP:
-		slog.Info("Registering server tools")
-		if err := s.registerTools(); err != nil {
-			return err
-		}
-		// in case of http mode, the initialization process is delayed until the credentials are available.
-		// when the first client is performing the initialize request then the server perform
-
-		s.emitServerStartupEvent()
-
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:
 		{
-			err := s.verifyRequirements(context.Background())
-			if err != nil {
-				return err
-			}
-
-			// Register tools
-			if err := s.registerTools(); err != nil {
-				return fmt.Errorf("failed to register tools: %w", err)
-			}
-
-			s.emitServerStartupEvent()
-			s.emitConnectionInitializedEvent(context.Background())
-			slog.Info(
-				fmt.Sprintf("Starting Neo4j MCP server version %s in STDIO mode", s.version),
-				"version", s.version,
-			)
-
 			return server.ServeStdio(s.MCPServer)
 		}
 	default:
@@ -169,7 +137,6 @@ func parseAllowedOrigins(allowedOriginsStr string) []string {
 // - A valid connection with a Neo4j instance.
 // - The ability to perform a read query (database name is correctly defined).
 // - Required plugin installed: APOC (specifically apoc.meta.schema as it's used for get-schema)
-// - In case GDS is not installed a flag is set in the server and tools will be registered accordingly
 func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	// Use a timeout to fail fast if the Neo4j instance is unreachable (e.g., TCP connection refused,
 	// DNS failure, network failure). Without this, ExecuteReadQuery can block for minutes waiting for
@@ -208,14 +175,13 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
 		// GDS is optional, so we log a warning and continue, assuming it's not installed.
-		log.Print("Impossible to verify GDS installation.")
-		s.gdsInstalled = false
+		slog.Info("Impossible to verify GDS installation.")
 		return nil
 	}
 	if len(records) == 1 && len(records[0].Values) == 1 {
 		_, ok := records[0].Values[0].(string)
 		if ok {
-			s.gdsInstalled = true
+			slog.Info("GDS capability verified")
 		}
 	}
 
@@ -445,36 +411,16 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 	hooks := &server.Hooks{}
 
 	hooks.AddAfterCallTool(s.handleToolCallComplete)
-	if s.config.TransportMode == config.TransportModeHTTP {
-		hooks.AddBeforeInitialize(func(ctx context.Context, _ any, _ *mcp.InitializeRequest) {
-			// if requirements and events are already verified/sent return
-			if s.connectionVerified.Load() {
-				return
-			}
-			// lock
-			s.initMu.Lock()
-			defer s.initMu.Unlock()
 
-			// cover edge case "connectionVerified" stored in between check and lock
-			if s.connectionVerified.Load() {
-				return
-			}
-
-			slog.Info("Verify server requirements...")
-			if err := s.verifyRequirements(ctx); err != nil {
-				slog.Error("Error during verification", "error", err)
-				return
-			}
-
-			if s.gdsInstalled {
-				s.addGDSTools()
-			}
-
-			s.emitConnectionInitializedEvent(ctx)
-
-			s.connectionVerified.Store(true)
-		})
-	}
+	hooks.AddOnRequestInitialization(func(ctx context.Context, _ any, _ any) error {
+		slog.Info("Initialize request: verifying requirements...")
+		err := s.verifyRequirements(ctx)
+		if err != nil {
+			return err
+		}
+		s.emitConnectionInitializedEvent(ctx)
+		return nil
+	})
 
 	return hooks
 }
