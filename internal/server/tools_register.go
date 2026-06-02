@@ -30,11 +30,6 @@ func (s *Neo4jMCPServer) registerTools() {
 	slog.Info("Registered server tools", "count", len(toolNames), "tools", toolNames)
 }
 
-type ToolDefinition struct {
-	definition server.ServerTool
-	readonly   bool
-}
-
 func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 	deps := &tools.ToolDependencies{
 		DBService:        s.dbService,
@@ -43,50 +38,41 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 	toolsDefs := s.getAllToolsDefs(deps)
 	serverTools := make([]server.ServerTool, 0, len(toolsDefs))
 	for _, toolDef := range toolsDefs {
-		if !slices.Contains(s.config.Tools, toolDef.definition.Tool.Name) {
+		if s.config.ReadOnly && (toolDef.Tool.Annotations.ReadOnlyHint == nil || *toolDef.Tool.Annotations.ReadOnlyHint == false) {
+			slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", toolDef.Tool.Name))
 			continue
 		}
-		if s.config.ReadOnly && !toolDef.readonly {
-			slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", toolDef.definition.Tool.Name))
+		if !slices.Contains(s.config.Tools, toolDef.Tool.Name) {
 			continue
 		}
 
-		serverTools = append(serverTools, toolDef.definition)
+		serverTools = append(serverTools, toolDef)
 	}
 	return serverTools
 }
 
 // getAllToolsDefs returns all available tools with their specs and handlers
-func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDefinition {
-	return []ToolDefinition{
+func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []server.ServerTool {
+	return []server.ServerTool{
 		{
-			definition: server.ServerTool{
-				Tool:    cypher.GetSchemaSpec(),
-				Handler: cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize),
-			},
-			readonly: true,
+			Tool:    cypher.GetSchemaSpec(),
+			Handler: cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize),
 		},
 		{
-			definition: server.ServerTool{
-				Tool:    cypher.ReadCypherSpec(),
-				Handler: cypher.ReadCypherHandler(deps),
-			},
-			readonly: true,
+
+			Tool:    cypher.ReadCypherSpec(),
+			Handler: cypher.ReadCypherHandler(deps),
 		},
 		{
-			definition: server.ServerTool{
-				Tool:    cypher.WriteCypherSpec(),
-				Handler: cypher.WriteCypherHandler(deps),
-			},
-			readonly: false,
+
+			Tool:    cypher.WriteCypherSpec(),
+			Handler: cypher.WriteCypherHandler(deps),
 		},
 		// GDS Category/Section
 		{
-			definition: server.ServerTool{
-				Tool:    gds.ListGDSProceduresSpec(),
-				Handler: gds.ListGdsProceduresHandler(deps),
-			},
-			readonly: true,
+
+			Tool:    gds.ListGDSProceduresSpec(),
+			Handler: gds.ListGdsProceduresHandler(deps),
 		},
 		// Add other categories below...
 	}
