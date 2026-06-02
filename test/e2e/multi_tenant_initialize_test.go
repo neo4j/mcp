@@ -7,12 +7,9 @@ package e2e
 
 import (
 	"context"
-	"encoding/base64"
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +44,7 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// driver, and the initialize hook then runs verifyRequirements which fails
 	// because Neo4j rejects the password. The initialize call must propagate
 	// that failure back to the client.
-	wrongClient := newMultiTenantHTTPClient(t, mcpURL, cfg.Username, "definitely-not-the-password", cfg.URI)
+	wrongClient := newHTTPClient(t, mcpURL, cfg.Username, "definitely-not-the-password", cfg.URI)
 	defer wrongClient.Close()
 
 	require.NoError(t, wrongClient.Start(ctx), "wrong-tenant client failed to start")
@@ -57,7 +54,7 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// Tenant B — same server, correct credentials. If the server correctly
 	// isolates per-request state, this initialize must succeed even though the
 	// previous one (from a different tenant) failed.
-	rightClient := newMultiTenantHTTPClient(t, mcpURL, cfg.Username, cfg.Password, cfg.URI)
+	rightClient := newHTTPClient(t, mcpURL, cfg.Username, cfg.Password, cfg.URI)
 	defer rightClient.Close()
 
 	require.NoError(t, rightClient.Start(ctx), "right-tenant client failed to start")
@@ -67,25 +64,4 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	assert.Equal(t, "neo4j-mcp", initResp.ServerInfo.Name)
 	assert.NotNil(t, initResp.Capabilities, "server must advertise capabilities after a successful initialize")
 	assert.NotNil(t, initResp.Capabilities.Tools, "server must advertise tools after a successful initialize")
-}
-
-// newMultiTenantHTTPClient builds an MCP streamable-HTTP client preconfigured with
-// per-tenant Basic Auth credentials and the Neo4j bolt URI header expected by the
-// server's multi-tenant HTTP mode. Each tenant gets its own client with its own
-// header set so credentials never bleed between requests.
-func newMultiTenantHTTPClient(t *testing.T, mcpURL, user, pass, boltURI string) *client.Client {
-	t.Helper()
-
-	authValue := "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
-
-	httpTransport, err := transport.NewStreamableHTTP(mcpURL,
-		transport.WithHTTPTimeout(15*time.Second),
-		transport.WithHTTPHeaders(map[string]string{
-			"Authorization":   authValue,
-			"X-Neo4j-MCP-URI": boltURI,
-		}),
-	)
-	require.NoError(t, err, "failed to build streamable HTTP transport")
-
-	return client.NewClient(httpTransport)
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
@@ -75,7 +76,8 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
 		server.WithToolFilter(func(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
 			// TODO implement filterign from context
-
+			readonly := mcpcontext.GetReadonly(ctx)
+			slog.Info("", "readonly", readonly)
 			return []mcp.Tool{}
 		}),
 	)
