@@ -7,6 +7,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"testing"
 	"time"
 
@@ -44,7 +45,10 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// driver, and the initialize hook then runs verifyRequirements which fails
 	// because Neo4j rejects the password. The initialize call must propagate
 	// that failure back to the client.
-	wrongClient := newHTTPClient(t, mcpURL, cfg.Username, "definitely-not-the-password", cfg.URI)
+	wrongClient := newHTTPClient(t, mcpURL, map[string]string{
+		"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":definitely-not-the-password")),
+		"X-Neo4j-MCP-URI": cfg.URI,
+	})
 	defer wrongClient.Close()
 
 	require.NoError(t, wrongClient.Start(ctx), "wrong-tenant client failed to start")
@@ -54,7 +58,10 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// Tenant B — same server, correct credentials. If the server correctly
 	// isolates per-request state, this initialize must succeed even though the
 	// previous one (from a different tenant) failed.
-	rightClient := newHTTPClient(t, mcpURL, cfg.Username, cfg.Password, cfg.URI)
+	rightClient := newHTTPClient(t, mcpURL, map[string]string{
+		"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+		"X-Neo4j-MCP-URI": cfg.URI,
+	})
 	defer rightClient.Close()
 
 	require.NoError(t, rightClient.Start(ctx), "right-tenant client failed to start")
