@@ -827,20 +827,6 @@ func TestDBNameMiddleware(t *testing.T) {
 	}
 }
 
-type stubURIResolver struct {
-	uri string
-	err error
-}
-
-func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.uri, s.err }
-
-type stubDriverRegistry struct {
-	driver neo4j.Driver
-	err    error
-}
-
-func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) { return s.driver, s.err }
-
 func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -869,3 +855,126 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestReadonlyMiddleware(t *testing.T) {
+	tests := []struct {
+		name            string
+		headerValue     string
+		setHeader       bool
+		wantCode        int
+		wantReadonly    bool
+		wantReadonlySet bool
+	}{
+		{
+			name:            "header not sent should be not set in the context",
+			setHeader:       false,
+			wantCode:        http.StatusOK,
+			wantReadonlySet: false,
+		},
+		{
+			name:            "empty string returns 400",
+			setHeader:       true,
+			headerValue:     "",
+			wantCode:        http.StatusBadRequest,
+			wantReadonlySet: false,
+		},
+		{
+			name:            "value '0' returns 400",
+			setHeader:       true,
+			headerValue:     "0",
+			wantCode:        http.StatusBadRequest,
+			wantReadonlySet: false,
+		},
+		{
+			name:            "value '1' returns 400",
+			setHeader:       true,
+			headerValue:     "1",
+			wantCode:        http.StatusBadRequest,
+			wantReadonlySet: false,
+		},
+		{
+			name:            "invalid string returns 400",
+			setHeader:       true,
+			headerValue:     "invalid-string",
+			wantCode:        http.StatusBadRequest,
+			wantReadonlySet: false,
+		},
+		{
+			name:            "lowercase 'true' sets readonly=true",
+			setHeader:       true,
+			headerValue:     "true",
+			wantCode:        http.StatusOK,
+			wantReadonly:    true,
+			wantReadonlySet: true,
+		},
+		{
+			name:            "mixed-case 'True' sets readonly=true",
+			setHeader:       true,
+			headerValue:     "True",
+			wantCode:        http.StatusOK,
+			wantReadonly:    true,
+			wantReadonlySet: true,
+		},
+		{
+			name:            "lowercase 'false' sets readonly=false",
+			setHeader:       true,
+			headerValue:     "false",
+			wantCode:        http.StatusOK,
+			wantReadonly:    false,
+			wantReadonlySet: true,
+		},
+		{
+			name:            "uppercase 'FALSE' sets readonly=false",
+			setHeader:       true,
+			headerValue:     "FALSE",
+			wantCode:        http.StatusOK,
+			wantReadonly:    false,
+			wantReadonlySet: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotReadonly *bool
+			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotReadonly = mcpcontext.GetReadonly(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := readonlyMiddleware()(inner)
+
+			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
+			if tt.setHeader {
+				req.Header.Set("X-Neo4j-MCP-Readonly", tt.headerValue)
+			}
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+
+			if tt.wantReadonlySet {
+				assert.Equal(t, tt.wantReadonly, *gotReadonly)
+
+			}
+			if !tt.wantReadonlySet {
+				assert.Nil(t, gotReadonly)
+			}
+
+		})
+	}
+}
+
+type stubURIResolver struct {
+	uri string
+	err error
+}
+
+func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.uri, s.err }
+
+type stubDriverRegistry struct {
+	driver neo4j.Driver
+	err    error
+}
+
+func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) { return s.driver, s.err }

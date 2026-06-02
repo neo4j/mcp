@@ -49,6 +49,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
 	handler = dbNameMiddleware()(handler)
 	handler = pathValidationMiddleware()(handler)
+	handler = readonlyMiddleware()(handler)
 
 	return handler
 }
@@ -246,6 +247,39 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 				w.Header().Set("Allow", "POST, OPTIONS")
 				http.Error(w, "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp", http.StatusMethodNotAllowed)
 				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// readonlyMiddleware reads the "X-Neo4j-MCP-Readonly" request header and stores
+// the resulting boolean in the request context. Accepted values are "true" and
+// "false" (case-insensitive). Any other non-empty value yields a 400 Bad Request.
+// When the header is absent it does not set the Readonly in the context.
+func readonlyMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			vals := r.Header.Values("X-Neo4j-MCP-Readonly")
+
+			if len(vals) > 1 {
+				http.Error(w, "Bad Request: Ambiguity read-only header set", http.StatusBadRequest)
+				return
+			} else if len(vals) == 1 {
+				switch strings.ToLower(vals[0]) {
+				case "false":
+					ctx := mcpcontext.WithReadonly(r.Context(), false)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				case "true":
+					ctx := mcpcontext.WithReadonly(r.Context(), true)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				default:
+					http.Error(w, `Bad Request: "X-Neo4j-MCP-Readonly" must be "true" or "false"`, http.StatusBadRequest)
+					return
+				}
+
 			}
 			next.ServeHTTP(w, r)
 		})

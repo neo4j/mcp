@@ -13,6 +13,7 @@ const (
 	bearerTokenKey   contextKey = "bearerToken"
 	databaseNameKey  contextKey = "databaseName"
 	driverKey        contextKey = "neo4jDriver"
+	readonlyKey      contextKey = "readonly"
 )
 
 // WithDatabaseName adds the target database name to the context
@@ -68,4 +69,20 @@ func WithDriver(ctx context.Context, driver any) context.Context {
 func GetDriver(ctx context.Context) (any, bool) {
 	driver := ctx.Value(driverKey)
 	return driver, driver != nil
+}
+
+// WithReadonly marks the context as read-only
+func WithReadonly(ctx context.Context, readonly bool) context.Context {
+	return context.WithValue(ctx, readonlyKey, readonly)
+}
+
+// GetReadonly retrieves the read-only flag from the context.
+// Returns nil if the flag is not set.
+func GetReadonly(ctx context.Context) *bool {
+	readonly, ok := ctx.Value(readonlyKey).(bool)
+	if !ok {
+		// this means is nil
+		return nil
+	}
+	return &readonly
 }

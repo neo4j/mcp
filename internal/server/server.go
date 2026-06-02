@@ -73,6 +73,11 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		server.WithHooks(hooks),
 		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
 			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
+		server.WithToolFilter(func(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
+			// TODO implement filterign from context
+
+			return []mcp.Tool{}
+		}),
 	)
 
 	neo4jServer.MCPServer = mcpServer
