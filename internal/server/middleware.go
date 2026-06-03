@@ -6,11 +6,13 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 )
@@ -50,6 +52,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = dbNameMiddleware()(handler)
 	handler = pathValidationMiddleware()(handler)
 	handler = readonlyMiddleware()(handler)
+	handler = toolsMiddleware()(handler)
 
 	return handler
 }
@@ -260,10 +263,11 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 func readonlyMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// r.Header.Values is been used to distinguish when the header is not set
 			vals := r.Header.Values("X-Neo4j-MCP-Readonly")
 
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: Ambiguity read-only header set", http.StatusBadRequest)
+				http.Error(w, "Bad Request: Ambiguity X-Neo4j-MCP-Readonly header found", http.StatusBadRequest)
 				return
 			} else if len(vals) == 1 {
 				switch strings.ToLower(vals[0]) {
@@ -279,6 +283,42 @@ func readonlyMiddleware() func(http.Handler) http.Handler {
 					http.Error(w, `Bad Request: "X-Neo4j-MCP-Readonly" must be "true" or "false"`, http.StatusBadRequest)
 					return
 				}
+
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// toolsMiddleware reads the "X-Neo4j-MCP-Tools" request header and stores
+// the resulting values in the request context. Accepted values are the tools
+// supported by the Neo4j MCP Server such as: "read-cypher", "get-schema".
+// Any other non-empty value yields a 400 Bad Request.
+// When the header is absent it does not set the Tools in the context.
+func toolsMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// r.Header.Values is been used to distinguish when the header is not set
+			vals := r.Header.Values("X-Neo4j-MCP-Tools")
+			if len(vals) > 1 {
+				http.Error(w, "Bad Request: Ambiguity X-Neo4j-MCP-Tools header found", http.StatusBadRequest)
+				return
+			} else if len(vals) == 1 {
+				if vals[0] == "" {
+					http.Error(w, fmt.Sprintf("tool \"\" is invalid. Available tools are: %s", strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
+					return
+				}
+				tools := parseCommaSeparatedString(vals[0])
+
+				for _, toolName := range tools {
+					if !slices.Contains(config.AvailableTools, toolName) {
+						http.Error(w, fmt.Sprintf("tool %q is invalid. Available tools are: %s", toolName, strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
+						return
+					}
+				}
+				ctx := mcpcontext.WithTools(r.Context(), tools)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
 
 			}
 			next.ServeHTTP(w, r)
@@ -306,4 +346,18 @@ func dbNameMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// parseCommaSeparatedString parses a comma-separated string into a slice of strings.
+// Ensures that whitespace, trailing and leading commas are ignored.
+func parseCommaSeparatedString(value string) []string {
+	parts := strings.Split(value, ",")
+	n := 0
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			parts[n] = p
+			n++
+		}
+	}
+	return parts[:n]
 }

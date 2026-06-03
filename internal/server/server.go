@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -75,20 +76,25 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
 			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
 		server.WithToolFilter(func(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
-			// This hook filter tools depending on the X-Neoj4-MCP-Tools and X-Neo4j-MCP-Readonly http header
+			// This hook filter tools depending on the X-Neo4j-MCP-Tools and X-Neo4j-MCP-Readonly http header
 			readonly := mcpcontext.GetReadonly(ctx)
-			if readonly == nil || *readonly == false {
+			requestedTools := mcpcontext.GetTools(ctx)
+			// early return when no per-request filters are not defined
+			if readonly == nil && requestedTools == nil {
 				return tools
 			}
-			var readonlyTools = make([]mcp.Tool, 0, 4)
+			var filteredTools = make([]mcp.Tool, 0, len(tools))
 			for _, tool := range tools {
-				if tool.Annotations.ReadOnlyHint == nil || *tool.Annotations.ReadOnlyHint == false {
+				if readonly != nil && *readonly == true && !*tool.Annotations.ReadOnlyHint {
 					continue
 				}
-				readonlyTools = append(readonlyTools, tool)
+				if requestedTools != nil && !slices.Contains(*requestedTools, tool.GetName()) {
+					continue
+				}
 
+				filteredTools = append(filteredTools, tool)
 			}
-			return readonlyTools
+			return filteredTools
 		}),
 	)
 

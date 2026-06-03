@@ -194,7 +194,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 }
 
 // TestNeo4jMCPServerHTTPModeToolsFilter tests the per-request ToolFilter behaviour
-// driven by the X-Neo4j-MCP-Readonly header.
+// driven by the X-Neo4j-MCP-Readonly and X-Neo4j-MCP-Tools headers.
 func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -230,87 +230,102 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 		AnyTimes().Return(nil, nil)
 
-	t.Run("All tools should be returned when X-Neo4j-MCP-Readonly is set to false", func(t *testing.T) {
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+	tests := []struct {
+		name          string
+		extraHeaders  map[string]string
+		wantErr       bool
+		wantToolNames []string
+	}{
+		{
+			name:          "All tools returned when X-Neo4j-MCP-Readonly is false",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-Readonly": "false"},
+			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"},
+		},
+		{
+			name:          "All tools returned when X-Neo4j-MCP-Readonly is False (mixed case)",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-Readonly": "False"},
+			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"},
+		},
+		{
+			name:          "Only read-only tools returned when X-Neo4j-MCP-Readonly is true",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-Readonly": "true"},
+			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher"},
+		},
+		{
+			name:         "Error when X-Neo4j-MCP-Readonly contains an invalid value",
+			extraHeaders: map[string]string{"X-Neo4j-MCP-Readonly": "invalid"},
+			wantErr:      true,
+		},
+		{
+			name:          "Single tool filter via X-Neo4j-MCP-Tools",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher"},
+			wantToolNames: []string{"read-cypher"},
+		},
+		{
+			name:          "Comma-separated tools via X-Neo4j-MCP-Tools",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, write-cypher"},
+			wantToolNames: []string{"read-cypher", "write-cypher"},
+		},
+		{
+			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
+			name:         "Error when X-Neo4j-MCP-Tools contains an invalid tool name",
+			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "batman-tool"},
+			wantErr:      true,
+		},
+		{
+			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
+			name:         "Error when X-Neo4j-MCP-Tools contains an mixed valid tool names",
+			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, batman-tool"},
+			wantErr:      true,
+		},
+		{
+			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
+			name:         "Error when X-Neo4j-MCP-Tools is set as empty \"\" string",
+			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": ""},
+			wantErr:      true,
+		},
+		{
+			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-Readonly applied as intersection",
+			extraHeaders: map[string]string{
+				"X-Neo4j-MCP-Tools":    "read-cypher, write-cypher",
+				"X-Neo4j-MCP-Readonly": "true",
+			},
+			// write-cypher is not read-only, so it is excluded despite being in the tools list
+			wantToolNames: []string{"read-cypher"},
+		},
+	}
 
-		headers := defaultHeaders()
-		headers["X-Neo4j-MCP-Readonly"] = "false"
-		mcpClient := createStreamableHTTPClient(uri, headers)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("expected initialize to succeed, got: %v", err)
-		}
+			headers := defaultHeaders()
+			for k, v := range tc.extraHeaders {
+				headers[k] = v
+			}
+			mcpClient := createStreamableHTTPClient(uri, headers)
 
-		listToolsResponse, err := mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
-		if err != nil {
-			t.Fatalf("failed to list tools: %v", err)
-		}
-		toolNames := toolNamesFrom(listToolsResponse.Tools)
-		sort.Strings(toolNames)
-		assert.Equal(t, []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"}, toolNames)
+			_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+			if tc.wantErr {
+				assert.Error(t, err)
+				assertNoCloseOrStopError(t, s, errChan)
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected initialize to succeed, got: %v", err)
+			}
 
-		assertNoCloseOrStopError(t, s, errChan)
-	})
+			listToolsResponse, err := mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+			if err != nil {
+				t.Fatalf("failed to list tools: %v", err)
+			}
+			toolNames := toolNamesFrom(listToolsResponse.Tools)
+			sort.Strings(toolNames)
+			assert.Equal(t, tc.wantToolNames, toolNames)
 
-	t.Run("All tools should be returned when X-Neo4j-MCP-Readonly is set to mixed case false", func(t *testing.T) {
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		headers := defaultHeaders()
-		headers["X-Neo4j-MCP-Readonly"] = "False"
-		mcpClient := createStreamableHTTPClient(uri, headers)
-
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("expected initialize to succeed, got: %v", err)
-		}
-
-		listToolsResponse, err := mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
-		if err != nil {
-			t.Fatalf("failed to list tools: %v", err)
-		}
-		toolNames := toolNamesFrom(listToolsResponse.Tools)
-		sort.Strings(toolNames)
-		assert.Equal(t, []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"}, toolNames)
-
-		assertNoCloseOrStopError(t, s, errChan)
-	})
-
-	t.Run("Only read-only tools should be returned when X-Neo4j-MCP-Readonly is set to true", func(t *testing.T) {
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		headers := defaultHeaders()
-		headers["X-Neo4j-MCP-Readonly"] = "true"
-		mcpClient := createStreamableHTTPClient(uri, headers)
-
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("expected initialize to succeed, got: %v", err)
-		}
-
-		listToolsResponse, err := mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
-		if err != nil {
-			t.Fatalf("failed to list tools: %v", err)
-		}
-		toolNames := toolNamesFrom(listToolsResponse.Tools)
-		sort.Strings(toolNames)
-		assert.Equal(t, []string{"get-schema", "list-gds-procedures", "read-cypher"}, toolNames)
-
-		assertNoCloseOrStopError(t, s, errChan)
-	})
-
-	t.Run("Request should fail when X-Neo4j-MCP-Readonly contains an invalid value", func(t *testing.T) {
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		headers := defaultHeaders()
-		headers["X-Neo4j-MCP-Readonly"] = "invalid"
-		mcpClient := createStreamableHTTPClient(uri, headers)
-
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		assert.Error(t, err, "expected initialize to fail with an invalid readonly header value")
-
-		assertNoCloseOrStopError(t, s, errChan)
-	})
+			assertNoCloseOrStopError(t, s, errChan)
+		})
+	}
 }
 
 func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, analyticsService *analytics.MockService) (*server.Neo4jMCPServer, chan error) {

@@ -14,6 +14,7 @@ const (
 	databaseNameKey  contextKey = "databaseName"
 	driverKey        contextKey = "neo4jDriver"
 	readonlyKey      contextKey = "readonly"
+	toolsKey         contextKey = "tools"
 )
 
 // WithDatabaseName adds the target database name to the context
@@ -81,8 +82,26 @@ func WithReadonly(ctx context.Context, readonly bool) context.Context {
 func GetReadonly(ctx context.Context) *bool {
 	readonly, ok := ctx.Value(readonlyKey).(bool)
 	if !ok {
-		// this means is nil
+		// The assumption here is that ctx entry is set by the setter defined in mcpcontext,
+		// therefore is nil when ok is false
 		return nil
 	}
 	return &readonly
+}
+
+// WithTools store per-request tools in the contex
+func WithTools(ctx context.Context, tools []string) context.Context {
+	return context.WithValue(ctx, toolsKey, tools)
+}
+
+// GetTools retrieves the per-request tools from the context.
+// Returns nil if the tools are not explicitly requested.
+func GetTools(ctx context.Context) *[]string {
+	tools, ok := ctx.Value(toolsKey).([]string)
+	if !ok {
+		// The assumption here is that ctx entry is set by the setter defined in mcpcontext,
+		// therefore is nil when ok is false
+		return nil
+	}
+	return &tools
 }

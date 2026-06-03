@@ -35,11 +35,10 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 		DBService:        s.dbService,
 		AnalyticsService: s.anService,
 	}
-	toolsDefs := s.getAllToolsDefs(deps)
+	toolsDefs := s.getServerTools(deps)
 	serverTools := make([]server.ServerTool, 0, len(toolsDefs))
 	for _, toolDef := range toolsDefs {
-		if s.config.ReadOnly && (toolDef.Tool.Annotations.ReadOnlyHint == nil || *toolDef.Tool.Annotations.ReadOnlyHint == false) {
-			slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", toolDef.Tool.Name))
+		if s.config.ReadOnly && (toolDef.Tool.Annotations.ReadOnlyHint == nil || !*toolDef.Tool.Annotations.ReadOnlyHint) {
 			continue
 		}
 		if !slices.Contains(s.config.Tools, toolDef.Tool.Name) {
@@ -51,8 +50,8 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 	return serverTools
 }
 
-// getAllToolsDefs returns all available tools with their specs and handlers
-func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []server.ServerTool {
+// getServerTools returns all available tools with their specs and handlers
+func (s *Neo4jMCPServer) getServerTools(deps *tools.ToolDependencies) []server.ServerTool {
 	return []server.ServerTool{
 		{
 			Tool:    cypher.GetSchemaSpec(),
