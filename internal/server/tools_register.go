@@ -18,7 +18,7 @@ import (
 // Tools are filtered according to the server configuration. For example, when the read-only
 // mode is enabled (e.g. via the Config.ReadOnly flag, which can be set by the NEO4J_READ_ONLY environment variable or --neo4j-read-only flag),
 // any tool that performs state mutation will be excluded.
-// Individual tools can also be selected via Config.Tools, which can be set by the NEO4J_TOOLS environment variable or --neo4j-tools flag, with Config.ReadOnly taking precedence.
+// Individual tools can also be selected via Config.Tools, which can be set by the NEO4J_MCP_TOOLS environment variable or --neo4j-tools flag, with Config.ReadOnly taking precedence.
 func (s *Neo4jMCPServer) registerTools() {
 	tools := s.getTools()
 	s.MCPServer.AddTools(tools...)
