@@ -189,8 +189,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
 	}
 
-	// LookupEnv lets us distinguish between an explicit empty value, and an unset environment variable, which is needed for the MCP tools list
-	if toolsEnv, ok := os.LookupEnv("NEO4J_MCP_TOOLS"); ok {
+	if toolsEnv := GetEnv("NEO4J_MCP_TOOLS"); toolsEnv != "" {
 		cfg.Tools = ParseCommaSeparatedString(toolsEnv)
 	}
 

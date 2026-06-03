@@ -968,9 +968,9 @@ func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 			expectedTools: []string{"read-cypher", "write-cypher"},
 		},
 		{
-			name:          "When tool list is provided as empty string, it should disable all tools",
+			name:          "When tool list is provided as empty string, it should use all tools",
 			toolsEnv:      newStringPtr(""),
-			expectedTools: []string{},
+			expectedTools: AvailableTools,
 		},
 		{
 			name:          "When tool list is unset, all tools should be enabled",
@@ -1045,11 +1045,6 @@ func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
 			name:          "When tool list contains a trailing comma, it should be ignored",
 			cliTools:      newStringPtr("read-cypher,write-cypher,"),
 			expectedTools: []string{"read-cypher", "write-cypher"},
-		},
-		{
-			name:          "When tool list is provided as empty string, it should disable all tools",
-			cliTools:      newStringPtr(""),
-			expectedTools: []string{},
 		},
 		{
 			name:          "When tool list is unset, all tools should be enabled",

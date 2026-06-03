@@ -128,8 +128,10 @@ func ParseConfigFlags() *Args {
 	neo4jDatabase := flag.String("neo4j-database", "", "Neo4j database name (overrides NEO4J_DATABASE env var)")
 	neo4jReadOnly := flag.String("neo4j-read-only", "", "Enable read-only mode: true or false (overrides NEO4J_READ_ONLY env var)")
 	var neo4jTools *string
-	// allows explicit empty string arguments to be differentiated from unset arguments, which isn't possible with flag.String
 	flag.Func("neo4j-tools", "Define tools available by filtering tools returned in tools/list response", func(s string) error {
+		if s == "" {
+			return fmt.Errorf("cannot be empty; omit the flag to use all tools, or provide a comma-separated list of tools")
+		}
 		neo4jTools = &s
 		return nil
 	})
