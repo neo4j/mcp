@@ -4,6 +4,7 @@
 package server
 
 import (
+	"fmt"
 	"log/slog"
 	"slices"
 
@@ -42,10 +43,11 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 	toolsDefs := s.getAllToolsDefs(deps)
 	serverTools := make([]server.ServerTool, 0, len(toolsDefs))
 	for _, toolDef := range toolsDefs {
-		if s.config.ReadOnly && !toolDef.readonly {
+		if !slices.Contains(s.config.Tools, toolDef.definition.Tool.Name) {
 			continue
 		}
-		if !slices.Contains(s.config.Tools, toolDef.definition.Tool.Name) {
+		if s.config.ReadOnly && !toolDef.readonly {
+			slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", toolDef.definition.Tool.Name))
 			continue
 		}
 
