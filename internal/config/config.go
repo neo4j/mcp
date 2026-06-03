@@ -189,7 +189,10 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
 	}
 
-	if toolsEnv := GetEnv("NEO4J_MCP_TOOLS"); toolsEnv != "" {
+	if toolsEnv, ok := os.LookupEnv("NEO4J_MCP_TOOLS"); ok {
+		if toolsEnv == "" {
+			return nil, fmt.Errorf("invalid tools configuration: NEO4J_MCP_TOOLS is set but empty; provide a comma-separated list of tools or unset the variable")
+		}
 		cfg.Tools = ParseCommaSeparatedString(toolsEnv)
 	}
 

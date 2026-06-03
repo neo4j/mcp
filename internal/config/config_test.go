@@ -968,9 +968,9 @@ func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 			expectedTools: []string{"read-cypher", "write-cypher"},
 		},
 		{
-			name:          "When tool list is provided as empty string, it should use all tools",
-			toolsEnv:      newStringPtr(""),
-			expectedTools: AvailableTools,
+			name:     "When tool list is provided as empty string, should raise error",
+			toolsEnv: newStringPtr(""),
+			wantErr:  "NEO4J_MCP_TOOLS is set but empty",
 		},
 		{
 			name:          "When tool list is unset, all tools should be enabled",
