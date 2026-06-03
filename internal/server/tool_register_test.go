@@ -12,6 +12,7 @@ import (
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -132,7 +133,7 @@ func TestToolRegister(t *testing.T) {
 		// Start server and register tools
 		err := s.Start()
 		if err != nil {
-			t.Fatalf("Start() failed: %v", err)
+			require.NoError(t, err)
 		}
 
 		var toolNames []string
@@ -159,7 +160,7 @@ func TestToolRegister(t *testing.T) {
 		// Start server and register tools
 		err := s.Start()
 		if err != nil {
-			t.Fatalf("Start() failed: %v", err)
+			require.NoError(t, err)
 		}
 
 		assert.Empty(t, s.MCPServer.ListTools())
