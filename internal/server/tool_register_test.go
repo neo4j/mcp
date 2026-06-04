@@ -4,12 +4,15 @@
 package server_test
 
 import (
+	"sort"
 	"testing"
 
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -34,6 +37,7 @@ func TestToolRegister(t *testing.T) {
 			Username:      "neo4j",
 			Password:      "password",
 			Database:      "neo4j",
+			Tools:         config.AvailableTools,
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
@@ -62,6 +66,7 @@ func TestToolRegister(t *testing.T) {
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      true,
+			Tools:         config.AvailableTools,
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
@@ -89,6 +94,7 @@ func TestToolRegister(t *testing.T) {
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      false,
+			Tools:         config.AvailableTools,
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
@@ -109,5 +115,54 @@ func TestToolRegister(t *testing.T) {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
 	})
+	t.Run("should only register tools that are specified in config", func(t *testing.T) {
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			Tools:         []string{"read-cypher", "get-schema"},
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
+		// Expected tools that should be registered
+		expectedTools := []string{"get-schema", "read-cypher"}
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			require.NoError(t, err)
+		}
+
+		var toolNames []string
+		tools := s.MCPServer.ListTools()
+		for _, tool := range tools {
+			toolNames = append(toolNames, tool.Tool.Name)
+		}
+		sort.Strings(toolNames)
+
+		assert.Equal(t, expectedTools, toolNames)
+	})
+	t.Run("should not register write tools when readonly is enabled even if specified in tools config", func(t *testing.T) {
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			Tools:         []string{"write-cypher"},
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			require.NoError(t, err)
+		}
+
+		assert.Empty(t, s.MCPServer.ListTools())
+	})
 }

@@ -1,0 +1,6 @@
+kind: Minor
+body: |
+  The server now supports selective tool filtering through the "NEO4J_MCP_TOOLS" environment variable or the "--neo4j-tools" CLI argument.
+  These values are used to filter the tools returned in the "tools/list" MCP response. If not specified, all tools will be enabled.
+  You can pass multiple tools at once as a comma-separated list. Example: "--neo4j-tools 'get-schema,read-cypher'".
+time: 2026-05-28T11:02:36.109105+01:00

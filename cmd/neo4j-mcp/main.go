@@ -39,6 +39,7 @@ func main() {
 		Password:                      cliArgs.Password,
 		Database:                      cliArgs.Database,
 		ReadOnly:                      cliArgs.ReadOnly,
+		Tools:                         cliArgs.Tools,
 		Telemetry:                     cliArgs.Telemetry,
 		TransportMode:                 cliArgs.TransportMode,
 		Port:                          cliArgs.HTTPPort,

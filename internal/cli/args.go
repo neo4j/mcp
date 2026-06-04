@@ -27,6 +27,7 @@ Options:
   --neo4j-password <PASSWORD>         Database password (overrides environment variable NEO4J_PASSWORD)
   --neo4j-database <DATABASE>         Database name (overrides environment variable NEO4J_DATABASE)
   --neo4j-read-only <BOOLEAN>         Enable read-only mode: true or false (overrides environment variable NEO4J_READ_ONLY)
+  --neo4j-tools <TOOLS>               Define tools available by filtering tools returned in tools/list response
   --neo4j-telemetry <BOOLEAN>         Enable telemetry: true or false (overrides environment variable NEO4J_TELEMETRY)
   --neo4j-schema-sample-size <INT>    Number of nodes to sample for schema inference (overrides environment variable NEO4J_SCHEMA_SAMPLE_SIZE)
   --neo4j-transport-mode <MODE>       MCP Transport mode (e.g., 'stdio', 'http') (overrides environment variable NEO4J_TRANSPORT_MODE & NEO4J_MCP_TRANSPORT(deprecated))
@@ -51,6 +52,7 @@ Optional Environment Variables:
   NEO4J_READ_ONLY Enable read-only mode (default: false)
   NEO4J_SCHEMA_SAMPLE_SIZE Number of nodes to sample for schema inference (default: 100)
   NEO4J_TRANSPORT_MODE MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
+  NEO4J_MCP_TOOLS Define tools available by filtering tools returned in tools/list response (default: all tools enabled)
   NEO4J_MCP_TRANSPORT MCP Transport mode (e.g., 'stdio', 'http') (default: stdio)
   NEO4J_MCP_HTTP_PORT HTTP server port (default: 443 with TLS, 80 without TLS)
   NEO4J_MCP_HTTP_HOST HTTP server host (default: 127.0.0.1)
@@ -79,6 +81,7 @@ type Args struct {
 	Password                          string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
 	Database                          string
 	ReadOnly                          string
+	Tools                             *string // allows explicit empty string arguments to be differentiated from unset arguments
 	Telemetry                         string
 	SchemaSampleSize                  string
 	TransportMode                     string
@@ -101,6 +104,7 @@ var argsSlice = []string{
 	"--neo4j-password",
 	"--neo4j-database",
 	"--neo4j-read-only",
+	"--neo4j-tools",
 	"--neo4j-telemetry",
 	"--neo4j-schema-sample-size",
 	"--neo4j-transport-mode",
@@ -123,6 +127,14 @@ func ParseConfigFlags() *Args {
 	neo4jPassword := flag.String("neo4j-password", "", "Neo4j password (overrides NEO4J_PASSWORD env var)")
 	neo4jDatabase := flag.String("neo4j-database", "", "Neo4j database name (overrides NEO4J_DATABASE env var)")
 	neo4jReadOnly := flag.String("neo4j-read-only", "", "Enable read-only mode: true or false (overrides NEO4J_READ_ONLY env var)")
+	var neo4jTools *string
+	flag.Func("neo4j-tools", "Define tools available by filtering tools returned in tools/list response", func(s string) error {
+		if s == "" {
+			return fmt.Errorf("cannot be empty; omit the flag to use all tools, or provide a comma-separated list of tools")
+		}
+		neo4jTools = &s
+		return nil
+	})
 	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Enable telemetry: true or false (overrides NEO4J_TELEMETRY env var)")
 	neo4jSchemaSampleSize := flag.String("neo4j-schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_SCHEMA_SAMPLE_SIZE env var)")
 	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "MCP Transport mode (e.g., 'stdio', 'http') (overrides NEO4J_TRANSPORT_MODE env var)")
@@ -144,6 +156,7 @@ func ParseConfigFlags() *Args {
 		Password:                          *neo4jPassword,
 		Database:                          *neo4jDatabase,
 		ReadOnly:                          *neo4jReadOnly,
+		Tools:                             neo4jTools,
 		Telemetry:                         *neo4jTelemetry,
 		SchemaSampleSize:                  *neo4jSchemaSampleSize,
 		TransportMode:                     *neo4jTransportMode,

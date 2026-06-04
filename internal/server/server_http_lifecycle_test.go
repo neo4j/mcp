@@ -65,6 +65,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		URI:           "bolt://test-host:7687",
 		Database:      "neo4j",
 		TransportMode: config.TransportModeHTTP,
+		Tools:         config.AvailableTools,
 		HTTPHost:      "127.0.0.1",
 		HTTPPort:      strconv.Itoa(port),
 	}

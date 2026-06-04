@@ -28,6 +28,9 @@ const (
 // ValidTransportModes defines the allowed transport mode values
 var ValidTransportModes = []TransportMode{TransportModeStdio, TransportModeHTTP}
 
+// AvailableTools defines the available MCP tools
+var AvailableTools = []string{"read-cypher", "write-cypher", "list-gds-procedures", "get-schema"}
+
 // Config holds the application configuration
 type Config struct {
 	URI                           string
@@ -35,6 +38,7 @@ type Config struct {
 	Password                      string // #nosec G117
 	Database                      string
 	ReadOnly                      bool // If true, disables write tools
+	Tools                         []string
 	Telemetry                     bool // If false, disables telemetry
 	LogLevel                      string
 	LogFormat                     string
@@ -110,6 +114,12 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	for _, toolName := range c.Tools {
+		if !slices.Contains(AvailableTools, toolName) {
+			return fmt.Errorf("tool %q is invalid. Available tools are: %s", toolName, strings.Join(AvailableTools, ", "))
+		}
+	}
+
 	return nil
 }
 
@@ -120,6 +130,7 @@ type CLIOverrides struct {
 	Password                      string // #nosec G117
 	Database                      string
 	ReadOnly                      string
+	Tools                         *string
 	Telemetry                     string
 	TransportMode                 string
 	Port                          string
@@ -178,6 +189,13 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
 	}
 
+	if toolsEnv, ok := os.LookupEnv("NEO4J_MCP_TOOLS"); ok {
+		if toolsEnv == "" {
+			return nil, fmt.Errorf("invalid tools configuration: NEO4J_MCP_TOOLS is set but empty; provide a comma-separated list of tools or unset the variable")
+		}
+		cfg.Tools = ParseCommaSeparatedString(toolsEnv)
+	}
+
 	// Apply CLI overrides if provided
 	if cliOverrides != nil {
 		if cliOverrides.URI != "" {
@@ -194,6 +212,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.ReadOnly != "" {
 			cfg.ReadOnly = ParseBool(cliOverrides.ReadOnly, false)
+		}
+		if cliOverrides.Tools != nil {
+			cfg.Tools = ParseCommaSeparatedString(*cliOverrides.Tools)
 		}
 		if cliOverrides.Telemetry != "" {
 			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
@@ -238,6 +259,12 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		} else {
 			cfg.HTTPPort = "80"
 		}
+	}
+
+	// If tools haven't been set at this point, they have neither been provided nor explicitly unset
+	// Default to all available tools
+	if cfg.Tools == nil {
+		cfg.Tools = AvailableTools
 	}
 
 	// Normalize and validate
@@ -307,4 +334,18 @@ func ParseInt32(value string, defaultValue int32) int32 {
 		return defaultValue
 	}
 	return int32(parsed)
+}
+
+// ParseCommaSeparatedString parses a comma-separated string into a slice of strings.
+// Ensures that whitespace, trailing and leading commas are ignored.
+func ParseCommaSeparatedString(value string) []string {
+	parts := strings.Split(value, ",")
+	n := 0
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			parts[n] = p
+			n++
+		}
+	}
+	return parts[:n]
 }
