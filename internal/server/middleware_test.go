@@ -965,6 +965,115 @@ func TestReadonlyMiddleware(t *testing.T) {
 	}
 }
 
+func TestToolsMiddleware(t *testing.T) {
+	tests := []struct {
+		name         string
+		headerValues []string // multiple values simulate multiple header lines
+		setHeader    bool
+		wantCode     int
+		wantTools    []string
+		wantToolsSet bool
+	}{
+		{
+			name:         "header not sent should not set tools in context",
+			setHeader:    false,
+			wantCode:     http.StatusOK,
+			wantToolsSet: false,
+		},
+		{
+			name:         "empty string returns 400",
+			setHeader:    true,
+			headerValues: []string{""},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "invalid tool name returns 400",
+			setHeader:    true,
+			headerValues: []string{"invalid-tool"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "single valid tool sets tools in context",
+			setHeader:    true,
+			headerValues: []string{"read-cypher"},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "multiple valid tools comma-separated sets tools in context",
+			setHeader:    true,
+			headerValues: []string{"read-cypher,write-cypher"},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher", "write-cypher"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "all available tools sets tools in context",
+			setHeader:    true,
+			headerValues: []string{"read-cypher,write-cypher,list-gds-procedures,get-schema"},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher", "write-cypher", "list-gds-procedures", "get-schema"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "valid tool with extra whitespace is trimmed",
+			setHeader:    true,
+			headerValues: []string{" read-cypher , get-schema "},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher", "get-schema"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "mix of valid and invalid tool returns 400",
+			setHeader:    true,
+			headerValues: []string{"read-cypher,unknown-tool"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "multiple header values returns 400",
+			setHeader:    true,
+			headerValues: []string{"read-cypher", "write-cypher"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotTools *[]string
+			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotTools = mcpcontext.GetTools(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := toolsMiddleware()(inner)
+
+			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
+			if tt.setHeader {
+				for _, v := range tt.headerValues {
+					req.Header.Add("X-Neo4j-MCP-Tools", v)
+				}
+			}
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+
+			if tt.wantToolsSet {
+				assert.NotNil(t, gotTools)
+				assert.Equal(t, tt.wantTools, *gotTools)
+			} else {
+				assert.Nil(t, gotTools)
+			}
+		})
+	}
+}
+
 type stubURIResolver struct {
 	uri string
 	err error
