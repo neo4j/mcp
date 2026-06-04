@@ -38,13 +38,14 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 	toolsDefs := s.getServerTools(deps)
 	serverTools := make([]server.ServerTool, 0, len(toolsDefs))
 	for _, toolDef := range toolsDefs {
-		if s.config.ReadOnly && (toolDef.Tool.Annotations.ReadOnlyHint == nil || !*toolDef.Tool.Annotations.ReadOnlyHint) {
-			continue
-		}
+
 		if !slices.Contains(s.config.Tools, toolDef.Tool.Name) {
 			continue
 		}
-
+		if s.config.ReadOnly && (toolDef.Tool.Annotations.ReadOnlyHint == nil || !*toolDef.Tool.Annotations.ReadOnlyHint) {
+			slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", toolDef.Tool.Name))
+			continue
+		}
 		serverTools = append(serverTools, toolDef)
 	}
 	return serverTools
