@@ -1,0 +1,8 @@
+kind: Minor
+body: |
+  Add per-request tool filtering via two new HTTP headers:
+  - `X-Neo4j-MCP-Readonly: true|false`, restricts the advertised tool list to read-only tools for that request; invalid values return `400 Bad Request`
+  - `X-Neo4j-MCP-Tools: <comma-separated list>`, restricts the advertised tool list to the specified subset; unknown tool names return `400 Bad Request`
+  - When both headers are present they are applied as an intersection (read-only mode takes precedence)
+  - When neither header is set the behaviour is unchanged
+time: 2026-06-04T12:23:37.23731+01:00
