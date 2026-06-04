@@ -89,7 +89,7 @@ func GetReadonly(ctx context.Context) *bool {
 	return &readonly
 }
 
-// WithTools store per-request tools in the contex
+// WithTools store per-request tools in the context
 func WithTools(ctx context.Context, tools []string) context.Context {
 	return context.WithValue(ctx, toolsKey, tools)
 }

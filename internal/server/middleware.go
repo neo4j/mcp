@@ -267,7 +267,7 @@ func readonlyMiddleware() func(http.Handler) http.Handler {
 			vals := r.Header.Values("X-Neo4j-MCP-Readonly")
 
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: Ambiguity X-Neo4j-MCP-Readonly header found", http.StatusBadRequest)
+				http.Error(w, "Bad Request: Ambiguous X-Neo4j-MCP-Readonly header found", http.StatusBadRequest)
 				return
 			} else if len(vals) == 1 {
 				switch strings.ToLower(vals[0]) {
