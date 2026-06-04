@@ -59,7 +59,7 @@ func TestToolRegister(t *testing.T) {
 		}
 	})
 
-	t.Run("should register only readonly tools when readonly", func(t *testing.T) {
+	t.Run("should register only readOnly tools when readOnly", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -73,7 +73,7 @@ func TestToolRegister(t *testing.T) {
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
-		// Readonly tools: get-schema, read-cypher, list-gds-procedures
+		// ReadOnly tools: get-schema, read-cypher, list-gds-procedures
 		expectedTotalToolsCount := 3
 
 		// Start server and register tools
@@ -87,7 +87,7 @@ func TestToolRegister(t *testing.T) {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
 	})
-	t.Run("should register also write tools when readonly is set to false", func(t *testing.T) {
+	t.Run("should register also write tools when readOnly is set to false", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -145,7 +145,7 @@ func TestToolRegister(t *testing.T) {
 
 		assert.Equal(t, expectedTools, toolNames)
 	})
-	t.Run("should not register write tools when readonly is enabled even if specified in tools config", func(t *testing.T) {
+	t.Run("should not register write tools when readOnly is enabled even if specified in tools config", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",

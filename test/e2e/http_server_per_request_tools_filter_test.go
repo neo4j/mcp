@@ -33,23 +33,23 @@ func TestHTTPPerRequestToolsFilter(t *testing.T) {
 			wantToolNames: []string{"read-cypher", "write-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
-			name:          "Only read-only tools when X-Neo4j-MCP-Readonly is true",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Readonly": "true"},
+			name:          "Only read-only tools when X-Neo4j-MCP-ReadOnly is true",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "true"},
 			wantToolNames: []string{"read-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
-			name:          "All tools when X-Neo4j-MCP-Readonly is false",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Readonly": "false"},
+			name:          "All tools when X-Neo4j-MCP-ReadOnly is false",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "false"},
 			wantToolNames: []string{"read-cypher", "write-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
-			name:          "All tools when X-Neo4j-MCP-Readonly is False (mixed case)",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Readonly": "False"},
+			name:          "All tools when X-Neo4j-MCP-ReadOnly is False (mixed case)",
+			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "False"},
 			wantToolNames: []string{"read-cypher", "write-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
-			name:         "Error when X-Neo4j-MCP-Readonly contains an invalid value",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Readonly": "invalid"},
+			name:         "Error when X-Neo4j-MCP-ReadOnly contains an invalid value",
+			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "invalid"},
 			wantErr:      true,
 		},
 		{
@@ -83,10 +83,10 @@ func TestHTTPPerRequestToolsFilter(t *testing.T) {
 			wantErr:      true,
 		},
 		{
-			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-Readonly applied as intersection",
+			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-ReadOnly applied as intersection",
 			extraHeaders: map[string]string{
-				"X-Neo4j-MCP-Tools":    "read-cypher, write-cypher",
-				"X-Neo4j-MCP-Readonly": "true",
+				"X-Neo4j-MCP-Tools":   "read-cypher, write-cypher",
+				"X-Neo4j-MCP-ReadOnly": "true",
 			},
 			// write-cypher is not read-only, so it is excluded despite being in the tools list
 			wantToolNames: []string{"read-cypher"},

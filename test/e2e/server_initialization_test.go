@@ -80,7 +80,7 @@ func TestServerInitializationE2E(t *testing.T) {
 
 		for _, tool := range listToolsResponse.Tools {
 			if tool.Name == "write-cypher" {
-				t.Fatal("write-cypher tool found using readonly mode")
+				t.Fatal("write-cypher tool found using readOnly mode")
 			}
 		}
 		assert.Len(t, listToolsResponse.Tools, 3, "read-only mode true returns the wrong number of tools")

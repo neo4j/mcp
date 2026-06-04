@@ -51,7 +51,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
 	handler = dbNameMiddleware()(handler)
 	handler = pathValidationMiddleware()(handler)
-	handler = readonlyMiddleware()(handler)
+	handler = readOnlyMiddleware()(handler)
 	handler = toolsMiddleware()(handler)
 
 	return handler
@@ -256,31 +256,31 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// readonlyMiddleware reads the "X-Neo4j-MCP-Readonly" request header and stores
+// readOnlyMiddleware reads the "X-Neo4j-MCP-ReadOnly" request header and stores
 // the resulting boolean in the request context. Accepted values are "true" and
 // "false" (case-insensitive). Any other non-empty value yields a 400 Bad Request.
-// When the header is absent it does not set the Readonly in the context.
-func readonlyMiddleware() func(http.Handler) http.Handler {
+// When the header is absent it does not set the ReadOnly in the context.
+func readOnlyMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// r.Header.Values is been used to distinguish when the header is not set
-			vals := r.Header.Values("X-Neo4j-MCP-Readonly")
+			vals := r.Header.Values("X-Neo4j-MCP-ReadOnly")
 
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: Ambiguous X-Neo4j-MCP-Readonly header found", http.StatusBadRequest)
+				http.Error(w, "Bad Request: Ambiguous X-Neo4j-MCP-ReadOnly header found", http.StatusBadRequest)
 				return
 			} else if len(vals) == 1 {
 				switch strings.ToLower(vals[0]) {
 				case "false":
-					ctx := mcpcontext.WithReadonly(r.Context(), false)
+					ctx := mcpcontext.WithReadOnly(r.Context(), false)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				case "true":
-					ctx := mcpcontext.WithReadonly(r.Context(), true)
+					ctx := mcpcontext.WithReadOnly(r.Context(), true)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				default:
-					http.Error(w, `Bad Request: "X-Neo4j-MCP-Readonly" must be "true" or "false"`, http.StatusBadRequest)
+					http.Error(w, `Bad Request: "X-Neo4j-MCP-ReadOnly" must be "true" or "false"`, http.StatusBadRequest)
 					return
 				}
 

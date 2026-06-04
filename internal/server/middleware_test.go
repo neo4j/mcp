@@ -856,96 +856,96 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	}
 }
 
-func TestReadonlyMiddleware(t *testing.T) {
+func TestReadOnlyMiddleware(t *testing.T) {
 	tests := []struct {
-		name            string
-		headerValue     string
-		setHeader       bool
-		wantCode        int
-		wantReadonly    bool
-		wantReadonlySet bool
+		name             string
+		headerValue      string
+		setHeader        bool
+		wantCode         int
+		wantReadOnly     bool
+		wantReadOnlySet  bool
 	}{
 		{
 			name:            "header not sent should be not set in the context",
 			setHeader:       false,
 			wantCode:        http.StatusOK,
-			wantReadonlySet: false,
+			wantReadOnlySet: false,
 		},
 		{
 			name:            "empty string returns 400",
 			setHeader:       true,
 			headerValue:     "",
 			wantCode:        http.StatusBadRequest,
-			wantReadonlySet: false,
+			wantReadOnlySet: false,
 		},
 		{
 			name:            "value '0' returns 400",
 			setHeader:       true,
 			headerValue:     "0",
 			wantCode:        http.StatusBadRequest,
-			wantReadonlySet: false,
+			wantReadOnlySet: false,
 		},
 		{
 			name:            "value '1' returns 400",
 			setHeader:       true,
 			headerValue:     "1",
 			wantCode:        http.StatusBadRequest,
-			wantReadonlySet: false,
+			wantReadOnlySet: false,
 		},
 		{
 			name:            "invalid string returns 400",
 			setHeader:       true,
 			headerValue:     "invalid-string",
 			wantCode:        http.StatusBadRequest,
-			wantReadonlySet: false,
+			wantReadOnlySet: false,
 		},
 		{
-			name:            "lowercase 'true' sets readonly=true",
+			name:            "lowercase 'true' sets readOnly=true",
 			setHeader:       true,
 			headerValue:     "true",
 			wantCode:        http.StatusOK,
-			wantReadonly:    true,
-			wantReadonlySet: true,
+			wantReadOnly:    true,
+			wantReadOnlySet: true,
 		},
 		{
-			name:            "mixed-case 'True' sets readonly=true",
+			name:            "mixed-case 'True' sets readOnly=true",
 			setHeader:       true,
 			headerValue:     "True",
 			wantCode:        http.StatusOK,
-			wantReadonly:    true,
-			wantReadonlySet: true,
+			wantReadOnly:    true,
+			wantReadOnlySet: true,
 		},
 		{
-			name:            "lowercase 'false' sets readonly=false",
+			name:            "lowercase 'false' sets readOnly=false",
 			setHeader:       true,
 			headerValue:     "false",
 			wantCode:        http.StatusOK,
-			wantReadonly:    false,
-			wantReadonlySet: true,
+			wantReadOnly:    false,
+			wantReadOnlySet: true,
 		},
 		{
-			name:            "uppercase 'FALSE' sets readonly=false",
+			name:            "uppercase 'FALSE' sets readOnly=false",
 			setHeader:       true,
 			headerValue:     "FALSE",
 			wantCode:        http.StatusOK,
-			wantReadonly:    false,
-			wantReadonlySet: true,
+			wantReadOnly:    false,
+			wantReadOnlySet: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var gotReadonly *bool
+			var gotReadOnly *bool
 			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				gotReadonly = mcpcontext.GetReadonly(r.Context())
+				gotReadOnly = mcpcontext.GetReadOnly(r.Context())
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := readonlyMiddleware()(inner)
+			handler := readOnlyMiddleware()(inner)
 
 			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
 			if tt.setHeader {
-				req.Header.Set("X-Neo4j-MCP-Readonly", tt.headerValue)
+				req.Header.Set("X-Neo4j-MCP-ReadOnly", tt.headerValue)
 			}
 			rec := httptest.NewRecorder()
 
@@ -953,12 +953,12 @@ func TestReadonlyMiddleware(t *testing.T) {
 
 			assert.Equal(t, tt.wantCode, rec.Code)
 
-			if tt.wantReadonlySet {
-				assert.Equal(t, tt.wantReadonly, *gotReadonly)
+			if tt.wantReadOnlySet {
+				assert.Equal(t, tt.wantReadOnly, *gotReadOnly)
 
 			}
-			if !tt.wantReadonlySet {
-				assert.Nil(t, gotReadonly)
+			if !tt.wantReadOnlySet {
+				assert.Nil(t, gotReadOnly)
 			}
 
 		})
