@@ -96,6 +96,41 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 			}
 			return filteredTools
 		}),
+		server.WithToolHandlerMiddleware(func(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+			// WithToolFilter controls tool advertisement; this middleware enforces execution
+			return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				// Guards are checked read-only first, then the configured tools list.
+				// When a request violates both, the read-only error takes precedence.
+				readOnly := mcpcontext.GetReadOnly(ctx)
+				if readOnly != nil && *readOnly {
+					mcpServer := server.ServerFromContext(ctx)
+					if mcpServer == nil {
+						// Should be unreachable: the SDK always injects the server into
+						// the context before invoking tool handler middleware.
+						return nil, fmt.Errorf("internal error: MCP server missing from context")
+					}
+
+					serverTool := mcpServer.GetTool(req.Params.Name)
+					if serverTool == nil {
+						// Should be unreachable: the SDK rejects unknown tool names before
+						// the middleware runs (see TestHTTPPerRequestToolsExecutionGuardInvalidTool).
+						return nil, fmt.Errorf("internal error: tool %q not found", req.Params.Name)
+					}
+
+					readOnlyHint := serverTool.Tool.Annotations.ReadOnlyHint
+					if readOnlyHint == nil || !*readOnlyHint {
+						return mcp.NewToolResultError(fmt.Sprintf("'%s' is not permitted in read-only mode", req.Params.Name)), nil
+					}
+				}
+
+				tools := mcpcontext.GetTools(ctx)
+				if tools != nil && !slices.Contains(*tools, req.Params.Name) {
+					return mcp.NewToolResultError(fmt.Sprintf("'%s' is not in the list of configured tools", req.Params.Name)), nil
+				}
+
+				return next(ctx, req)
+			}
+		}),
 	)
 
 	neo4jServer.MCPServer = mcpServer
