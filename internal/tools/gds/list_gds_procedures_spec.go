@@ -3,11 +3,11 @@
 
 package gds
 
-import "github.com/mark3labs/mcp-go/mcp"
+import (
+	"encoding/json"
 
-type EmptyInput struct {
-	Properties map[string]interface{} `json:"properties"`
-}
+	"github.com/mark3labs/mcp-go/mcp"
+)
 
 func ListGDSProceduresSpec() mcp.Tool {
 	return mcp.NewTool("list-gds-procedures",
@@ -26,6 +26,6 @@ func ListGDSProceduresSpec() mcp.Tool {
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(true),
-		mcp.WithInputSchema[EmptyInput](),
+		rawInputSchema(json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)),
 	)
 }
