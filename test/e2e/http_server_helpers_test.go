@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -101,4 +104,17 @@ func waitForHealthz(t *testing.T, url string) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatalf("server at %s did not become ready within 10s", url)
+}
+
+// newHTTPClient builds an MCP streamable-HTTP client forwarding the provided headers.
+func newHTTPClient(t *testing.T, mcpURL string, headers map[string]string) *client.Client {
+	t.Helper()
+
+	httpTransport, err := transport.NewStreamableHTTP(mcpURL,
+		transport.WithHTTPTimeout(15*time.Second),
+		transport.WithHTTPHeaders(headers),
+	)
+	require.NoError(t, err, "failed to build streamable HTTP transport")
+
+	return client.NewClient(httpTransport)
 }

@@ -13,6 +13,8 @@ const (
 	bearerTokenKey   contextKey = "bearerToken"
 	databaseNameKey  contextKey = "databaseName"
 	driverKey        contextKey = "neo4jDriver"
+	readOnlyKey      contextKey = "readOnly"
+	toolsKey         contextKey = "tools"
 )
 
 // WithDatabaseName adds the target database name to the context
@@ -68,4 +70,38 @@ func WithDriver(ctx context.Context, driver any) context.Context {
 func GetDriver(ctx context.Context) (any, bool) {
 	driver := ctx.Value(driverKey)
 	return driver, driver != nil
+}
+
+// WithReadOnly marks the context as read-only
+func WithReadOnly(ctx context.Context, readOnly bool) context.Context {
+	return context.WithValue(ctx, readOnlyKey, readOnly)
+}
+
+// GetReadOnly retrieves the read-only flag from the context.
+// Returns nil if the flag is not set.
+func GetReadOnly(ctx context.Context) *bool {
+	readOnly, ok := ctx.Value(readOnlyKey).(bool)
+	if !ok {
+		// The assumption here is that ctx entry is set by the setter defined in mcpcontext,
+		// therefore is nil when ok is false
+		return nil
+	}
+	return &readOnly
+}
+
+// WithTools store per-request tools in the context
+func WithTools(ctx context.Context, tools []string) context.Context {
+	return context.WithValue(ctx, toolsKey, tools)
+}
+
+// GetTools retrieves the per-request tools from the context.
+// Returns nil if the tools are not explicitly requested.
+func GetTools(ctx context.Context) *[]string {
+	tools, ok := ctx.Value(toolsKey).([]string)
+	if !ok {
+		// The assumption here is that ctx entry is set by the setter defined in mcpcontext,
+		// therefore is nil when ok is false
+		return nil
+	}
+	return &tools
 }

@@ -827,20 +827,6 @@ func TestDBNameMiddleware(t *testing.T) {
 	}
 }
 
-type stubURIResolver struct {
-	uri string
-	err error
-}
-
-func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.uri, s.err }
-
-type stubDriverRegistry struct {
-	driver neo4j.Driver
-	err    error
-}
-
-func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) { return s.driver, s.err }
-
 func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -869,3 +855,241 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestReadOnlyMiddleware(t *testing.T) {
+	tests := []struct {
+		name            string
+		headerValue     string
+		setHeader       bool
+		wantCode        int
+		wantReadOnly    bool
+		wantReadOnlySet bool
+	}{
+		{
+			name:            "header not sent should be not set in the context",
+			setHeader:       false,
+			wantCode:        http.StatusOK,
+			wantReadOnlySet: false,
+		},
+		{
+			name:            "empty string returns 400",
+			setHeader:       true,
+			headerValue:     "",
+			wantCode:        http.StatusBadRequest,
+			wantReadOnlySet: false,
+		},
+		{
+			name:            "value '0' returns 400",
+			setHeader:       true,
+			headerValue:     "0",
+			wantCode:        http.StatusBadRequest,
+			wantReadOnlySet: false,
+		},
+		{
+			name:            "value '1' returns 400",
+			setHeader:       true,
+			headerValue:     "1",
+			wantCode:        http.StatusBadRequest,
+			wantReadOnlySet: false,
+		},
+		{
+			name:            "invalid string returns 400",
+			setHeader:       true,
+			headerValue:     "invalid-string",
+			wantCode:        http.StatusBadRequest,
+			wantReadOnlySet: false,
+		},
+		{
+			name:            "lowercase 'true' sets readOnly=true",
+			setHeader:       true,
+			headerValue:     "true",
+			wantCode:        http.StatusOK,
+			wantReadOnly:    true,
+			wantReadOnlySet: true,
+		},
+		{
+			name:            "mixed-case 'True' sets readOnly=true",
+			setHeader:       true,
+			headerValue:     "True",
+			wantCode:        http.StatusOK,
+			wantReadOnly:    true,
+			wantReadOnlySet: true,
+		},
+		{
+			name:            "lowercase 'false' sets readOnly=false",
+			setHeader:       true,
+			headerValue:     "false",
+			wantCode:        http.StatusOK,
+			wantReadOnly:    false,
+			wantReadOnlySet: true,
+		},
+		{
+			name:            "uppercase 'FALSE' sets readOnly=false",
+			setHeader:       true,
+			headerValue:     "FALSE",
+			wantCode:        http.StatusOK,
+			wantReadOnly:    false,
+			wantReadOnlySet: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotReadOnly *bool
+			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotReadOnly = mcpcontext.GetReadOnly(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := readOnlyMiddleware()(inner)
+
+			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
+			if tt.setHeader {
+				req.Header.Set("X-Neo4j-MCP-ReadOnly", tt.headerValue)
+			}
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+
+			if tt.wantReadOnlySet {
+				assert.Equal(t, tt.wantReadOnly, *gotReadOnly)
+
+			} else {
+				assert.Nil(t, gotReadOnly)
+			}
+
+		})
+	}
+}
+
+func TestToolsMiddleware(t *testing.T) {
+	tests := []struct {
+		name         string
+		headerValues []string // multiple values simulate multiple header lines
+		setHeader    bool
+		wantCode     int
+		wantTools    []string
+		wantToolsSet bool
+	}{
+		{
+			name:         "header not sent should not set tools in context",
+			setHeader:    false,
+			wantCode:     http.StatusOK,
+			wantToolsSet: false,
+		},
+		{
+			name:         "empty string returns 400",
+			setHeader:    true,
+			headerValues: []string{""},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "invalid commas returns 400",
+			setHeader:    true,
+			headerValues: []string{",,,"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "invalid tool name returns 400",
+			setHeader:    true,
+			headerValues: []string{"invalid-tool"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "single valid tool sets tools in context",
+			setHeader:    true,
+			headerValues: []string{"read-cypher"},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "multiple valid tools comma-separated sets tools in context",
+			setHeader:    true,
+			headerValues: []string{"read-cypher,write-cypher"},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher", "write-cypher"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "all available tools sets tools in context",
+			setHeader:    true,
+			headerValues: []string{"read-cypher,write-cypher,list-gds-procedures,get-schema"},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher", "write-cypher", "list-gds-procedures", "get-schema"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "valid tool with extra whitespace is trimmed",
+			setHeader:    true,
+			headerValues: []string{" read-cypher , get-schema "},
+			wantCode:     http.StatusOK,
+			wantTools:    []string{"read-cypher", "get-schema"},
+			wantToolsSet: true,
+		},
+		{
+			name:         "mix of valid and invalid tool returns 400",
+			setHeader:    true,
+			headerValues: []string{"read-cypher,unknown-tool"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "multiple header values returns 400",
+			setHeader:    true,
+			headerValues: []string{"read-cypher", "write-cypher"},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotTools *[]string
+			inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotTools = mcpcontext.GetTools(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := toolsMiddleware()(inner)
+
+			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
+			if tt.setHeader {
+				for _, v := range tt.headerValues {
+					req.Header.Add("X-Neo4j-MCP-Tools", v)
+				}
+			}
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+
+			if tt.wantToolsSet {
+				assert.NotNil(t, gotTools)
+				assert.Equal(t, tt.wantTools, *gotTools)
+			} else {
+				assert.Nil(t, gotTools)
+			}
+		})
+	}
+}
+
+type stubURIResolver struct {
+	uri string
+	err error
+}
+
+func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.uri, s.err }
+
+type stubDriverRegistry struct {
+	driver neo4j.Driver
+	err    error
+}
+
+func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) { return s.driver, s.err }
