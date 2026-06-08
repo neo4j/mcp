@@ -263,11 +263,11 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 func readOnlyMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// r.Header.Values is been used to distinguish when the header is not set
+			// r.Header.Values is used to distinguish when the header is not set
 			vals := r.Header.Values("X-Neo4j-MCP-ReadOnly")
 
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: Ambiguous X-Neo4j-MCP-ReadOnly header found", http.StatusBadRequest)
+				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-ReadOnly header found", http.StatusBadRequest)
 				return
 			} else if len(vals) == 1 {
 				switch strings.ToLower(vals[0]) {
@@ -298,17 +298,17 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 func toolsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// r.Header.Values is been used to distinguish when the header is not set
+			// r.Header.Values is used to distinguish when the header is not set
 			vals := r.Header.Values("X-Neo4j-MCP-Tools")
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: Ambiguity X-Neo4j-MCP-Tools header found", http.StatusBadRequest)
+				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-Tools header found", http.StatusBadRequest)
 				return
 			} else if len(vals) == 1 {
-				if vals[0] == "" {
-					http.Error(w, fmt.Sprintf("tool \"\" is invalid. Available tools are: %s", strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
+				tools := parseCommaSeparatedString(vals[0])
+				if len(tools) == 0 {
+					http.Error(w, fmt.Sprintf("tool %q is invalid. Available tools are: %s", vals[0], strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
 					return
 				}
-				tools := parseCommaSeparatedString(vals[0])
 
 				for _, toolName := range tools {
 					if !slices.Contains(config.AvailableTools, toolName) {

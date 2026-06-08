@@ -85,7 +85,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 			}
 			var filteredTools = make([]mcp.Tool, 0, len(tools))
 			for _, tool := range tools {
-				if readOnly != nil && *readOnly && !*tool.Annotations.ReadOnlyHint {
+				if readOnly != nil && *readOnly && (tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint) {
 					continue
 				}
 				if requestedTools != nil && !slices.Contains(*requestedTools, tool.GetName()) {

@@ -858,12 +858,12 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 
 func TestReadOnlyMiddleware(t *testing.T) {
 	tests := []struct {
-		name             string
-		headerValue      string
-		setHeader        bool
-		wantCode         int
-		wantReadOnly     bool
-		wantReadOnlySet  bool
+		name            string
+		headerValue     string
+		setHeader       bool
+		wantCode        int
+		wantReadOnly    bool
+		wantReadOnlySet bool
 	}{
 		{
 			name:            "header not sent should be not set in the context",
@@ -956,8 +956,7 @@ func TestReadOnlyMiddleware(t *testing.T) {
 			if tt.wantReadOnlySet {
 				assert.Equal(t, tt.wantReadOnly, *gotReadOnly)
 
-			}
-			if !tt.wantReadOnlySet {
+			} else {
 				assert.Nil(t, gotReadOnly)
 			}
 
@@ -984,6 +983,13 @@ func TestToolsMiddleware(t *testing.T) {
 			name:         "empty string returns 400",
 			setHeader:    true,
 			headerValues: []string{""},
+			wantCode:     http.StatusBadRequest,
+			wantToolsSet: false,
+		},
+		{
+			name:         "invalid commas returns 400",
+			setHeader:    true,
+			headerValues: []string{",,,"},
 			wantCode:     http.StatusBadRequest,
 			wantToolsSet: false,
 		},
