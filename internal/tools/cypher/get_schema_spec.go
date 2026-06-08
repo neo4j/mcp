@@ -6,8 +6,9 @@ package cypher
 import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
 type EmptyInput struct {
-    Properties map[string]interface{} `json:"properties"`
+	Properties map[string]interface{} `json:"properties"`
 }
 
 func GetSchemaSpec() mcp.Tool {

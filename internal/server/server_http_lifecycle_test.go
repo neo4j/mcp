@@ -287,7 +287,7 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 		{
 			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-ReadOnly applied as intersection",
 			extraHeaders: map[string]string{
-				"X-Neo4j-MCP-Tools":   "read-cypher, write-cypher",
+				"X-Neo4j-MCP-Tools":    "read-cypher, write-cypher",
 				"X-Neo4j-MCP-ReadOnly": "true",
 			},
 			// write-cypher is not read-only, so it is excluded despite being in the tools list
