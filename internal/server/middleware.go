@@ -269,7 +269,8 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 			if len(vals) > 1 {
 				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-ReadOnly header found", http.StatusBadRequest)
 				return
-			} else if len(vals) == 1 {
+			}
+			if len(vals) == 1 {
 				switch strings.ToLower(vals[0]) {
 				case "false":
 					ctx := mcpcontext.WithReadOnly(r.Context(), false)
@@ -303,7 +304,8 @@ func toolsMiddleware() func(http.Handler) http.Handler {
 			if len(vals) > 1 {
 				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-Tools header found", http.StatusBadRequest)
 				return
-			} else if len(vals) == 1 {
+			}
+			if len(vals) == 1 {
 				tools := parseCommaSeparatedString(vals[0])
 				if len(tools) == 0 {
 					http.Error(w, fmt.Sprintf("tool %q is invalid. Available tools are: %s", vals[0], strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
