@@ -271,20 +271,19 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 			if len(vals) == 1 {
+				var readOnly bool
 				switch strings.ToLower(vals[0]) {
 				case "false":
-					ctx := mcpcontext.WithReadOnly(r.Context(), false)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
+					readOnly = false
 				case "true":
-					ctx := mcpcontext.WithReadOnly(r.Context(), true)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
+					readOnly = true
 				default:
 					http.Error(w, `Bad Request: "X-Neo4j-MCP-ReadOnly" must be "true" or "false"`, http.StatusBadRequest)
 					return
 				}
-
+				ctx := mcpcontext.WithReadOnly(r.Context(), readOnly)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
 			}
 			next.ServeHTTP(w, r)
 		})
