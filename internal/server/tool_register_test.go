@@ -145,6 +145,30 @@ func TestToolRegister(t *testing.T) {
 
 		assert.Equal(t, expectedTools, toolNames)
 	})
+	// this test is required as we're actively relying on the ReadOnly annotation for programmatic purpose
+	t.Run("all tools must have ReadOnlyHint explicitly set", func(t *testing.T) {
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			Tools:         config.AvailableTools,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		err := s.Start()
+		require.NoError(t, err)
+
+		for _, tool := range s.MCPServer.ListTools() {
+			assert.NotNilf(t, tool.Tool.Annotations.ReadOnlyHint,
+				"tool %q is missing ReadOnlyHint annotation — add mcp.WithReadOnlyHintAnnotation(true|false) to its spec",
+				tool.Tool.Name,
+			)
+		}
+	})
+
 	t.Run("should not register write tools when readOnly is enabled even if specified in tools config", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
