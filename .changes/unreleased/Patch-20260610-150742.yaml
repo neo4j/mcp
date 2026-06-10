@@ -1,0 +1,9 @@
+kind: Patch
+body: >-
+  Fixed the inputSchema advertised by `get-schema` and `list-gds-procedures` in
+  the `tools/list` response. Both tools previously emitted a schema that
+  required a spurious `properties` argument (an artefact of the `EmptyInput`
+  workaround introduced for OpenAI compatibility). mcp-go v0.46+ already
+  guarantees that a bare `NewTool` call emits `"properties": {}`, so the
+  workaround is no longer needed.
+time: 2026-06-10T15:07:42.108933+01:00
