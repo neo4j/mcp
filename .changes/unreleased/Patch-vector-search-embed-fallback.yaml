@@ -1,0 +1,3 @@
+kind: Patch
+body: 'Fix `vector-search` on Neo4j versions older than 2025.11 (including current Neo4j Aura 5.x releases), where the GenAI plugin does not yet have `ai.text.embed()`. The tool now detects the Neo4j version and automatically falls back to the deprecated-but-present `genai.vector.encode()` function, with its PascalCase provider names and config keys, so embedding continues to work with no user action needed.'
+time: 2026-07-03T09:22:16.000000-00:00

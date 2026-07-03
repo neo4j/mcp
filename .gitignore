@@ -43,3 +43,6 @@ dist/
 CLAUDE.md
 gemini.md
 *.pem
+
+# macOS
+.DS_Store

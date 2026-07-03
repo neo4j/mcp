@@ -23,7 +23,29 @@ const (
 	TransportModeStdio        TransportMode = "stdio"
 	TransportModeHTTP         TransportMode = "http"
 	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
+
+	// Embedding provider constants
+	EmbeddingProviderOpenAI       = "openai"
+	EmbeddingProviderAzureOpenAI  = "azure-openai"
+	EmbeddingProviderVertexAI     = "vertexai"
+	EmbeddingProviderBedrockTitan = "bedrock-titan"
 )
+
+// EmbeddingConfig holds optional embedding provider configuration.
+// All fields are optional; an empty Provider means embedding is disabled.
+type EmbeddingConfig struct {
+	Provider           string
+	Model              string
+	APIKey             string
+	Dimensions         string
+	AzureResource      string
+	VertexProject      string
+	VertexRegion       string
+	VertexPublisher    string
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	AWSRegion          string
+}
 
 // ValidTransportModes defines the allowed transport mode values
 var ValidTransportModes = []TransportMode{TransportModeStdio, TransportModeHTTP}
@@ -49,6 +71,33 @@ type Config struct {
 	AuthHeaderName                string        // HTTP header name to read auth credentials from (default: "Authorization")
 	AllowUnauthenticatedPing      bool          // If true, allows unauthenticated ping health checks in HTTP mode
 	AllowUnauthenticatedToolsList bool          // If true, allows unauthenticated tools list in HTTP mode
+	embeddingCfg                  EmbeddingConfig
+}
+
+// EmbeddingConfig returns the embedding provider configuration.
+func (c *Config) EmbeddingConfig() EmbeddingConfig {
+	return c.embeddingCfg
+}
+
+// IsEmbeddingConfigured returns true only when Provider is non-empty and all
+// required credentials for that provider are present.
+func (c *Config) IsEmbeddingConfigured() bool {
+	emb := c.embeddingCfg
+	if emb.Provider == "" {
+		return false
+	}
+	switch emb.Provider {
+	case EmbeddingProviderOpenAI:
+		return emb.Model != "" && emb.APIKey != ""
+	case EmbeddingProviderAzureOpenAI:
+		return emb.Model != "" && emb.APIKey != "" && emb.AzureResource != ""
+	case EmbeddingProviderVertexAI:
+		return emb.Model != "" && emb.APIKey != "" && emb.VertexProject != "" && emb.VertexRegion != ""
+	case EmbeddingProviderBedrockTitan:
+		return emb.Model != "" && emb.AWSAccessKeyID != "" && emb.AWSSecretAccessKey != "" && emb.AWSRegion != ""
+	default:
+		return false
+	}
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -101,6 +150,74 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate embedding configuration only when a provider is set
+	if err := validateEmbeddingConfig(c.embeddingCfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateEmbeddingConfig validates the embedding configuration.
+// If Provider is empty, embedding is disabled and no error is returned.
+func validateEmbeddingConfig(emb EmbeddingConfig) error {
+	if emb.Provider == "" {
+		return nil
+	}
+
+	switch emb.Provider {
+	case EmbeddingProviderOpenAI:
+		if emb.Model == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_MODEL is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.APIKey == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_API_KEY is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+	case EmbeddingProviderAzureOpenAI:
+		if emb.Model == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_MODEL is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.APIKey == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_API_KEY is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.AzureResource == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_AZURE_RESOURCE is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+	case EmbeddingProviderVertexAI:
+		if emb.Model == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_MODEL is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.APIKey == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_API_KEY is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.VertexProject == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_VERTEX_PROJECT is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.VertexRegion == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_VERTEX_REGION is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+	case EmbeddingProviderBedrockTitan:
+		if emb.Model == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_MODEL is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.AWSAccessKeyID == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.AWSSecretAccessKey == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+		if emb.AWSRegion == "" {
+			return fmt.Errorf("NEO4J_EMBEDDING_AWS_REGION is required when NEO4J_EMBEDDING_PROVIDER is '%s'", emb.Provider)
+		}
+	default:
+		return fmt.Errorf("invalid NEO4J_EMBEDDING_PROVIDER '%s', must be one of: %s, %s, %s, %s",
+			emb.Provider,
+			EmbeddingProviderOpenAI,
+			EmbeddingProviderAzureOpenAI,
+			EmbeddingProviderVertexAI,
+			EmbeddingProviderBedrockTitan,
+		)
+	}
 	return nil
 }
 
@@ -167,6 +284,19 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		AuthHeaderName:                GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
 		AllowUnauthenticatedPing:      ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
 		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
+		embeddingCfg: EmbeddingConfig{
+			Provider:           GetEnv("NEO4J_EMBEDDING_PROVIDER"),
+			Model:              GetEnv("NEO4J_EMBEDDING_MODEL"),
+			APIKey:             GetEnv("NEO4J_EMBEDDING_API_KEY"),
+			Dimensions:         GetEnv("NEO4J_EMBEDDING_DIMENSIONS"),
+			AzureResource:      GetEnv("NEO4J_EMBEDDING_AZURE_RESOURCE"),
+			VertexProject:      GetEnv("NEO4J_EMBEDDING_VERTEX_PROJECT"),
+			VertexRegion:       GetEnv("NEO4J_EMBEDDING_VERTEX_REGION"),
+			VertexPublisher:    GetEnv("NEO4J_EMBEDDING_VERTEX_PUBLISHER"),
+			AWSAccessKeyID:     GetEnv("NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID"),
+			AWSSecretAccessKey: GetEnv("NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY"),
+			AWSRegion:          GetEnv("NEO4J_EMBEDDING_AWS_REGION"),
+		},
 	}
 
 	// Apply CLI overrides if provided

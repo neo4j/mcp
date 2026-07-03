@@ -10,6 +10,11 @@ import (
 	"github.com/neo4j/mcp/internal/testutil"
 )
 
+// testVertexToken is a non-secret placeholder used as the embedding credential in
+// EmbeddingConfig struct fixtures. It is a variable (not a string literal in each
+// struct) to avoid gosec G101 false positives on hardcoded credentials in tests.
+var testVertexToken = "placeholder-token"
+
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -844,4 +849,531 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 			t.Errorf("LoadConfig() error = %v, want error containing 'invalid auth header name'", err)
 		}
 	})
+}
+
+// setBaseEnv sets the minimum env vars needed for LoadConfig to pass basic validation
+// so embedding tests can focus on embedding-specific behaviour.
+func setBaseEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+}
+
+func TestEmbeddingConfig_NoProvider(t *testing.T) {
+	setBaseEnv(t)
+	// Ensure embedding env vars are absent
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.Provider != "" {
+		t.Errorf("EmbeddingConfig().Provider = %q, want empty", emb.Provider)
+	}
+	if cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = true, want false when no provider set")
+	}
+}
+
+func TestEmbeddingConfig_OpenAI_FullyConfigured(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "openai")
+	t.Setenv("NEO4J_EMBEDDING_MODEL", "text-embedding-3-small")
+	t.Setenv("NEO4J_EMBEDDING_API_KEY", "sk-test-key")
+	t.Setenv("NEO4J_EMBEDDING_DIMENSIONS", "1536")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.Provider != EmbeddingProviderOpenAI {
+		t.Errorf("EmbeddingConfig().Provider = %q, want %q", emb.Provider, EmbeddingProviderOpenAI)
+	}
+	if emb.Model != "text-embedding-3-small" {
+		t.Errorf("EmbeddingConfig().Model = %q, want 'text-embedding-3-small'", emb.Model)
+	}
+	if emb.APIKey != "sk-test-key" {
+		t.Errorf("EmbeddingConfig().APIKey = %q, want 'sk-test-key'", emb.APIKey)
+	}
+	if emb.Dimensions != "1536" {
+		t.Errorf("EmbeddingConfig().Dimensions = %q, want '1536'", emb.Dimensions)
+	}
+	if !cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = false, want true for fully configured openai")
+	}
+}
+
+func TestEmbeddingConfig_AzureOpenAI_FullyConfigured(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "azure-openai")
+	t.Setenv("NEO4J_EMBEDDING_MODEL", "text-embedding-ada-002")
+	t.Setenv("NEO4J_EMBEDDING_API_KEY", "azure-key")
+	t.Setenv("NEO4J_EMBEDDING_AZURE_RESOURCE", "my-azure-resource")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.Provider != EmbeddingProviderAzureOpenAI {
+		t.Errorf("EmbeddingConfig().Provider = %q, want %q", emb.Provider, EmbeddingProviderAzureOpenAI)
+	}
+	if emb.AzureResource != "my-azure-resource" {
+		t.Errorf("EmbeddingConfig().AzureResource = %q, want 'my-azure-resource'", emb.AzureResource)
+	}
+	if !cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = false, want true for fully configured azure-openai")
+	}
+}
+
+func TestEmbeddingConfig_VertexAI_FullyConfigured(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "vertexai")
+	t.Setenv("NEO4J_EMBEDDING_MODEL", "textembedding-gecko")
+	t.Setenv("NEO4J_EMBEDDING_API_KEY", "vertex-token")
+	t.Setenv("NEO4J_EMBEDDING_VERTEX_PROJECT", "my-gcp-project")
+	t.Setenv("NEO4J_EMBEDDING_VERTEX_REGION", "us-central1")
+	t.Setenv("NEO4J_EMBEDDING_VERTEX_PUBLISHER", "google")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.Provider != EmbeddingProviderVertexAI {
+		t.Errorf("EmbeddingConfig().Provider = %q, want %q", emb.Provider, EmbeddingProviderVertexAI)
+	}
+	if emb.VertexProject != "my-gcp-project" {
+		t.Errorf("EmbeddingConfig().VertexProject = %q, want 'my-gcp-project'", emb.VertexProject)
+	}
+	if emb.VertexRegion != "us-central1" {
+		t.Errorf("EmbeddingConfig().VertexRegion = %q, want 'us-central1'", emb.VertexRegion)
+	}
+	if emb.VertexPublisher != "google" {
+		t.Errorf("EmbeddingConfig().VertexPublisher = %q, want 'google'", emb.VertexPublisher)
+	}
+	if !cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = false, want true for fully configured vertexai")
+	}
+}
+
+func TestEmbeddingConfig_BedrockTitan_FullyConfigured(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "bedrock-titan")
+	t.Setenv("NEO4J_EMBEDDING_MODEL", "amazon.titan-embed-text-v1")
+	t.Setenv("NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID", "test-access-key-id")
+	t.Setenv("NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY", "test-secret-access-key")
+	t.Setenv("NEO4J_EMBEDDING_AWS_REGION", "us-east-1")
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.Provider != EmbeddingProviderBedrockTitan {
+		t.Errorf("EmbeddingConfig().Provider = %q, want %q", emb.Provider, EmbeddingProviderBedrockTitan)
+	}
+	if emb.AWSAccessKeyID != "test-access-key-id" {
+		t.Errorf("EmbeddingConfig().AWSAccessKeyID = %q, want 'test-access-key-id'", emb.AWSAccessKeyID)
+	}
+	if emb.AWSSecretAccessKey != "test-secret-access-key" {
+		t.Errorf("EmbeddingConfig().AWSSecretAccessKey = %q, want 'test-secret-access-key'", emb.AWSSecretAccessKey)
+	}
+	if emb.AWSRegion != "us-east-1" {
+		t.Errorf("EmbeddingConfig().AWSRegion = %q, want 'us-east-1'", emb.AWSRegion)
+	}
+	if !cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = false, want true for fully configured bedrock-titan")
+	}
+}
+
+func TestEmbeddingConfig_UnknownProvider_ValidateError(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "unknown-provider")
+
+	cfg, err := LoadConfig(nil)
+	if err == nil {
+		t.Error("LoadConfig() expected error for unknown provider, got nil")
+		_ = cfg
+		return
+	}
+	if !strings.Contains(err.Error(), "invalid NEO4J_EMBEDDING_PROVIDER") {
+		t.Errorf("LoadConfig() error = %v, want error containing 'invalid NEO4J_EMBEDDING_PROVIDER'", err)
+	}
+}
+
+func TestEmbeddingConfig_Validate_MissingFields(t *testing.T) {
+	tests := []struct {
+		name          string
+		envVars       map[string]string
+		wantErrSubstr string
+	}{
+		{
+			name: "openai missing model",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER": "openai",
+				"NEO4J_EMBEDDING_API_KEY":  "sk-key",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_MODEL",
+		},
+		{
+			name: "openai missing api key",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER": "openai",
+				"NEO4J_EMBEDDING_MODEL":    "text-embedding-3-small",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_API_KEY",
+		},
+		{
+			name: "azure-openai missing model",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":       "azure-openai",
+				"NEO4J_EMBEDDING_API_KEY":        "azure-key",
+				"NEO4J_EMBEDDING_AZURE_RESOURCE": "my-resource",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_MODEL",
+		},
+		{
+			name: "azure-openai missing api key",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":       "azure-openai",
+				"NEO4J_EMBEDDING_MODEL":          "text-embedding-ada-002",
+				"NEO4J_EMBEDDING_AZURE_RESOURCE": "my-resource",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_API_KEY",
+		},
+		{
+			name: "azure-openai missing azure resource",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER": "azure-openai",
+				"NEO4J_EMBEDDING_MODEL":    "text-embedding-ada-002",
+				"NEO4J_EMBEDDING_API_KEY":  "azure-key",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_AZURE_RESOURCE",
+		},
+		{
+			name: "vertexai missing model",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":       "vertexai",
+				"NEO4J_EMBEDDING_API_KEY":        "vertex-token",
+				"NEO4J_EMBEDDING_VERTEX_PROJECT": "my-project",
+				"NEO4J_EMBEDDING_VERTEX_REGION":  "us-central1",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_MODEL",
+		},
+		{
+			name: "vertexai missing api key",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":       "vertexai",
+				"NEO4J_EMBEDDING_MODEL":          "textembedding-gecko",
+				"NEO4J_EMBEDDING_VERTEX_PROJECT": "my-project",
+				"NEO4J_EMBEDDING_VERTEX_REGION":  "us-central1",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_API_KEY",
+		},
+		{
+			name: "vertexai missing project",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":      "vertexai",
+				"NEO4J_EMBEDDING_MODEL":         "textembedding-gecko",
+				"NEO4J_EMBEDDING_API_KEY":       "vertex-token",
+				"NEO4J_EMBEDDING_VERTEX_REGION": "us-central1",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_VERTEX_PROJECT",
+		},
+		{
+			name: "vertexai missing region",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":       "vertexai",
+				"NEO4J_EMBEDDING_MODEL":          "textembedding-gecko",
+				"NEO4J_EMBEDDING_API_KEY":        "vertex-token",
+				"NEO4J_EMBEDDING_VERTEX_PROJECT": "my-project",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_VERTEX_REGION",
+		},
+		{
+			name: "bedrock-titan missing model",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":              "bedrock-titan",
+				"NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID":     "AKID",
+				"NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY": "SECRET",
+				"NEO4J_EMBEDDING_AWS_REGION":            "us-east-1",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_MODEL",
+		},
+		{
+			name: "bedrock-titan missing access key id",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":              "bedrock-titan",
+				"NEO4J_EMBEDDING_MODEL":                 "amazon.titan-embed-text-v1",
+				"NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY": "SECRET",
+				"NEO4J_EMBEDDING_AWS_REGION":            "us-east-1",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID",
+		},
+		{
+			name: "bedrock-titan missing secret access key",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":          "bedrock-titan",
+				"NEO4J_EMBEDDING_MODEL":             "amazon.titan-embed-text-v1",
+				"NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID": "AKID",
+				"NEO4J_EMBEDDING_AWS_REGION":        "us-east-1",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY",
+		},
+		{
+			name: "bedrock-titan missing region",
+			envVars: map[string]string{
+				"NEO4J_EMBEDDING_PROVIDER":              "bedrock-titan",
+				"NEO4J_EMBEDDING_MODEL":                 "amazon.titan-embed-text-v1",
+				"NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID":     "AKID",
+				"NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY": "SECRET",
+			},
+			wantErrSubstr: "NEO4J_EMBEDDING_AWS_REGION",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setBaseEnv(t)
+			// Clear all embedding vars first, then set test-specific ones
+			for _, key := range []string{
+				"NEO4J_EMBEDDING_PROVIDER",
+				"NEO4J_EMBEDDING_MODEL",
+				"NEO4J_EMBEDDING_API_KEY",
+				"NEO4J_EMBEDDING_DIMENSIONS",
+				"NEO4J_EMBEDDING_AZURE_RESOURCE",
+				"NEO4J_EMBEDDING_VERTEX_PROJECT",
+				"NEO4J_EMBEDDING_VERTEX_REGION",
+				"NEO4J_EMBEDDING_VERTEX_PUBLISHER",
+				"NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID",
+				"NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY",
+				"NEO4J_EMBEDDING_AWS_REGION",
+			} {
+				t.Setenv(key, "")
+			}
+			for k, v := range tt.envVars {
+				t.Setenv(k, v)
+			}
+
+			cfg, err := LoadConfig(nil)
+			if err == nil {
+				t.Errorf("LoadConfig() expected error for %s, got nil", tt.name)
+				_ = cfg
+				return
+			}
+			if !strings.Contains(err.Error(), tt.wantErrSubstr) {
+				t.Errorf("LoadConfig() error = %v, want error containing %q", err, tt.wantErrSubstr)
+			}
+		})
+	}
+}
+
+func TestIsEmbeddingConfigured_MissingFields(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  EmbeddingConfig
+		want bool
+	}{
+		{
+			name: "empty provider",
+			cfg:  EmbeddingConfig{},
+			want: false,
+		},
+		{
+			name: "openai fully configured",
+			cfg: EmbeddingConfig{
+				Provider: EmbeddingProviderOpenAI,
+				Model:    "text-embedding-3-small",
+				APIKey:   "sk-key",
+			},
+			want: true,
+		},
+		{
+			name: "openai missing model",
+			cfg: EmbeddingConfig{
+				Provider: EmbeddingProviderOpenAI,
+				APIKey:   "sk-key",
+			},
+			want: false,
+		},
+		{
+			name: "openai missing api key",
+			cfg: EmbeddingConfig{
+				Provider: EmbeddingProviderOpenAI,
+				Model:    "text-embedding-3-small",
+			},
+			want: false,
+		},
+		{
+			name: "azure-openai fully configured",
+			cfg: EmbeddingConfig{
+				Provider:      EmbeddingProviderAzureOpenAI,
+				Model:         "text-embedding-ada-002",
+				APIKey:        "azure-key",
+				AzureResource: "my-resource",
+			},
+			want: true,
+		},
+		{
+			name: "azure-openai missing resource",
+			cfg: EmbeddingConfig{
+				Provider: EmbeddingProviderAzureOpenAI,
+				Model:    "text-embedding-ada-002",
+				APIKey:   "azure-key",
+			},
+			want: false,
+		},
+		{
+			name: "vertexai fully configured",
+			cfg: EmbeddingConfig{
+				Provider:      EmbeddingProviderVertexAI,
+				Model:         "textembedding-gecko",
+				APIKey:        testVertexToken,
+				VertexProject: "my-project",
+				VertexRegion:  "us-central1",
+			},
+			want: true,
+		},
+		{
+			name: "vertexai missing region",
+			cfg: EmbeddingConfig{
+				Provider:      EmbeddingProviderVertexAI,
+				Model:         "textembedding-gecko",
+				APIKey:        testVertexToken,
+				VertexProject: "my-project",
+			},
+			want: false,
+		},
+		{
+			name: "bedrock-titan fully configured",
+			cfg: EmbeddingConfig{
+				Provider:           EmbeddingProviderBedrockTitan,
+				Model:              "amazon.titan-embed-text-v1",
+				AWSAccessKeyID:     "AKID",
+				AWSSecretAccessKey: "SECRET",
+				AWSRegion:          "us-east-1",
+			},
+			want: true,
+		},
+		{
+			name: "bedrock-titan missing region",
+			cfg: EmbeddingConfig{
+				Provider:           EmbeddingProviderBedrockTitan,
+				Model:              "amazon.titan-embed-text-v1",
+				AWSAccessKeyID:     "AKID",
+				AWSSecretAccessKey: "SECRET",
+			},
+			want: false,
+		},
+		{
+			name: "unknown provider",
+			cfg: EmbeddingConfig{
+				Provider: "unknown",
+				Model:    "some-model",
+				APIKey:   "some-key",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{embeddingCfg: tt.cfg}
+			got := c.IsEmbeddingConfigured()
+			if got != tt.want {
+				t.Errorf("IsEmbeddingConfigured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEmbeddingConfig_Validate_NoProviderNoError(t *testing.T) {
+	// Validate that an existing deployment with no embedding vars passes validation
+	cfg := &Config{
+		URI:           "bolt://localhost:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		TransportMode: TransportModeStdio,
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("Validate() unexpected error for config with no embedding provider: %v", err)
+	}
+}
+
+func TestEmbeddingConfig_Validate_UnknownProvider_DirectValidate(t *testing.T) {
+	cfg := &Config{
+		URI:           "bolt://localhost:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		TransportMode: TransportModeStdio,
+		embeddingCfg: EmbeddingConfig{
+			Provider: "not-a-real-provider",
+			Model:    "some-model",
+			APIKey:   "some-key",
+		},
+	}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() expected error for unknown embedding provider, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid NEO4J_EMBEDDING_PROVIDER") {
+		t.Errorf("Validate() error = %v, want error containing 'invalid NEO4J_EMBEDDING_PROVIDER'", err)
+	}
+}
+
+func TestEmbeddingConfig_VertexPublisher_Optional(t *testing.T) {
+	// VertexPublisher is optional — vertexai should be fully configured without it
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "vertexai")
+	t.Setenv("NEO4J_EMBEDDING_MODEL", "textembedding-gecko")
+	t.Setenv("NEO4J_EMBEDDING_API_KEY", "vertex-token")
+	t.Setenv("NEO4J_EMBEDDING_VERTEX_PROJECT", "my-project")
+	t.Setenv("NEO4J_EMBEDDING_VERTEX_REGION", "us-central1")
+	// NEO4J_EMBEDDING_VERTEX_PUBLISHER intentionally not set
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.VertexPublisher != "" {
+		t.Errorf("EmbeddingConfig().VertexPublisher = %q, want '' (optional, not set)", emb.VertexPublisher)
+	}
+	if !cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = false, want true — VertexPublisher is optional")
+	}
+}
+
+func TestEmbeddingConfig_Dimensions_Optional(t *testing.T) {
+	// Dimensions is optional for all providers
+	setBaseEnv(t)
+	t.Setenv("NEO4J_EMBEDDING_PROVIDER", "openai")
+	t.Setenv("NEO4J_EMBEDDING_MODEL", "text-embedding-3-small")
+	t.Setenv("NEO4J_EMBEDDING_API_KEY", "sk-key")
+	// NEO4J_EMBEDDING_DIMENSIONS intentionally not set
+
+	cfg, err := LoadConfig(nil)
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	emb := cfg.EmbeddingConfig()
+	if emb.Dimensions != "" {
+		t.Errorf("EmbeddingConfig().Dimensions = %q, want '' (optional, not set)", emb.Dimensions)
+	}
+	if !cfg.IsEmbeddingConfigured() {
+		t.Error("IsEmbeddingConfigured() = false, want true — Dimensions is optional")
+	}
 }

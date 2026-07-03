@@ -1,0 +1,3 @@
+kind: Minor
+body: 'Add `vector-search` tool for semantic vector search. It embeds the query text at query time inside Neo4j via the GenAI plugin (`ai.text.embed`) and returns the most similar nodes with similarity scores. Embedding providers (OpenAI, Azure OpenAI, Vertex AI, Bedrock Titan) are configured via `NEO4J_EMBEDDING_*` environment variables; the tool is only registered when an embedding provider is configured. Supports structured metadata filters and is version-aware (uses the `SEARCH` clause on Neo4j 2026.01+, falling back to `db.index.vector.queryNodes()` on 2025.x).'
+time: 2026-06-26T00:00:00.000000-00:00

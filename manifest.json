@@ -73,6 +73,83 @@
       "description": "Number of nodes to sample for schema inference",
       "required": false,
       "sensitive": false
+    },
+    "NEO4J_EMBEDDING_PROVIDER": {
+      "type": "string",
+      "title": "Embedding provider",
+      "description": "Enables the vector-search tool. One of: openai, azure-openai, vertexai, bedrock-titan",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_MODEL": {
+      "type": "string",
+      "title": "Embedding model",
+      "description": "Embedding model id, e.g. text-embedding-3-small. Must match the model used to create the stored embeddings",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_API_KEY": {
+      "type": "string",
+      "title": "Embedding API key",
+      "description": "Embedding provider API key (OpenAI/Azure/Vertex). Stored securely.",
+      "required": false,
+      "sensitive": true
+    },
+    "NEO4J_EMBEDDING_DIMENSIONS": {
+      "type": "string",
+      "title": "Embedding dimensions",
+      "description": "Optional. Only set if your model/index uses a reduced output dimension size",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_AZURE_RESOURCE": {
+      "type": "string",
+      "title": "Azure OpenAI resource",
+      "description": "Azure OpenAI resource name. Required when NEO4J_EMBEDDING_PROVIDER is azure-openai",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_VERTEX_PROJECT": {
+      "type": "string",
+      "title": "Vertex AI project",
+      "description": "Google Cloud project id. Required when NEO4J_EMBEDDING_PROVIDER is vertexai",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_VERTEX_REGION": {
+      "type": "string",
+      "title": "Vertex AI region",
+      "description": "Google Cloud region, e.g. us-central1. Required when NEO4J_EMBEDDING_PROVIDER is vertexai",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_VERTEX_PUBLISHER": {
+      "type": "string",
+      "title": "Vertex AI publisher",
+      "description": "Optional. Vertex AI model publisher (default: google)",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID": {
+      "type": "string",
+      "title": "AWS access key ID",
+      "description": "AWS access key id. Required when NEO4J_EMBEDDING_PROVIDER is bedrock-titan",
+      "required": false,
+      "sensitive": false
+    },
+    "NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY": {
+      "type": "string",
+      "title": "AWS secret access key",
+      "description": "AWS secret access key. Required when NEO4J_EMBEDDING_PROVIDER is bedrock-titan. Stored securely.",
+      "required": false,
+      "sensitive": true
+    },
+    "NEO4J_EMBEDDING_AWS_REGION": {
+      "type": "string",
+      "title": "AWS region",
+      "description": "AWS region, e.g. us-east-1. Required when NEO4J_EMBEDDING_PROVIDER is bedrock-titan",
+      "required": false,
+      "sensitive": false
     }
   },
   "server": {
@@ -89,7 +166,18 @@
         "NEO4J_TELEMETRY": "${user_config.NEO4J_TELEMETRY}",
         "NEO4J_LOG_LEVEL": "${user_config.NEO4J_LOG_LEVEL}",
         "NEO4J_LOG_FORMAT": "${user_config.NEO4J_LOG_FORMAT}",
-        "NEO4J_SCHEMA_SAMPLE_SIZE": "${user_config.NEO4J_SCHEMA_SAMPLE_SIZE}"
+        "NEO4J_SCHEMA_SAMPLE_SIZE": "${user_config.NEO4J_SCHEMA_SAMPLE_SIZE}",
+        "NEO4J_EMBEDDING_PROVIDER": "${user_config.NEO4J_EMBEDDING_PROVIDER}",
+        "NEO4J_EMBEDDING_MODEL": "${user_config.NEO4J_EMBEDDING_MODEL}",
+        "NEO4J_EMBEDDING_API_KEY": "${user_config.NEO4J_EMBEDDING_API_KEY}",
+        "NEO4J_EMBEDDING_DIMENSIONS": "${user_config.NEO4J_EMBEDDING_DIMENSIONS}",
+        "NEO4J_EMBEDDING_AZURE_RESOURCE": "${user_config.NEO4J_EMBEDDING_AZURE_RESOURCE}",
+        "NEO4J_EMBEDDING_VERTEX_PROJECT": "${user_config.NEO4J_EMBEDDING_VERTEX_PROJECT}",
+        "NEO4J_EMBEDDING_VERTEX_REGION": "${user_config.NEO4J_EMBEDDING_VERTEX_REGION}",
+        "NEO4J_EMBEDDING_VERTEX_PUBLISHER": "${user_config.NEO4J_EMBEDDING_VERTEX_PUBLISHER}",
+        "NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID": "${user_config.NEO4J_EMBEDDING_AWS_ACCESS_KEY_ID}",
+        "NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY": "${user_config.NEO4J_EMBEDDING_AWS_SECRET_ACCESS_KEY}",
+        "NEO4J_EMBEDDING_AWS_REGION": "${user_config.NEO4J_EMBEDDING_AWS_REGION}"
       }
     }
   },
@@ -109,6 +197,10 @@
     {
       "name": "list-gds-procedures",
       "description": "List GDS procedures available in the instance"
+    },
+    {
+      "name": "vector-search",
+      "description": "Semantic vector search over a Neo4j vector index (requires an embedding provider)"
     }
   ],
   "compatibility": {
