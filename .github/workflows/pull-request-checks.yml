@@ -12,7 +12,6 @@ permissions:
 jobs:
   build-and-test:
     uses: ./.github/workflows/build-and-test.yml
-    secrets: inherit
 
   license:
     uses: ./.github/workflows/licence-checker.yml
