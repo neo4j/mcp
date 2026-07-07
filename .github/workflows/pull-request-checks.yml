@@ -34,4 +34,3 @@ jobs:
           else
             echo "Passed!"
           fi
-  
