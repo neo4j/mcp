@@ -59,6 +59,8 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/${{ matrix.arch }}
+          build-args: |
+            VERSION=${{ needs.get-version.outputs.version }}
           tags: ${{ env.DOCKER_REPOSITORY }}:${{ matrix.arch }}-${{ needs.get-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
