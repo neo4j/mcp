@@ -33,6 +33,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          build-args: |
+            VERSION=${{ inputs.version }}
           tags: ${{ env.DOCKER_REPOSITORY }}:${{ inputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
