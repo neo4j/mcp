@@ -1,6 +1,8 @@
 # Builder stage
 FROM golang:1.26-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS builder
 
+ARG VERSION=development
+
 LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp"
 
 WORKDIR /build
@@ -19,6 +21,7 @@ COPY . .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -C cmd/neo4j-mcp -a -installsuffix cgo \
+    -ldflags "-X main.Version=${VERSION}" \
     -o ../../neo4j-mcp
 
 # Runtime stage
