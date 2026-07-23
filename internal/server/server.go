@@ -229,6 +229,10 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	if !ok || !apocMetaSchemaAvailable {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
 	}
+	if !s.isToolEnabled(ctx, "list-gds-procedures") {
+		return nil
+	}
+
 	// Call gds.version procedure to determine if GDS is installed
 	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
@@ -244,6 +248,15 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// isToolEnabled reports whether a tool is enabled for the current request.
+// Per-request HTTP headers take precedence over server configuration.
+func (s *Neo4jMCPServer) isToolEnabled(ctx context.Context, toolName string) bool {
+	if tools := mcpcontext.GetTools(ctx); tools != nil {
+		return slices.Contains(*tools, toolName)
+	}
+	return slices.Contains(s.config.Tools, toolName)
 }
 
 // emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
