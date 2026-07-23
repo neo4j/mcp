@@ -252,6 +252,8 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 
 // isToolEnabled reports whether a tool is enabled for the current request.
 // Per-request HTTP headers take precedence over server configuration.
+// When per-request header is present GetTools returns nil. while
+// s.config.Tools will always have all the tools available at startup.
 func (s *Neo4jMCPServer) isToolEnabled(ctx context.Context, toolName string) bool {
 	if tools := mcpcontext.GetTools(ctx); tools != nil {
 		return slices.Contains(*tools, toolName)
@@ -512,15 +514,12 @@ func jsonRPCMethod(message any) (mcp.MCPMethod, bool) {
 	if !ok {
 		return "", false
 	}
-
-	var envelope struct {
-		Method mcp.MCPMethod `json:"method"`
-	}
+	var envelope mcp.JSONRPCRequest
 	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return "", false
+		return mcp.MCPMethod(""), false
 	}
 
-	return envelope.Method, envelope.Method != ""
+	return mcp.MCPMethod(envelope.Request.Method), envelope.Method != ""
 }
 
 // handleToolCallComplete is called after every tool call completes
