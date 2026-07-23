@@ -120,6 +120,45 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		assertNoCloseOrStopError(t, s, errChan)
 	})
 
+	t.Run("Server does not re-verify on subsequent MCP requests", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"first"},
+				Values: []any{int64(1)},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"apocMetaSchemaAvailable"},
+				Values: []any{bool(true)},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"gdsVersion"},
+				Values: []any{string("2.22.0")},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
+
+		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		if err != nil {
+			t.Fatalf("error while initialize request: %v", err)
+		}
+
+		_, err = mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+		if err != nil {
+			t.Fatalf("error while list tools request: %v", err)
+		}
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
 	t.Run("Server handles database connectivity errors gracefully", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		// in HTTP the serve should keep running even if the connectivity check fails.
