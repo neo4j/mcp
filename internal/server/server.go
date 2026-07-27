@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -228,6 +229,10 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	if !ok || !apocMetaSchemaAvailable {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
 	}
+	if !s.isToolEnabled(ctx, "list-gds-procedures") {
+		return nil
+	}
+
 	// Call gds.version procedure to determine if GDS is installed
 	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
@@ -243,6 +248,17 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// isToolEnabled reports whether a tool is enabled for the current request.
+// Per-request HTTP headers take precedence over server configuration.
+// When per-request header is present GetTools returns nil. while
+// s.config.Tools will always have all the tools available at startup.
+func (s *Neo4jMCPServer) isToolEnabled(ctx context.Context, toolName string) bool {
+	if tools := mcpcontext.GetTools(ctx); tools != nil {
+		return slices.Contains(*tools, toolName)
+	}
+	return slices.Contains(s.config.Tools, toolName)
 }
 
 // emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
@@ -469,17 +485,41 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 
 	hooks.AddAfterCallTool(s.handleToolCallComplete)
 
-	hooks.AddOnRequestInitialization(func(ctx context.Context, _ any, _ any) error {
-		slog.Info("Initialize request: verifying requirements...")
-		err := s.verifyRequirements(ctx)
-		if err != nil {
-			return err
-		}
-		s.emitConnectionInitializedEvent(ctx)
-		return nil
-	})
+	hooks.AddOnRequestInitialization(s.onRequestInitialization)
 
 	return hooks
+}
+
+// onRequestInitialization verifies Neo4j requirements during the initialize handshake.
+// Only initialize requests are checked; other methods pass through unchanged.
+// onRequestInitialization naming from the mcp-go sdk may be counter intuitive as is it
+// unrelated to the MCP initialize method requests and is triggered by all requests.
+func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, message any) error {
+	method, ok := jsonRPCMethod(message)
+	if !ok || method != mcp.MethodInitialize {
+		return nil
+	}
+
+	slog.Info("Initialize request: verifying requirements...")
+	if err := s.verifyRequirements(ctx); err != nil {
+		return err
+	}
+	s.emitConnectionInitializedEvent(ctx)
+	return nil
+}
+
+// jsonRPCMethod extracts the JSON-RPC method from a raw request envelope.
+func jsonRPCMethod(message any) (mcp.MCPMethod, bool) {
+	raw, ok := message.(json.RawMessage)
+	if !ok {
+		return "", false
+	}
+	var envelope mcp.JSONRPCRequest
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return mcp.MCPMethod(""), false
+	}
+
+	return mcp.MCPMethod(envelope.Request.Method), envelope.Method != ""
 }
 
 // handleToolCallComplete is called after every tool call completes

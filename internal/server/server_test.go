@@ -28,6 +28,7 @@ func TestNewNeo4jMCPServer(t *testing.T) {
 		Username:      "neo4j",
 		Password:      "password",
 		Database:      "neo4j",
+		Tools:         config.AvailableTools,
 		TransportMode: config.TransportModeStdio,
 	}
 
@@ -77,6 +78,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		Username:      "neo4j",
 		Password:      "password",
 		Database:      "neo4j",
+		Tools:         config.AvailableTools,
 		TransportMode: config.TransportModeStdio,
 	}
 
@@ -225,6 +227,46 @@ func TestInitializeRequestHook(t *testing.T) {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
 		}
 	})
+
+	t.Run("skips GDS verification when list-gds-procedures is not enabled", func(t *testing.T) {
+		cfgWithoutGDS := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			Tools:         []string{"read-cypher", "write-cypher", "get-schema"},
+			TransportMode: config.TransportModeStdio,
+		}
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"first"},
+				Values: []any{int64(1)},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"apocMetaSchemaAvailable"},
+				Values: []any{bool(true)},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+
+		s := server.NewNeo4jMCPServer("test-version", cfgWithoutGDS, mockDB, analyticsService)
+		err := s.Start()
+		if err != nil {
+			t.Errorf("error while starting the MCP Server")
+		}
+		inProcessClient, err := client.NewInProcessClient(s.MCPServer)
+		if err != nil {
+			t.Fatalf("Unexpected error during InProcessClient creation, %s", err.Error())
+		}
+		_, err = inProcessClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		if err != nil {
+			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
+		}
+	})
 }
 
 func TestNewNeo4jMCPServerEvents(t *testing.T) {
@@ -237,6 +279,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		Username:      "neo4j",
 		Password:      "password",
 		Database:      "neo4j",
+		Tools:         config.AvailableTools,
 		TransportMode: config.TransportModeStdio,
 	}
 
