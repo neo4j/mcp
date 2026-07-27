@@ -8,6 +8,7 @@ import (
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/internal/tools/gds"
+	"github.com/neo4j/mcp/internal/tools/vector"
 )
 
 // registerTools registers all enabled MCP tools and adds them to the provided MCP server.
@@ -29,6 +30,7 @@ type toolCategory int
 const (
 	cypherCategory toolCategory = 0
 	gdsCategory    toolCategory = 1
+	vectorCategory toolCategory = 2
 )
 
 type ToolDefinition struct {
@@ -67,6 +69,14 @@ func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
 	if !s.gdsInstalled {
 		filters = append(filters, filterGDSTools)
 	}
+	// Vector search is gated solely on embedding configuration, which is known at startup
+	// in both transport modes. It is registered at startup (not deferred) so it appears in
+	// the initial tool list — required for clients such as Copilot Studio that import the
+	// tool list once and do not re-fetch it after later registration changes. The
+	// version-dependent query strategy is resolved lazily at call time (see SearchHandler).
+	if s.config == nil || !s.config.IsEmbeddingConfigured() {
+		filters = append(filters, filterVectorTools)
+	}
 	deps := &tools.ToolDependencies{
 		DBService:        s.dbService,
 		AnalyticsService: s.anService,
@@ -103,6 +113,16 @@ func filterGDSTools(tools []ToolDefinition) []ToolDefinition {
 	return nonGDSTools
 }
 
+func filterVectorTools(tools []ToolDefinition) []ToolDefinition {
+	nonVectorTools := make([]ToolDefinition, 0, len(tools))
+	for _, t := range tools {
+		if t.category != vectorCategory {
+			nonVectorTools = append(nonVectorTools, t)
+		}
+	}
+	return nonVectorTools
+}
+
 // getAllToolsDefs returns all available tools with their specs and handlers
 func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDefinition {
 
@@ -137,6 +157,15 @@ func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDef
 			definition: server.ServerTool{
 				Tool:    gds.ListGDSProceduresSpec(),
 				Handler: gds.ListGdsProceduresHandler(deps),
+			},
+			readonly: true,
+		},
+		// Vector Category/Section
+		{
+			category: vectorCategory,
+			definition: server.ServerTool{
+				Tool:    vector.SearchSpec(),
+				Handler: vector.SearchHandler(deps, s.config.EmbeddingConfig(), s.useSearchClause.Load, s.useAiTextEmbed.Load),
 			},
 			readonly: true,
 		},

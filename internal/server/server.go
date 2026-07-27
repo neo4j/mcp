@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,9 @@ type Neo4jMCPServer struct {
 	version            string
 	anService          analytics.Service
 	gdsInstalled       bool
+	useSearchClause    atomic.Bool
+	useAiTextEmbed     atomic.Bool
+	connInfo           analytics.ConnectionEventInfo
 	initMu             sync.Mutex
 	connectionVerified atomic.Bool
 }
@@ -197,6 +201,27 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	if !ok || !apocMetaSchemaAvailable {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
 	}
+
+	// Determine the Neo4j version to select the vector-search query strategy.
+	// The SEARCH clause is available from Neo4j 2026.01; older versions use the
+	// db.index.vector.queryNodes() fallback. This is non-fatal: on any failure we
+	// default to the fallback.
+	versionRecords, versionErr := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", nil)
+	if versionErr != nil {
+		slog.Warn("could not determine Neo4j version; vector search will use the queryNodes fallback", "error", versionErr)
+		s.useSearchClause.Store(false)
+		s.useAiTextEmbed.Store(false)
+	} else {
+		// Cache the connection info so emitConnectionInitializedEvent can reuse it
+		// instead of issuing a second dbms.components() call.
+		s.connInfo = recordsToConnectionEventInfo(versionRecords)
+		useSearch := supportsSearchClause(s.connInfo.Neo4jVersion)
+		s.useSearchClause.Store(useSearch)
+		useAiEmbed := supportsAiTextEmbed(s.connInfo.Neo4jVersion)
+		s.useAiTextEmbed.Store(useAiEmbed)
+		slog.Info("vector search query strategy determined", "neo4jVersion", s.connInfo.Neo4jVersion, "useSearchClause", useSearch, "useAiTextEmbed", useAiEmbed)
+	}
+
 	// Call gds.version procedure to determine if GDS is installed
 	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
@@ -215,25 +240,86 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	return nil
 }
 
+// supportsSearchClause reports whether the given Neo4j version supports the SEARCH
+// clause for vector indexes (introduced in Neo4j 2026.01). Calendar-versioned releases
+// from 2026 onward qualify (all 2026.x versions are >= 2026.01); legacy "5.x" and
+// "2025.x" releases do not. Unparseable or empty versions default to false, which
+// selects the safe db.index.vector.queryNodes() fallback.
+func supportsSearchClause(version string) bool {
+	// Take the leading run of digits (the major / calendar-year component).
+	i := 0
+	for i < len(version) && version[i] >= '0' && version[i] <= '9' {
+		i++
+	}
+	if i == 0 {
+		return false
+	}
+	major, err := strconv.Atoi(version[:i])
+	if err != nil {
+		return false
+	}
+	return major >= 2026
+}
+
+// supportsAiTextEmbed reports whether the given Neo4j version supports the
+// ai.text.embed / ai.text.embedBatch GenAI functions (introduced in Neo4j 2025.11).
+// Older calendar-versioned releases ("5.x", "2025.01"–"2025.10", and everything before)
+// do not have them and must fall back to the deprecated-but-present genai.vector.encode
+// function. Unparseable, empty, or missing-minor versions default to false, which
+// selects that safe genai.vector.encode fallback.
+func supportsAiTextEmbed(version string) bool {
+	// Take the leading run of digits (the major / calendar-year component).
+	i := 0
+	for i < len(version) && version[i] >= '0' && version[i] <= '9' {
+		i++
+	}
+	if i == 0 {
+		return false
+	}
+	major, err := strconv.Atoi(version[:i])
+	if err != nil {
+		return false
+	}
+	if major > 2025 {
+		return true
+	}
+	if major < 2025 {
+		return false
+	}
+
+	// major == 2025: need the minor component after the first '.'.
+	if i >= len(version) || version[i] != '.' {
+		return false
+	}
+	rest := version[i+1:]
+	j := 0
+	for j < len(rest) && rest[j] >= '0' && rest[j] <= '9' {
+		j++
+	}
+	if j == 0 {
+		return false
+	}
+	minor, err := strconv.Atoi(rest[:j])
+	if err != nil {
+		return false
+	}
+	return minor >= 11
+}
+
 // emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
 func (s *Neo4jMCPServer) emitServerStartupEvent() {
 	s.anService.EmitEvent(s.anService.NewStartupEvent(s.config.TransportMode, s.config.HTTPTLSEnabled, s.version))
 }
 
 // emitConnectionInitializedEvent emits the connection initialized event with DB information (STDIO mode only)
-func (s *Neo4jMCPServer) emitConnectionInitializedEvent(ctx context.Context) {
+func (s *Neo4jMCPServer) emitConnectionInitializedEvent(_ context.Context) {
 	if !s.anService.IsEnabled() {
 		return
 	}
 
-	records, err := s.dbService.ExecuteReadQuery(ctx, "CALL dbms.components()", map[string]any{})
-	if err != nil {
-		slog.Debug("Failed to collect connection metadata", "error", err.Error())
-		return
-	}
-
-	connInfo := recordsToConnectionEventInfo(records)
-	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(connInfo))
+	// Reuse the connection info collected during verifyRequirements (via dbms.components)
+	// rather than issuing a second query.
+	s.anService.EmitEvent(s.anService.NewConnectionInitializedEvent(s.connInfo))
 }
 
 // recordsToConnectionEventInfo converts dbms.components() records to ConnectionEventInfo
@@ -462,6 +548,12 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 			if s.gdsInstalled {
 				s.addGDSTools()
 			}
+
+			// Note: vector-search is registered at startup (gated by embedding config),
+			// not here. Its query strategy reads useSearchClause lazily at call time, so
+			// it appears in the initial tool list (required for clients such as Copilot
+			// Studio that import tools once) while still using the correct strategy after
+			// the version is detected above.
 
 			s.emitConnectionInitializedEvent(ctx)
 
