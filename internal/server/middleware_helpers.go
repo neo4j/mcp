@@ -8,8 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/neo4j/mcp/internal/logger"
 )
 
 // isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
@@ -99,4 +102,16 @@ func isValidDatabaseName(name string) bool {
 	}
 
 	return true
+}
+
+// rejectRequest logs a rejection reason and writes an HTTP error response.
+func rejectRequest(w http.ResponseWriter, r *http.Request, status int, reason, msg string) {
+	attrs := append(logger.AppendRequestInfo(r.Context()), "reason", reason, "http_status", status)
+	// Routine probe/wrong-URL traffic is Debug; auth, config, and client errors stay Warn.
+	if reason == "invalid_path" || reason == "method_not_allowed" {
+		slog.Debug("request rejected", attrs...)
+	} else {
+		slog.Warn("request rejected", attrs...)
+	}
+	http.Error(w, msg, status)
 }

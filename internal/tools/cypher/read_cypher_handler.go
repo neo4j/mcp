@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -46,7 +47,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	// Get queryType by pre-appending "EXPLAIN" to identify if the query is of type "r", if not raise a ToolResultError
 	queryType, err := deps.DBService.GetQueryType(ctx, Query, Params)
 	if err != nil {
-		slog.Error("error classifying cypher query", "error", err)
+		slog.Error("error classifying cypher query", database.ErrorLogAttrs(err)...)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
@@ -59,7 +60,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	// Execute the Cypher query using the database service (now confirmed read-only)
 	records, err := deps.DBService.ExecuteReadQuery(ctx, Query, Params)
 	if err != nil {
-		slog.Error("error executing cypher query", "error", err)
+		slog.Error("error executing cypher query", database.ErrorLogAttrs(err)...)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 

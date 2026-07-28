@@ -46,6 +46,7 @@ func (s *Neo4jMCPServer) getTools() []server.ServerTool {
 			slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", toolDef.Tool.Name))
 			continue
 		}
+		toolDef.Handler = withToolLogging(toolDef.Tool.Name, toolDef.Handler)
 		serverTools = append(serverTools, toolDef)
 	}
 	return serverTools

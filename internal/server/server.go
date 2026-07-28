@@ -22,6 +22,7 @@ import (
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -95,6 +96,12 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 				filteredTools = append(filteredTools, tool)
 			}
+			if len(filteredTools) != len(tools) {
+				slog.Debug("tools filtered for request",
+					"advertised", len(filteredTools),
+					"total", len(tools),
+				)
+			}
 			return filteredTools
 		}),
 		server.WithToolHandlerMiddleware(func(next server.ToolHandlerFunc) server.ToolHandlerFunc {
@@ -108,6 +115,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 					if mcpServer == nil {
 						// Should be unreachable: the SDK always injects the server into
 						// the context before invoking tool handler middleware.
+						slog.Error("internal error: MCP server missing from context", logger.AppendRequestInfo(ctx)...)
 						return nil, fmt.Errorf("internal error: MCP server missing from context")
 					}
 
@@ -115,17 +123,22 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 					if serverTool == nil {
 						// Should be unreachable: the SDK rejects unknown tool names before
 						// the middleware runs (see TestHTTPPerRequestToolsExecutionGuardInvalidTool).
+						slog.Error("internal error: tool not found", append(logger.AppendRequestInfo(ctx), "tool", req.Params.Name)...)
 						return nil, fmt.Errorf("internal error: tool %q not found", req.Params.Name)
 					}
 
 					readOnlyHint := serverTool.Tool.Annotations.ReadOnlyHint
 					if readOnlyHint == nil || !*readOnlyHint {
+						slog.Error("tool execution blocked", append(logger.AppendRequestInfo(ctx),
+							"tool", req.Params.Name, "reason", "read_only")...)
 						return mcp.NewToolResultError(fmt.Sprintf("'%s' is not permitted in read-only mode", req.Params.Name)), nil
 					}
 				}
 
 				tools := mcpcontext.GetTools(ctx)
 				if tools != nil && !slices.Contains(*tools, req.Params.Name) {
+					slog.Error("tool execution blocked", append(logger.AppendRequestInfo(ctx),
+						"tool", req.Params.Name, "reason", "not_in_tools_list")...)
 					return mcp.NewToolResultError(fmt.Sprintf("'%s' is not in the list of configured tools", req.Params.Name)), nil
 				}
 
@@ -237,7 +250,7 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
 		// GDS is optional, so we log a warning and continue, assuming it's not installed.
-		slog.Info("Impossible to verify GDS installation.")
+		slog.Info("Impossible to verify GDS installation.", "error", err)
 		return nil
 	}
 	if len(records) == 1 && len(records[0].Values) == 1 {
@@ -502,8 +515,10 @@ func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, mes
 
 	slog.Info("Initialize request: verifying requirements...")
 	if err := s.verifyRequirements(ctx); err != nil {
+		slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
 		return err
 	}
+	slog.Info("initialize requirements verified", logger.AppendRequestInfo(ctx)...)
 	s.emitConnectionInitializedEvent(ctx)
 	return nil
 }
