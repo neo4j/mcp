@@ -1,0 +1,15 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
+package database
+
+import "net/url"
+
+// SafeBoltTarget returns scheme://host from a Bolt URI, excluding userinfo and query parameters.
+func SafeBoltTarget(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "[invalid URI]"
+	}
+	return parsed.Scheme + "://" + parsed.Host
+}

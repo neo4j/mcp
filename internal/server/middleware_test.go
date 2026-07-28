@@ -428,8 +428,8 @@ func TestCORSMiddleware_MissingOriginHeader(t *testing.T) {
 	}
 }
 
-func TestLoggingMiddleware(t *testing.T) {
-	handler := loggingMiddleware()(mockHandler())
+func TestObservabilityMiddleware(t *testing.T) {
+	handler := observabilityMiddleware()(mockHandler())
 
 	req := httptest.NewRequest("GET", "/test?foo=bar", nil)
 	req.Header.Set("User-Agent", "test-agent")
@@ -441,7 +441,7 @@ func TestLoggingMiddleware(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", rec.Code)
 	}
 
-	// Logging middleware should not modify the response
+	// Observability middleware should not modify the response body
 	if rec.Body.String() != "OK" {
 		t.Errorf("Expected body 'OK', got %q", rec.Body.String())
 	}

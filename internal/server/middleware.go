@@ -13,8 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 )
 
@@ -33,8 +35,6 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	}
 
 	handler := next
-
-	handler = loggingMiddleware()(handler)
 
 	var unauthMethods []string
 	if s.config.AllowUnauthenticatedPing {
@@ -55,27 +55,58 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = readOnlyMiddleware()(handler)
 	handler = toolsMiddleware()(handler)
 	handler = timeoutMiddleware(effectiveRequestTimeout(s.config))(handler)
+	handler = observabilityMiddleware()(handler)
 
 	return handler
 }
 
-// loggingMiddleware logs HTTP requests for debugging
-func loggingMiddleware() func(http.Handler) http.Handler {
+type statusRecorder struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.wroteHeader = true
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if !r.wroteHeader {
+		r.status = http.StatusOK
+		r.wroteHeader = true
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+// observabilityMiddleware assigns a server-generated request ID and logs request completion with status and duration.
+func observabilityMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := mcpcontext.WithRequestID(r.Context(), uuid.NewString())
+			r = r.WithContext(ctx)
 
-			slog.Debug("HTTP Request", // #nosec G706 -- logging HTTP request metadata, no user input in format string
-				"method", r.Method,
-				"url", r.URL.Path,
-				"remote_addr", r.RemoteAddr,
-				"user_agent", r.UserAgent(),
-				"content_length", r.ContentLength,
-				"host", r.Host,
-				"query", r.URL.RawQuery,
+			start := time.Now()
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+			next.ServeHTTP(rec, r)
+
+			attrs := append(logger.AppendRequestInfo(ctx),
+				"http_method", r.Method,
+				"path", r.URL.Path,
+				"http_status", rec.status,
+				"duration_ms", time.Since(start).Milliseconds(),
+				"auth_type", logger.AuthType(ctx),
 			)
+			if readOnly := mcpcontext.GetReadOnly(ctx); readOnly != nil {
+				attrs = append(attrs, "read_only", *readOnly)
+			}
+			if tools := mcpcontext.GetTools(ctx); tools != nil {
+				attrs = append(attrs, "tools_filter", strings.Join(*tools, ","))
+			}
 
-			// Call the next handler
-			next.ServeHTTP(w, r)
+			slog.Info("request completed", attrs...)
 		})
 	}
 }
@@ -86,26 +117,48 @@ func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistr
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			uri, err := resolver.Resolve(r)
 			if err != nil {
-				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				rejectRequest(w, r, http.StatusBadRequest, uriRejectionReason(err), "Bad Request: "+err.Error())
+				return
+			}
+
+			targetInfo, err := TargetInfoFromURI(uri)
+			if err != nil {
+				rejectRequest(w, r, http.StatusBadRequest, "invalid_uri", "Bad Request: invalid Neo4j URI")
 				return
 			}
 
 			driver, err := registry.GetDriver(uri)
 			if err != nil {
-				slog.Error("Failed to create Neo4j driver for request", "error", err)
-				http.Error(w, "Bad Request: failed to connect to the specified Neo4j instance", http.StatusBadRequest)
+				slog.Error("Failed to create Neo4j driver for request", append(logger.AppendRequestInfo(r.Context()), "error", err)...)
+				rejectRequest(w, r, http.StatusBadRequest, "driver_create_failed", "Bad Request: failed to connect to the specified Neo4j instance")
 				return
 			}
 
 			defer func() {
 				if closeErr := driver.Close(context.Background()); closeErr != nil {
-					slog.Warn("Error closing per-request driver", "error", closeErr)
+					slog.Warn("Error closing per-request driver", append(logger.AppendRequestInfo(r.Context()), "error", closeErr)...)
 				}
 			}()
 
 			ctx := mcpcontext.WithDriver(r.Context(), driver)
+			ctx = mcpcontext.WithNeo4jTarget(ctx, targetInfo.Target)
+			if targetInfo.DBID != "" {
+				ctx = mcpcontext.WithDBID(ctx, targetInfo.DBID)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+func uriRejectionReason(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "missing required header"):
+		return "missing_uri_header"
+	case strings.Contains(msg, "scheme must be"):
+		return "invalid_uri_scheme"
+	default:
+		return "invalid_uri"
 	}
 }
 
@@ -135,7 +188,7 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 
 				if token == "" {
 					w.Header().Set("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
-					http.Error(w, "Unauthorized: Bearer token is empty", http.StatusUnauthorized)
+					rejectRequest(w, r, http.StatusUnauthorized, "empty_bearer", "Unauthorized: Bearer token is empty")
 					return
 				}
 
@@ -156,7 +209,7 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 						ok, err := isUnauthenticatedMethodRequest(r, method)
 						if err != nil {
 							if errors.Is(err, errRequestBodyTooLarge) {
-								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+								rejectRequest(w, r, http.StatusRequestEntityTooLarge, "body_too_large", err.Error())
 								return
 							}
 							// For other read errors or JSON errors, fall through and require auth
@@ -171,14 +224,14 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
 				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
-				http.Error(w, "Unauthorized: Basic or Bearer authentication required", http.StatusUnauthorized)
+				rejectRequest(w, r, http.StatusUnauthorized, "missing_auth", "Unauthorized: Basic or Bearer authentication required")
 				return
 			}
 
 			// Validate credentials are not empty (consistent with bearer token validation)
 			if user == "" || pass == "" {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
-				http.Error(w, "Unauthorized: Username and password cannot be empty", http.StatusUnauthorized)
+				rejectRequest(w, r, http.StatusUnauthorized, "empty_basic_credentials", "Unauthorized: Username and password cannot be empty")
 				return
 			}
 
@@ -244,13 +297,13 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 			if _, err := parseMCPPath(path); err != nil {
-				http.Error(w, "Not Found: This server only handles requests to /db/{databaseName}/mcp", http.StatusNotFound)
+				rejectRequest(w, r, http.StatusNotFound, "invalid_path", "Not Found: This server only handles requests to /db/{databaseName}/mcp")
 				return
 			}
 			// Only POST and OPTIONS are supported.
 			if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 				w.Header().Set("Allow", "POST, OPTIONS")
-				http.Error(w, "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp", http.StatusMethodNotAllowed)
+				rejectRequest(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -269,7 +322,7 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 			vals := r.Header.Values(ReadOnlyHeader)
 
 			if len(vals) > 1 {
-				http.Error(w, fmt.Sprintf("Bad Request: duplicate %s header found", ReadOnlyHeader), http.StatusBadRequest)
+				rejectRequest(w, r, http.StatusBadRequest, "duplicate_readonly_header", "Bad Request: duplicate X-Neo4j-MCP-ReadOnly header found")
 				return
 			}
 			if len(vals) == 1 {
@@ -280,7 +333,7 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 				case "true":
 					readOnly = true
 				default:
-					http.Error(w, fmt.Sprintf(`Bad Request: %q must be "true" or "false"`, ReadOnlyHeader), http.StatusBadRequest)
+					rejectRequest(w, r, http.StatusBadRequest, "invalid_readonly_value", `Bad Request: "X-Neo4j-MCP-ReadOnly" must be "true" or "false"`)
 					return
 				}
 				ctx := mcpcontext.WithReadOnly(r.Context(), readOnly)
@@ -303,19 +356,19 @@ func toolsMiddleware() func(http.Handler) http.Handler {
 			// r.Header.Values is used to distinguish when the header is not set
 			vals := r.Header.Values(ToolsHeader)
 			if len(vals) > 1 {
-				http.Error(w, fmt.Sprintf("Bad Request: duplicate %s header found", ToolsHeader), http.StatusBadRequest)
+				rejectRequest(w, r, http.StatusBadRequest, "duplicate_tools_header", "Bad Request: duplicate X-Neo4j-MCP-Tools header found")
 				return
 			}
 			if len(vals) == 1 {
 				tools := parseCommaSeparatedString(vals[0])
 				if len(tools) == 0 {
-					http.Error(w, fmt.Sprintf("tool %q is invalid. Available tools are: %s", vals[0], strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
+					rejectRequest(w, r, http.StatusBadRequest, "invalid_tool_name", fmt.Sprintf("tool %q is invalid. Available tools are: %s", vals[0], strings.Join(config.AvailableTools, ", ")))
 					return
 				}
 
 				for _, toolName := range tools {
 					if !slices.Contains(config.AvailableTools, toolName) {
-						http.Error(w, fmt.Sprintf("tool %q is invalid. Available tools are: %s", toolName, strings.Join(config.AvailableTools, ", ")), http.StatusBadRequest)
+						rejectRequest(w, r, http.StatusBadRequest, "invalid_tool_name", fmt.Sprintf("tool %q is invalid. Available tools are: %s", toolName, strings.Join(config.AvailableTools, ", ")))
 						return
 					}
 				}
@@ -376,12 +429,12 @@ func dbNameMiddleware() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			database, err := parseMCPPath(r.URL.Path)
 			if err != nil {
-				http.Error(w, "Bad Request: Invalid path", http.StatusBadRequest)
+				rejectRequest(w, r, http.StatusBadRequest, "invalid_database_name", "Bad Request: Invalid path")
 				return
 			}
 
 			if !isValidDatabaseName(database) {
-				http.Error(w, "Bad Request: Invalid database name", http.StatusBadRequest)
+				rejectRequest(w, r, http.StatusBadRequest, "invalid_database_name", "Bad Request: Invalid database name")
 				return
 			}
 
