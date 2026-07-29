@@ -172,6 +172,8 @@ func TestRedactionLogic(t *testing.T) {
 			"secret":     "super-secret-value",
 			"auth_token": "auth-token-xyz",
 			"uri":        "bolt://user:pass@localhost:7687",
+			"url":        "http://127.0.0.1:8080",
+			"listen_url": "http://127.0.0.1:8080",
 			"address":    "192.168.1.1",
 			"host":       "localhost",
 			"port":       "7687",
@@ -323,6 +325,8 @@ func TestRedactionLogic(t *testing.T) {
 
 			// Sensitive keys - Connection details
 			{"uri", true},
+			{"url", true},
+			{"listen_url", true},
 			{"address", true},
 			{"host", true},
 			{"port", true},
@@ -335,6 +339,7 @@ func TestRedactionLogic(t *testing.T) {
 			{"region", false},
 			{"database", false},
 			{"username", false},
+			{"neo4j_target", false},
 			{"msg", false},
 			{"level", false},
 			{"server_address", false},

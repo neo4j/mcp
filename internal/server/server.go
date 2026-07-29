@@ -407,8 +407,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	slog.Info(
 		fmt.Sprintf("Starting Neo4j MCP server version %s in HTTP mode", s.version),
 		"version", s.version,
-		"address", addr,
-		"url", fmt.Sprintf("%s://%s", protocol, addr),
+		"listen_url", fmt.Sprintf("%s://%s", protocol, addr),
 		"tls", s.config.HTTPTLSEnabled,
 	)
 
