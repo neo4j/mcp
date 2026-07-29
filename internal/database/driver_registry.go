@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
@@ -24,7 +25,7 @@ func (r *PerRequestDriverRegistry) GetDriver(boltURI string) (neo4j.Driver, erro
 	// applied at query time via neo4j.ExecuteQueryWithAuthToken in buildQueryOptions
 	driver, err := neo4j.NewDriver(boltURI, neo4j.NoAuth())
 	if err != nil {
-		slog.Error("Failed to create Neo4j driver", "neo4j_target", SafeBoltTarget(boltURI), "error", err)
+		slog.Error("Failed to create Neo4j driver", "neo4j_target", logger.SafeBoltTarget(boltURI), "error", err)
 		return nil, fmt.Errorf("failed to create Neo4j driver: %w", err)
 	}
 	return driver, nil

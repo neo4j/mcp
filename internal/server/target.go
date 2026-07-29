@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
 )
 
 // TargetInfo holds safe-to-log Neo4j connection metadata derived from a Bolt URI.
@@ -24,7 +24,7 @@ func TargetInfoFromURI(raw string) (TargetInfo, error) {
 	}
 
 	return TargetInfo{
-		Target: database.SafeBoltTarget(raw),
+		Target: logger.SafeBoltTarget(raw),
 		DBID:   dbIDFromHostname(parsed.Hostname()),
 	}, nil
 }

@@ -24,10 +24,3 @@ func TestNeo4jErrorCode(t *testing.T) {
 		}
 	})
 }
-
-func TestSafeBoltTarget(t *testing.T) {
-	got := SafeBoltTarget("bolt://user:pass@host:7687")
-	if got != "bolt://host:7687" {
-		t.Fatalf("expected userinfo stripped, got %q", got)
-	}
-}
