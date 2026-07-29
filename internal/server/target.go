@@ -16,7 +16,7 @@ type TargetInfo struct {
 	DBID   string
 }
 
-// TargetInfoFromURI builds neo4j_target as scheme://host (no userinfo, no query) and extracts db_id when present.
+// TargetInfoFromURI builds neo4j_target (scheme://host, no userinfo, no query) and db_id when present.
 func TargetInfoFromURI(raw string) (TargetInfo, error) {
 	parsed, err := url.Parse(raw)
 	if err != nil {

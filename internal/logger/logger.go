@@ -134,7 +134,8 @@ var sensitiveKeys = map[string]bool{
 	"api_key":    true,
 	"auth_token": true,
 
-	// Connection details
+	// Raw connection keys: values may contain credentials or full endpoints.
+	// For observability, use neo4j_target with SafeBoltTarget instead.
 	"uri":        true,
 	"url":        true,
 	"listen_url": true,
