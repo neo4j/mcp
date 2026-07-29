@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
 
@@ -46,7 +47,7 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 	// Execute the Cypher query using the database service
 	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {
-		slog.Error("error executing cypher query", "error", err)
+		slog.Error("error executing cypher query", database.ErrorLogAttrs(err)...)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 

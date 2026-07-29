@@ -8,8 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/neo4j/mcp/internal/logger"
 )
 
 // isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
@@ -99,4 +102,50 @@ func isValidDatabaseName(name string) bool {
 	}
 
 	return true
+}
+
+// authTypeFromRequest reports the auth mechanism from request headers without logging credentials.
+func authTypeFromRequest(r *http.Request) string {
+	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
+		if token, found := strings.CutPrefix(authHeader, "Bearer "); found && strings.TrimSpace(token) != "" {
+			return "bearer"
+		}
+	}
+	if user, pass, ok := r.BasicAuth(); ok && user != "" && pass != "" {
+		return "basic"
+	}
+	return "none"
+}
+
+// toolsFilterFromRequest returns the raw X-Neo4j-MCP-Tools header when present.
+func toolsFilterFromRequest(r *http.Request) string {
+	return r.Header.Get("X-Neo4j-MCP-Tools")
+}
+
+// readOnlyFromRequest reports whether read-only mode was requested via X-Neo4j-MCP-ReadOnly.
+func readOnlyFromRequest(r *http.Request) (bool, bool) {
+	vals := r.Header.Values("X-Neo4j-MCP-ReadOnly")
+	if len(vals) != 1 {
+		return false, false
+	}
+	switch strings.ToLower(vals[0]) {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// rejectRequest logs a rejection reason and writes an HTTP error response.
+func rejectRequest(w http.ResponseWriter, r *http.Request, status int, reason, msg string) {
+	attrs := append(logger.AppendRequestInfo(r.Context()), "reason", reason, "http_status", status)
+	// Routine probe/wrong-URL traffic is Debug; auth, config, and client errors stay Warn.
+	if reason == "invalid_path" || reason == "method_not_allowed" {
+		slog.Debug("request rejected", attrs...)
+	} else {
+		slog.Warn("request rejected", attrs...)
+	}
+	http.Error(w, msg, status)
 }
