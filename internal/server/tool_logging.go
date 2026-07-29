@@ -13,6 +13,9 @@ import (
 	"github.com/neo4j/mcp/internal/logger"
 )
 
+// Tool wrapper to handle shared logic across tools
+// Intentionally keept the tool chain outside potential SDK-based hook to reduce future friction
+// when moving to the official SDK
 func withToolLogging(toolName string, handler server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		start := time.Now()
