@@ -97,13 +97,13 @@ func observabilityMiddleware() func(http.Handler) http.Handler {
 				"path", r.URL.Path,
 				"http_status", rec.status,
 				"duration_ms", time.Since(start).Milliseconds(),
-				"auth_type", logger.AuthType(ctx),
+				"auth_type", authTypeFromRequest(r),
 			)
-			if readOnly := mcpcontext.GetReadOnly(ctx); readOnly != nil {
-				attrs = append(attrs, "read_only", *readOnly)
+			if tools := toolsFilterFromRequest(r); tools != "" {
+				attrs = append(attrs, "tools_filter", tools)
 			}
-			if tools := mcpcontext.GetTools(ctx); tools != nil {
-				attrs = append(attrs, "tools_filter", strings.Join(*tools, ","))
+			if readOnly, ok := readOnlyFromRequest(r); ok {
+				attrs = append(attrs, "read_only", readOnly)
 			}
 
 			slog.Info("request completed", attrs...)
