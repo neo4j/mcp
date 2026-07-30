@@ -6,6 +6,7 @@ package server
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -397,7 +398,7 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
 
-	expectedAllowedHeaders := strings.Join([]string{"Content-Type", "Authorization", uriHeader, toolsHeader, readOnlyHeader, timeoutHeader, "X-Auth"}, ", ")
+	expectedAllowedHeaders := strings.Join([]string{"Content-Type", "Authorization", URIHeader, ToolsHeader, ReadOnlyHeader, TimeoutHeader, "X-Auth"}, ", ")
 	if rec.Header().Get("Access-Control-Allow-Headers") != expectedAllowedHeaders {
 		t.Errorf("Expected Access-Control-Allow-Headers %q, got: %q", expectedAllowedHeaders, rec.Header().Get("Access-Control-Allow-Headers"))
 	}
@@ -837,7 +838,7 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	}{
 		{
 			name:     "resolver error returns 400",
-			resolver: &stubURIResolver{err: errors.New("missing required header X-Neo4j-MCP-URI")},
+			resolver: &stubURIResolver{err: fmt.Errorf("missing required header %s", URIHeader)},
 			registry: &stubDriverRegistry{},
 		},
 		{
@@ -947,7 +948,7 @@ func TestReadOnlyMiddleware(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
 			if tt.setHeader {
-				req.Header.Set("X-Neo4j-MCP-ReadOnly", tt.headerValue)
+				req.Header.Set(ReadOnlyHeader, tt.headerValue)
 			}
 			rec := httptest.NewRecorder()
 
@@ -1063,7 +1064,7 @@ func TestToolsMiddleware(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
 			if tt.setHeader {
 				for _, v := range tt.headerValues {
-					req.Header.Add("X-Neo4j-MCP-Tools", v)
+					req.Header.Add(ToolsHeader, v)
 				}
 			}
 			rec := httptest.NewRecorder()
@@ -1183,7 +1184,7 @@ func TestTimeoutMiddleware(t *testing.T) {
 		handler := timeoutMiddleware(maxTimeout)(mockHandler())
 
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
-		req.Header.Set(timeoutHeader, "5s")
+		req.Header.Set(TimeoutHeader, "5s")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 

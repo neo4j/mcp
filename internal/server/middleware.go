@@ -213,7 +213,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 			}
 
 			// Build allowed headers list, always including the supported Neo4j MCP headers.
-			allowedHeaders := []string{"Content-Type", "Authorization", uriHeader, toolsHeader, readOnlyHeader, timeoutHeader}
+			allowedHeaders := []string{"Content-Type", "Authorization", URIHeader, ToolsHeader, ReadOnlyHeader, TimeoutHeader}
 			// If a custom auth header is configured, and it's not the default, include it
 			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
 				allowedHeaders = append(allowedHeaders, authHeaderName)
@@ -266,10 +266,10 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// r.Header.Values is used to distinguish when the header is not set
-			vals := r.Header.Values(readOnlyHeader)
+			vals := r.Header.Values(ReadOnlyHeader)
 
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-ReadOnly header found", http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf("Bad Request: duplicate %s header found", ReadOnlyHeader), http.StatusBadRequest)
 				return
 			}
 			if len(vals) == 1 {
@@ -280,7 +280,7 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 				case "true":
 					readOnly = true
 				default:
-					http.Error(w, `Bad Request: "X-Neo4j-MCP-ReadOnly" must be "true" or "false"`, http.StatusBadRequest)
+					http.Error(w, fmt.Sprintf(`Bad Request: %q must be "true" or "false"`, ReadOnlyHeader), http.StatusBadRequest)
 					return
 				}
 				ctx := mcpcontext.WithReadOnly(r.Context(), readOnly)
@@ -301,9 +301,9 @@ func toolsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// r.Header.Values is used to distinguish when the header is not set
-			vals := r.Header.Values(toolsHeader)
+			vals := r.Header.Values(ToolsHeader)
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-Tools header found", http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf("Bad Request: duplicate %s header found", ToolsHeader), http.StatusBadRequest)
 				return
 			}
 			if len(vals) == 1 {
@@ -333,7 +333,7 @@ func toolsMiddleware() func(http.Handler) http.Handler {
 func timeoutMiddleware(maxTimeout time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			effectiveTimeout, err := resolveRequestTimeout(maxTimeout, r.Header.Values(timeoutHeader))
+			effectiveTimeout, err := resolveRequestTimeout(maxTimeout, r.Header.Values(TimeoutHeader))
 			if err != nil {
 				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
 				return
@@ -349,7 +349,7 @@ func timeoutMiddleware(maxTimeout time.Duration) func(http.Handler) http.Handler
 // maximum and an optional per-request header value.
 func resolveRequestTimeout(maxTimeout time.Duration, headerValues []string) (time.Duration, error) {
 	if len(headerValues) > 1 {
-		return 0, fmt.Errorf("duplicate %s header found", timeoutHeader)
+		return 0, fmt.Errorf("duplicate %s header found", TimeoutHeader)
 	}
 	if len(headerValues) == 0 {
 		return maxTimeout, nil
@@ -357,13 +357,13 @@ func resolveRequestTimeout(maxTimeout time.Duration, headerValues []string) (tim
 
 	requested, err := time.ParseDuration(strings.TrimSpace(headerValues[0]))
 	if err != nil {
-		return 0, fmt.Errorf("%q must be a valid duration (e.g. \"30s\", \"2m\")", timeoutHeader)
+		return 0, fmt.Errorf("%q must be a valid duration (e.g. \"30s\", \"2m\")", TimeoutHeader)
 	}
 	if requested <= 0 {
-		return 0, fmt.Errorf("%q must be a positive duration", timeoutHeader)
+		return 0, fmt.Errorf("%q must be a positive duration", TimeoutHeader)
 	}
 	if requested > maxTimeout {
-		return 0, fmt.Errorf("%q (%s) exceeds server maximum (%s)", timeoutHeader, requested, maxTimeout)
+		return 0, fmt.Errorf("%q (%s) exceeds server maximum (%s)", TimeoutHeader, requested, maxTimeout)
 	}
 
 	return requested, nil

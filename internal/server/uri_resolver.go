@@ -28,18 +28,18 @@ type URIResolver interface {
 type HeaderURIResolver struct{}
 
 func (h *HeaderURIResolver) Resolve(r *http.Request) (string, error) {
-	raw := r.Header.Get(uriHeader)
+	raw := r.Header.Get(URIHeader)
 	if raw == "" {
-		return "", fmt.Errorf("missing required header %s", uriHeader)
+		return "", fmt.Errorf("missing required header %s", URIHeader)
 	}
 
 	parsed, err := url.Parse(raw)
 	if err != nil {
-		return "", fmt.Errorf("invalid URI in header %s: %v", uriHeader, err)
+		return "", fmt.Errorf("invalid URI in header %s: %v", URIHeader, err)
 	}
 
 	if !allowedBoltSchemes[parsed.Scheme] {
-		return "", fmt.Errorf("invalid URI in header %s: scheme must be one of bolt, bolt+s, bolt+ssc, neo4j, neo4j+s, neo4j+ssc", uriHeader)
+		return "", fmt.Errorf("invalid URI in header %s: scheme must be one of bolt, bolt+s, bolt+ssc, neo4j, neo4j+s, neo4j+ssc", URIHeader)
 	}
 
 	return raw, nil

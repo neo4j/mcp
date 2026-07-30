@@ -1128,4 +1128,26 @@ func TestLoadConfig_RequestTimeout(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 20*time.Second, cfg.RequestTimeout)
 	})
+
+	t.Run("at the maximum is accepted", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", MaxRequestTimeout.String())
+
+		cfg, err := LoadConfig(nil)
+		require.NoError(t, err)
+		assert.Equal(t, MaxRequestTimeout, cfg.RequestTimeout)
+	})
+
+	t.Run("above the maximum is rejected from env", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", (MaxRequestTimeout + time.Second).String())
+
+		_, err := LoadConfig(nil)
+		require.ErrorContains(t, err, "must not exceed 30m0s")
+	})
+
+	t.Run("above the maximum is rejected from the CLI flag", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "")
+
+		_, err := LoadConfig(&CLIOverrides{RequestTimeout: "100h"})
+		require.ErrorContains(t, err, "must not exceed 30m0s")
+	})
 }

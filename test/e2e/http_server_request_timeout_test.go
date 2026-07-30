@@ -13,6 +13,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
@@ -58,9 +59,9 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			headers := map[string]string{
-				"Authorization":               "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI":             cfg.URI,
-				"X-Neo4j-MCP-Request-Timeout": tc.timeout,
+				"Authorization":         "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader:     cfg.URI,
+				mcpserver.TimeoutHeader: tc.timeout,
 			}
 
 			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers, client.WithSession())
@@ -107,11 +108,11 @@ func TestHTTPRequestTimeoutInitialize(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			headers := map[string]string{
-				"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI": cfg.URI,
+				"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader: cfg.URI,
 			}
 			if tc.timeout != "" {
-				headers["X-Neo4j-MCP-Request-Timeout"] = tc.timeout
+				headers[mcpserver.TimeoutHeader] = tc.timeout
 			}
 
 			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)
@@ -165,9 +166,9 @@ func TestHTTPRequestTimeoutToolCall(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			headers := map[string]string{
-				"Authorization":               "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI":             cfg.URI,
-				"X-Neo4j-MCP-Request-Timeout": tc.timeout,
+				"Authorization":         "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader:     cfg.URI,
+				mcpserver.TimeoutHeader: tc.timeout,
 			}
 
 			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)

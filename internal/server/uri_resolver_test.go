@@ -4,6 +4,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +16,8 @@ import (
 func TestHeaderURIResolver_Resolve(t *testing.T) {
 	resolver := &HeaderURIResolver{}
 
-	invalidURIErrMsg := "invalid URI in header X-Neo4j-MCP-URI: scheme must be one of bolt, bolt+s, bolt+ssc, neo4j, neo4j+s, neo4j+ssc"
+	invalidURIErrMsg := fmt.Sprintf("invalid URI in header %s: scheme must be one of bolt, bolt+s, bolt+ssc, neo4j, neo4j+s, neo4j+ssc", URIHeader)
+	missingURIErrMsg := fmt.Sprintf("missing required header %s", URIHeader)
 
 	tests := []struct {
 		name      string
@@ -68,13 +70,13 @@ func TestHeaderURIResolver_Resolve(t *testing.T) {
 		},
 		{
 			name:    "absent header returns error",
-			wantErr: "missing required header X-Neo4j-MCP-URI",
+			wantErr: missingURIErrMsg,
 		},
 		{
 			name:      "empty header value returns error",
 			setHeader: true,
 			header:    "",
-			wantErr:   "missing required header X-Neo4j-MCP-URI",
+			wantErr:   missingURIErrMsg,
 		},
 		{
 			name:      "http scheme rejected",
@@ -94,7 +96,7 @@ func TestHeaderURIResolver_Resolve(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/db/neo4j/mcp", nil)
 			if tt.setHeader {
-				req.Header.Set(uriHeader, tt.header)
+				req.Header.Set(URIHeader, tt.header)
 			}
 
 			got, err := resolver.Resolve(req)

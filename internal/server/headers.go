@@ -3,9 +3,12 @@
 
 package server
 
+// Per-request HTTP headers understood by the Neo4j MCP server. Exported so that tests
+// and other packages reference these constants instead of repeating the wire values,
+// which the compiler cannot connect back to here.
 const (
-	uriHeader      = "X-Neo4j-MCP-URI"
-	toolsHeader    = "X-Neo4j-MCP-Tools"
-	readOnlyHeader = "X-Neo4j-MCP-ReadOnly"
-	timeoutHeader  = "X-Neo4j-MCP-Request-Timeout"
+	URIHeader      = "X-Neo4j-MCP-URI"
+	ToolsHeader    = "X-Neo4j-MCP-Tools"
+	ReadOnlyHeader = "X-Neo4j-MCP-ReadOnly"
+	TimeoutHeader  = "X-Neo4j-MCP-Request-Timeout"
 )

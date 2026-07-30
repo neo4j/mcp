@@ -40,7 +40,7 @@ Options:
   --neo4j-http-auth-header-name <HEADER> Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME)
   --neo4j-http-allow-unauthenticated-ping <BOOLEAN> Allow unauthenticated ping health checks: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING)
   --neo4j-http-allow-unauthenticated-tools-list <BOOLEAN> Allow unauthenticated tools list: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST)
-  --neo4j-request-timeout <DURATION>  Maximum duration for a single MCP request (overrides environment variable NEO4J_MCP_REQUEST_TIMEOUT)
+  --neo4j-request-timeout <DURATION>  Maximum duration for a single MCP request, up to 30m. Also caps the per-request X-Neo4j-MCP-Request-Timeout header in HTTP mode (overrides environment variable NEO4J_MCP_REQUEST_TIMEOUT)
 
 Required Environment Variables:
   NEO4J_URI       Neo4j database URI
@@ -64,7 +64,7 @@ Optional Environment Variables:
   NEO4J_HTTP_AUTH_HEADER_NAME Name of the HTTP header to read auth credentials from (default: Authorization)
   NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING Allow unauthenticated ping health checks (default: false)
   NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST Allow unauthenticated tool listing (default: false)
-  NEO4J_MCP_REQUEST_TIMEOUT Maximum duration for a single MCP request (default: 3m)
+  NEO4J_MCP_REQUEST_TIMEOUT Maximum duration for a single MCP request (default: 3m, maximum: 30m)
 
 Examples:
   # Using environment variables
@@ -151,7 +151,7 @@ func ParseConfigFlags() *Args {
 	neo4jAuthHeaderName := flag.String("neo4j-http-auth-header-name", "", "Name of the HTTP header to read auth credentials from (overrides NEO4J_HTTP_AUTH_HEADER_NAME env var)")
 	neo4jHTTPAllowUnauthenticatedPing := flag.String("neo4j-http-allow-unauthenticated-ping", "", "Allow unauthenticated ping health checks: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING env var)")
 	neo4jHTTPAllowUnauthenticatedToolsList := flag.String("neo4j-http-allow-unauthenticated-tools-list", "", "Allow unauthenticated tools listing: true or false (overrides NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST env var)")
-	neo4jRequestTimeout := flag.String("neo4j-request-timeout", "", "Maximum duration for a single MCP request (overrides NEO4J_MCP_REQUEST_TIMEOUT env var)")
+	neo4jRequestTimeout := flag.String("neo4j-request-timeout", "", "Maximum duration for a single MCP request, up to 30m (overrides NEO4J_MCP_REQUEST_TIMEOUT env var)")
 
 	flag.Parse()
 

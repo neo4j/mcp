@@ -77,7 +77,7 @@
     "NEO4J_MCP_REQUEST_TIMEOUT": {
       "type": "string",
       "title": "Request timeout",
-      "description": "Maximum duration for a single MCP request (e.g., 30s, 2m)",
+      "description": "Maximum duration for a single MCP request, up to 30m (e.g., 30s, 2m)",
       "required": false,
       "sensitive": false
     }

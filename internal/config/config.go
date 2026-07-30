@@ -20,8 +20,13 @@ type TransportMode string
 
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize   int32         = 100
-	DefaultRequestTimeout     time.Duration = 3 * time.Minute
+	DefaultSchemaSampleSize int32         = 100
+	DefaultRequestTimeout   time.Duration = 3 * time.Minute
+	// MaxRequestTimeout is the largest accepted request timeout. The HTTP server derives
+	// its write and graceful-shutdown timeouts from this value, so leaving it unbounded
+	// would let a single misconfiguration hold connections open indefinitely. The ceiling
+	// is generous enough for long-running GDS workloads.
+	MaxRequestTimeout         time.Duration = 30 * time.Minute
 	TransportModeStdio        TransportMode = "stdio"
 	TransportModeHTTP         TransportMode = "http"
 	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
@@ -129,6 +134,9 @@ func (c *Config) Validate() error {
 
 	if c.RequestTimeout <= 0 {
 		return fmt.Errorf("invalid request timeout %q: must be a positive duration", c.RequestTimeout)
+	}
+	if c.RequestTimeout > MaxRequestTimeout {
+		return fmt.Errorf("invalid request timeout %q: must not exceed %s", c.RequestTimeout, MaxRequestTimeout)
 	}
 
 	return nil
