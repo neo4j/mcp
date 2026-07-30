@@ -1121,6 +1121,12 @@ func TestResolveRequestTimeout(t *testing.T) {
 			errContains: "positive duration",
 		},
 		{
+			name:        "negative duration",
+			header:      []string{"-1s"},
+			wantErr:     true,
+			errContains: "positive duration",
+		},
+		{
 			name:        "exceeds server maximum",
 			header:      []string{"90s"},
 			wantErr:     true,
