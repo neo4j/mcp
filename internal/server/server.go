@@ -142,9 +142,6 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 				if isRequestDeadlineExceeded(ctx, err) {
 					return mcp.NewToolResultError(formatRequestTimeoutError(ctx)), nil
 				}
-				if result != nil && result.IsError && isRequestDeadlineExceeded(ctx, nil) {
-					return mcp.NewToolResultError(formatRequestTimeoutError(ctx)), nil
-				}
 
 				return result, err
 			}

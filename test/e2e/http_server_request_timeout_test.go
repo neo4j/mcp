@@ -58,8 +58,8 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			headers := map[string]string{
-				"Authorization":                "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI":              cfg.URI,
+				"Authorization":               "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				"X-Neo4j-MCP-URI":             cfg.URI,
 				"X-Neo4j-MCP-Request-Timeout": tc.timeout,
 			}
 
@@ -165,8 +165,8 @@ func TestHTTPRequestTimeoutToolCall(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			headers := map[string]string{
-				"Authorization":                "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI":              cfg.URI,
+				"Authorization":               "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				"X-Neo4j-MCP-URI":             cfg.URI,
 				"X-Neo4j-MCP-Request-Timeout": tc.timeout,
 			}
 

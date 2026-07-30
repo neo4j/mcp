@@ -12,6 +12,7 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEffectiveRequestTimeout(t *testing.T) {
@@ -60,5 +61,19 @@ func TestIsRequestDeadlineExceeded(t *testing.T) {
 
 	t.Run("false for other errors", func(t *testing.T) {
 		assert.False(t, isRequestDeadlineExceeded(context.Background(), errors.New("boom")))
+	})
+
+	t.Run("false when only a nested deadline expired", func(t *testing.T) {
+		// verifyRequirements probes connectivity under a shorter deadline. When that one
+		// expires the request still has budget left, so the underlying error must be
+		// reported instead of a request timeout.
+		ctx, cancelRequest := context.WithTimeout(context.Background(), time.Minute)
+		defer cancelRequest()
+		nested, cancelNested := context.WithTimeout(ctx, time.Nanosecond)
+		defer cancelNested()
+		time.Sleep(time.Millisecond)
+
+		require.Equal(t, context.DeadlineExceeded, nested.Err())
+		assert.False(t, isRequestDeadlineExceeded(ctx, nil))
 	})
 }

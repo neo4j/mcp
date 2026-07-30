@@ -27,6 +27,7 @@ func formatRequestTimeoutError(ctx context.Context) string {
 	return "request timed out"
 }
 
+// isRequestDeadlineExceeded reports whether the request budget expired.
 func isRequestDeadlineExceeded(ctx context.Context, err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true

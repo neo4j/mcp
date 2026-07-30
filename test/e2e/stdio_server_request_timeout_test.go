@@ -24,9 +24,9 @@ func TestStdioRequestTimeoutInitialize(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		timeout  string
-		wantErr  string
+		name    string
+		timeout string
+		wantErr string
 	}{
 		{
 			name:    "When the server request timeout expires, initialize should fail with the timeout error",
