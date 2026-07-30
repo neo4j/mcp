@@ -104,6 +104,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 				timeout := mcpcontext.GetRequestTimeout(ctx)
 				if timeout <= 0 {
 					timeout = effectiveRequestTimeout(cfg)
+					ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
 				}
 				ctx, cancel := context.WithTimeout(ctx, timeout)
 				defer cancel()
@@ -521,6 +522,7 @@ func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, mes
 	timeout := mcpcontext.GetRequestTimeout(ctx)
 	if timeout <= 0 {
 		timeout = effectiveRequestTimeout(s.config)
+		ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
