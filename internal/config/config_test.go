@@ -6,6 +6,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1081,4 +1082,72 @@ func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
 // newStringPtr returns a new pointer to a string
 func newStringPtr(s string) *string {
 	return &s
+}
+
+func TestLoadConfig_RequestTimeout(t *testing.T) {
+	t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
+	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_USERNAME", "testuser")
+	t.Setenv("NEO4J_PASSWORD", "testpass")
+	t.Setenv("NEO4J_DATABASE", "neo4j")
+
+	t.Run("default value", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "")
+
+		cfg, err := LoadConfig(nil)
+		require.NoError(t, err)
+		assert.Equal(t, DefaultRequestTimeout, cfg.RequestTimeout)
+	})
+
+	t.Run("value from env", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "45s")
+
+		cfg, err := LoadConfig(nil)
+		require.NoError(t, err)
+		assert.Equal(t, 45*time.Second, cfg.RequestTimeout)
+	})
+
+	t.Run("invalid env value", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "invalid")
+
+		_, err := LoadConfig(nil)
+		require.ErrorContains(t, err, "invalid NEO4J_MCP_REQUEST_TIMEOUT")
+	})
+
+	t.Run("non-positive env value", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "0s")
+
+		_, err := LoadConfig(nil)
+		require.ErrorContains(t, err, "invalid NEO4J_MCP_REQUEST_TIMEOUT")
+	})
+
+	t.Run("cli override", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "45s")
+
+		cfg, err := LoadConfig(&CLIOverrides{RequestTimeout: "20s"})
+		require.NoError(t, err)
+		assert.Equal(t, 20*time.Second, cfg.RequestTimeout)
+	})
+
+	t.Run("at the maximum is accepted", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", MaxRequestTimeout.String())
+
+		cfg, err := LoadConfig(nil)
+		require.NoError(t, err)
+		assert.Equal(t, MaxRequestTimeout, cfg.RequestTimeout)
+	})
+
+	t.Run("above the maximum is rejected from env", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", (MaxRequestTimeout + time.Second).String())
+
+		_, err := LoadConfig(nil)
+		require.ErrorContains(t, err, "must not exceed 30m0s")
+	})
+
+	t.Run("above the maximum is rejected from the CLI flag", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "")
+
+		_, err := LoadConfig(&CLIOverrides{RequestTimeout: "100h"})
+		require.ErrorContains(t, err, "must not exceed 30m0s")
+	})
 }

@@ -28,7 +28,8 @@ import (
 // startHTTPModeServer launches the server binary in HTTP mode on a random free port.
 // It polls /healthz until the server is ready and returns the base URL.
 // The server process is automatically terminated when the test ends.
-func startHTTPModeServer(t *testing.T) string {
+// extraArgs are appended to the server command line (e.g. "--neo4j-request-timeout", "5s").
+func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 	t.Helper()
 
 	port, err := freePort()
@@ -40,12 +41,13 @@ func startHTTPModeServer(t *testing.T) string {
 	// NEO4J_DATABASE — the URI, credentials, and database are supplied per-request via the
 	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
 	// Strip those keys so any locally-set env values don't cause a startup validation error.
-	cmd := exec.Command(server, // #nosec G204 -- server is a binary path built by the test harness, not user input
+	args := append([]string{
 		"--neo4j-transport-mode", "http",
 		"--neo4j-http-host", "127.0.0.1",
 		"--neo4j-http-port", fmt.Sprintf("%d", port),
 		"--neo4j-telemetry", "false",
-	)
+	}, extraArgs...)
+	cmd := exec.Command(server, args...) // #nosec G204 -- server is a binary path built by the test harness, not user input
 	cmd.Env = stripEnv(os.Environ(), "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "NEO4J_DATABASE")
 
 	require.NoError(t, cmd.Start(), "failed to start HTTP server")
@@ -107,7 +109,7 @@ func waitForHealthz(t *testing.T, url string) {
 }
 
 // newHTTPClient builds an MCP streamable-HTTP client forwarding the provided headers.
-func newHTTPClient(t *testing.T, mcpURL string, headers map[string]string) *client.Client {
+func newHTTPClient(t *testing.T, mcpURL string, headers map[string]string, opts ...client.ClientOption) *client.Client {
 	t.Helper()
 
 	httpTransport, err := transport.NewStreamableHTTP(mcpURL,
@@ -116,5 +118,5 @@ func newHTTPClient(t *testing.T, mcpURL string, headers map[string]string) *clie
 	)
 	require.NoError(t, err, "failed to build streamable HTTP transport")
 
-	return client.NewClient(httpTransport)
+	return client.NewClient(httpTransport, opts...)
 }

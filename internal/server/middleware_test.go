@@ -6,10 +6,12 @@ package server
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
@@ -396,8 +398,9 @@ func TestCORSMiddleware_PreflightRequest(t *testing.T) {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
 
-	if rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type, Authorization, X-Neo4j-MCP-URI, X-Auth" {
-		t.Errorf("Expected Access-Control-Allow-Headers to include X-Neo4j-MCP-URI, got: %q", rec.Header().Get("Access-Control-Allow-Headers"))
+	expectedAllowedHeaders := strings.Join([]string{"Content-Type", "Authorization", URIHeader, ToolsHeader, ReadOnlyHeader, TimeoutHeader, "X-Auth"}, ", ")
+	if rec.Header().Get("Access-Control-Allow-Headers") != expectedAllowedHeaders {
+		t.Errorf("Expected Access-Control-Allow-Headers %q, got: %q", expectedAllowedHeaders, rec.Header().Get("Access-Control-Allow-Headers"))
 	}
 
 	if rec.Header().Get("Access-Control-Max-Age") != corsMaxAgeSeconds {
@@ -835,7 +838,7 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	}{
 		{
 			name:     "resolver error returns 400",
-			resolver: &stubURIResolver{err: errors.New("missing required header X-Neo4j-MCP-URI")},
+			resolver: &stubURIResolver{err: fmt.Errorf("missing required header %s", URIHeader)},
 			registry: &stubDriverRegistry{},
 		},
 		{
@@ -945,7 +948,7 @@ func TestReadOnlyMiddleware(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
 			if tt.setHeader {
-				req.Header.Set("X-Neo4j-MCP-ReadOnly", tt.headerValue)
+				req.Header.Set(ReadOnlyHeader, tt.headerValue)
 			}
 			rec := httptest.NewRecorder()
 
@@ -1061,7 +1064,7 @@ func TestToolsMiddleware(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
 			if tt.setHeader {
 				for _, v := range tt.headerValues {
-					req.Header.Add("X-Neo4j-MCP-Tools", v)
+					req.Header.Add(ToolsHeader, v)
 				}
 			}
 			rec := httptest.NewRecorder()
@@ -1078,6 +1081,120 @@ func TestToolsMiddleware(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveRequestTimeout(t *testing.T) {
+	maxTimeout := 60 * time.Second
+
+	tests := []struct {
+		name        string
+		header      []string
+		want        time.Duration
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:   "no header uses server maximum",
+			header: nil,
+			want:   maxTimeout,
+		},
+		{
+			name:   "valid header below maximum",
+			header: []string{"30s"},
+			want:   30 * time.Second,
+		},
+		{
+			name:        "duplicate header",
+			header:      []string{"30s", "20s"},
+			wantErr:     true,
+			errContains: "duplicate",
+		},
+		{
+			name:        "invalid duration",
+			header:      []string{"not-a-duration"},
+			wantErr:     true,
+			errContains: "must be a valid duration",
+		},
+		{
+			name:        "non-positive duration",
+			header:      []string{"0s"},
+			wantErr:     true,
+			errContains: "positive duration",
+		},
+		{
+			name:        "negative duration",
+			header:      []string{"-1s"},
+			wantErr:     true,
+			errContains: "positive duration",
+		},
+		{
+			name:        "exceeds server maximum",
+			header:      []string{"90s"},
+			wantErr:     true,
+			errContains: "exceeds server maximum",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveRequestTimeout(maxTimeout, tt.header)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Fatalf("error %q does not contain %q", err.Error(), tt.errContains)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("resolveRequestTimeout() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTimeoutMiddleware(t *testing.T) {
+	maxTimeout := 2 * time.Second
+
+	t.Run("stores request timeout in context without deadline", func(t *testing.T) {
+		handler := timeoutMiddleware(maxTimeout)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := r.Context().Deadline(); ok {
+				t.Fatal("expected request context to not have a deadline")
+			}
+			if got := mcpcontext.GetRequestTimeout(r.Context()); got != maxTimeout {
+				t.Fatalf("GetRequestTimeout() = %v, want %v", got, maxTimeout)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+	})
+
+	t.Run("rejects timeout above server maximum", func(t *testing.T) {
+		handler := timeoutMiddleware(maxTimeout)(mockHandler())
+
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.Header.Set(TimeoutHeader, "5s")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400, got %d", rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "exceeds server maximum") {
+			t.Fatalf("expected exceeds server maximum error, got %q", rec.Body.String())
+		}
+	})
 }
 
 type stubURIResolver struct {

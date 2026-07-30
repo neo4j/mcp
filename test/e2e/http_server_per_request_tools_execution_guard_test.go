@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
@@ -37,41 +38,41 @@ func TestHTTPPerRequestToolsExecutionGuard(t *testing.T) {
 		},
 		{
 			name:         "When X-Neo4j-MCP-ReadOnly is false, the tool call should succeed",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "false"},
+			extraHeaders: map[string]string{mcpserver.ReadOnlyHeader: "false"},
 			toolName:     "write-cypher",
 		},
 		{
 			name:         "When X-Neo4j-MCP-Tools contains the tool being called, the tool call should succeed",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, write-cypher"},
+			extraHeaders: map[string]string{mcpserver.ToolsHeader: "read-cypher, write-cypher"},
 			toolName:     "write-cypher",
 		},
 		{
 			name:         "When X-Neo4j-MCP-ReadOnly is true and the tool is read-only, the tool call should succeed",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "true"},
+			extraHeaders: map[string]string{mcpserver.ReadOnlyHeader: "true"},
 			toolName:     "get-schema",
 		},
 		{
 			name:         "When X-Neo4j-MCP-ReadOnly is true, a write tool call should be blocked",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "true"},
+			extraHeaders: map[string]string{mcpserver.ReadOnlyHeader: "true"},
 			toolName:     "write-cypher",
 			wantErr:      readOnlyError,
 		},
 		{
 			name:         "When X-Neo4j-MCP-ReadOnly is true and the tool is not in X-Neo4j-MCP-Tools, the read-only error should take precedence",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "true", "X-Neo4j-MCP-Tools": "get-schema"},
+			extraHeaders: map[string]string{mcpserver.ReadOnlyHeader: "true", mcpserver.ToolsHeader: "get-schema"},
 			toolName:     "write-cypher",
 			wantErr:      readOnlyError,
 		},
 		{
 			name:         "When X-Neo4j-MCP-Tools is set and the tool is not in the list, the tool call should be blocked",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "get-schema, write-cypher"},
+			extraHeaders: map[string]string{mcpserver.ToolsHeader: "get-schema, write-cypher"},
 			toolName:     "read-cypher",
 			wantErr:      toolError,
 		},
 		{
 			name: "When X-Neo4j-MCP-ReadOnly is true and the tool is a read tool not present in X-Neo4j-MCP-Tools, the tool call should be blocked",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "true",
-				"X-Neo4j-MCP-Tools": "get-schema, write-cypher"},
+			extraHeaders: map[string]string{mcpserver.ReadOnlyHeader: "true",
+				mcpserver.ToolsHeader: "get-schema, write-cypher"},
 			toolName: "read-cypher",
 			wantErr:  toolError,
 		},
@@ -87,8 +88,8 @@ func TestHTTPPerRequestToolsExecutionGuard(t *testing.T) {
 			defer cancel()
 
 			headers := map[string]string{
-				"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI": cfg.URI,
+				"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader: cfg.URI,
 			}
 			for k, v := range tc.extraHeaders {
 				headers[k] = v
@@ -158,8 +159,8 @@ func TestHTTPPerRequestToolsExecutionGuardInvalidTool(t *testing.T) {
 			defer cancel()
 
 			headers := map[string]string{
-				"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI": cfg.URI,
+				"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader: cfg.URI,
 			}
 
 			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)

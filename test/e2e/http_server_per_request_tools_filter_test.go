@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
@@ -34,59 +35,59 @@ func TestHTTPPerRequestToolsFilter(t *testing.T) {
 		},
 		{
 			name:          "Only read-only tools when X-Neo4j-MCP-ReadOnly is true",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "true"},
+			extraHeaders:  map[string]string{mcpserver.ReadOnlyHeader: "true"},
 			wantToolNames: []string{"read-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
 			name:          "All tools when X-Neo4j-MCP-ReadOnly is false",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "false"},
+			extraHeaders:  map[string]string{mcpserver.ReadOnlyHeader: "false"},
 			wantToolNames: []string{"read-cypher", "write-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
 			name:          "All tools when X-Neo4j-MCP-ReadOnly is False (mixed case)",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "False"},
+			extraHeaders:  map[string]string{mcpserver.ReadOnlyHeader: "False"},
 			wantToolNames: []string{"read-cypher", "write-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
 			name:         "Error when X-Neo4j-MCP-ReadOnly contains an invalid value",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "invalid"},
+			extraHeaders: map[string]string{mcpserver.ReadOnlyHeader: "invalid"},
 			wantErr:      true,
 		},
 		{
 			name:          "Single tool filter via X-Neo4j-MCP-Tools",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher"},
+			extraHeaders:  map[string]string{mcpserver.ToolsHeader: "read-cypher"},
 			wantToolNames: []string{"read-cypher"},
 		},
 		{
 			name:          "Comma-separated tools via X-Neo4j-MCP-Tools",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, write-cypher"},
+			extraHeaders:  map[string]string{mcpserver.ToolsHeader: "read-cypher, write-cypher"},
 			wantToolNames: []string{"read-cypher", "write-cypher"},
 		},
 		{
 			name:          "All tools when all available tools are listed in X-Neo4j-MCP-Tools",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, write-cypher, get-schema, list-gds-procedures"},
+			extraHeaders:  map[string]string{mcpserver.ToolsHeader: "read-cypher, write-cypher, get-schema, list-gds-procedures"},
 			wantToolNames: []string{"read-cypher", "write-cypher", "get-schema", "list-gds-procedures"},
 		},
 		{
 			name:         "Error when X-Neo4j-MCP-Tools contains an invalid tool name",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "batman-tool"},
+			extraHeaders: map[string]string{mcpserver.ToolsHeader: "batman-tool"},
 			wantErr:      true,
 		},
 		{
 			name:         "Error when X-Neo4j-MCP-Tools contains a mixed valid tool names",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, batman-tool"},
+			extraHeaders: map[string]string{mcpserver.ToolsHeader: "read-cypher, batman-tool"},
 			wantErr:      true,
 		},
 		{
 			name:         "Error when X-Neo4j-MCP-Tools contains and \"\" string",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": ""},
+			extraHeaders: map[string]string{mcpserver.ToolsHeader: ""},
 			wantErr:      true,
 		},
 		{
 			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-ReadOnly applied as intersection",
 			extraHeaders: map[string]string{
-				"X-Neo4j-MCP-Tools":   "read-cypher, write-cypher",
-				"X-Neo4j-MCP-ReadOnly": "true",
+				mcpserver.ToolsHeader:    "read-cypher, write-cypher",
+				mcpserver.ReadOnlyHeader: "true",
 			},
 			// write-cypher is not read-only, so it is excluded despite being in the tools list
 			wantToolNames: []string{"read-cypher"},
@@ -102,8 +103,8 @@ func TestHTTPPerRequestToolsFilter(t *testing.T) {
 			defer cancel()
 
 			headers := map[string]string{
-				"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-				"X-Neo4j-MCP-URI": cfg.URI,
+				"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader: cfg.URI,
 			}
 			for k, v := range tc.extraHeaders {
 				headers[k] = v
