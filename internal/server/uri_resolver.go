@@ -9,8 +9,6 @@ import (
 	"net/url"
 )
 
-const uriHeader = "X-Neo4j-MCP-URI"
-
 // allowedBoltSchemes is the set of URI schemes accepted in header
 var allowedBoltSchemes = map[string]bool{
 	"bolt":      true,

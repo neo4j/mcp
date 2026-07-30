@@ -3,18 +3,22 @@
 
 package mcpcontext
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type contextKey string
 
 const (
-	basicAuthUserKey contextKey = "basicAuthUser"
-	basicAuthPassKey contextKey = "basicAuthPass"
-	bearerTokenKey   contextKey = "bearerToken"
-	databaseNameKey  contextKey = "databaseName"
-	driverKey        contextKey = "neo4jDriver"
-	readOnlyKey      contextKey = "readOnly"
-	toolsKey         contextKey = "tools"
+	basicAuthUserKey  contextKey = "basicAuthUser"
+	basicAuthPassKey  contextKey = "basicAuthPass"
+	bearerTokenKey    contextKey = "bearerToken"
+	databaseNameKey   contextKey = "databaseName"
+	driverKey         contextKey = "neo4jDriver"
+	readOnlyKey       contextKey = "readOnly"
+	toolsKey          contextKey = "tools"
+	requestTimeoutKey contextKey = "requestTimeout"
 )
 
 // WithDatabaseName adds the target database name to the context
@@ -104,4 +108,19 @@ func GetTools(ctx context.Context) *[]string {
 		return nil
 	}
 	return &tools
+}
+
+// WithRequestTimeout stores the effective request timeout in the context.
+func WithRequestTimeout(ctx context.Context, timeout time.Duration) context.Context {
+	return context.WithValue(ctx, requestTimeoutKey, timeout)
+}
+
+// GetRequestTimeout retrieves the effective request timeout from the context.
+// Returns 0 if the timeout is not set.
+func GetRequestTimeout(ctx context.Context) time.Duration {
+	timeout, ok := ctx.Value(requestTimeoutKey).(time.Duration)
+	if !ok {
+		return 0
+	}
+	return timeout
 }

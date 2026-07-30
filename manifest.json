@@ -73,6 +73,13 @@
       "description": "Number of nodes to sample for schema inference",
       "required": false,
       "sensitive": false
+    },
+    "NEO4J_MCP_REQUEST_TIMEOUT": {
+      "type": "string",
+      "title": "Request timeout",
+      "description": "Maximum duration for a single MCP request (e.g., 30s, 2m)",
+      "required": false,
+      "sensitive": false
     }
   },
   "server": {
@@ -89,7 +96,8 @@
         "NEO4J_TELEMETRY": "${user_config.NEO4J_TELEMETRY}",
         "NEO4J_LOG_LEVEL": "${user_config.NEO4J_LOG_LEVEL}",
         "NEO4J_LOG_FORMAT": "${user_config.NEO4J_LOG_FORMAT}",
-        "NEO4J_SCHEMA_SAMPLE_SIZE": "${user_config.NEO4J_SCHEMA_SAMPLE_SIZE}"
+        "NEO4J_SCHEMA_SAMPLE_SIZE": "${user_config.NEO4J_SCHEMA_SAMPLE_SIZE}",
+        "NEO4J_MCP_REQUEST_TIMEOUT": "${user_config.NEO4J_MCP_REQUEST_TIMEOUT}"
       }
     }
   },
