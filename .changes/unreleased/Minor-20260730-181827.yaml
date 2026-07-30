@@ -1,0 +1,7 @@
+kind: Minor
+body: |
+  MCP requests are now bounded by a timeout, 3m by default and 30m at most.
+  - Set the server limit with `NEO4J_MCP_REQUEST_TIMEOUT` or `--neo4j-request-timeout` (e.g. `45s`, `5m`)
+  - HTTP mode accepts a per-request `X-Neo4j-MCP-Request-Timeout` header, which can only lower the server limit; larger, non-positive, or malformed values return `400 Bad Request`
+  - Tool calls and `initialize` that run past the limit are cancelled and return a `request timed out after <duration>` error
+time: 2026-07-30T18:18:27.279087+01:00
