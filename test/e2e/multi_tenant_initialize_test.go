@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	mcpserver "github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,8 +47,8 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// because Neo4j rejects the password. The initialize call must propagate
 	// that failure back to the client.
 	wrongClient := newHTTPClient(t, mcpURL, map[string]string{
-		"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":definitely-not-the-password")),
-		"X-Neo4j-MCP-URI": cfg.URI,
+		"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":definitely-not-the-password")),
+		mcpserver.URIHeader: cfg.URI,
 	})
 	defer wrongClient.Close()
 
@@ -59,8 +60,8 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// isolates per-request state, this initialize must succeed even though the
 	// previous one (from a different tenant) failed.
 	rightClient := newHTTPClient(t, mcpURL, map[string]string{
-		"Authorization":   "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
-		"X-Neo4j-MCP-URI": cfg.URI,
+		"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+		mcpserver.URIHeader: cfg.URI,
 	})
 	defer rightClient.Close()
 

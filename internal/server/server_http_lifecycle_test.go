@@ -180,7 +180,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		headers := defaultHeaders()
-		headers["X-Neo4j-MCP-Tools"] = "read-cypher, get-schema"
+		headers[server.ToolsHeader] = "read-cypher, get-schema"
 		mcpClient := createStreamableHTTPClient(uri, headers)
 
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
@@ -217,7 +217,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
 		headers := defaultHeaders()
-		headers["X-Neo4j-MCP-Tools"] = "read-cypher, list-gds-procedures"
+		headers[server.ToolsHeader] = "read-cypher, list-gds-procedures"
 		mcpClient := createStreamableHTTPClient(uri, headers)
 
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
@@ -346,57 +346,57 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 	}{
 		{
 			name:          "All tools returned when X-Neo4j-MCP-ReadOnly is false",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "false"},
+			extraHeaders:  map[string]string{server.ReadOnlyHeader: "false"},
 			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"},
 		},
 		{
 			name:          "All tools returned when X-Neo4j-MCP-ReadOnly is False (mixed case)",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "False"},
+			extraHeaders:  map[string]string{server.ReadOnlyHeader: "False"},
 			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"},
 		},
 		{
 			name:          "Only read-only tools returned when X-Neo4j-MCP-ReadOnly is true",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-ReadOnly": "true"},
+			extraHeaders:  map[string]string{server.ReadOnlyHeader: "true"},
 			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher"},
 		},
 		{
 			name:         "Error when X-Neo4j-MCP-ReadOnly contains an invalid value",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-ReadOnly": "invalid"},
+			extraHeaders: map[string]string{server.ReadOnlyHeader: "invalid"},
 			wantErr:      true,
 		},
 		{
 			name:          "Single tool filter via X-Neo4j-MCP-Tools",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher"},
+			extraHeaders:  map[string]string{server.ToolsHeader: "read-cypher"},
 			wantToolNames: []string{"read-cypher"},
 		},
 		{
 			name:          "Comma-separated tools via X-Neo4j-MCP-Tools",
-			extraHeaders:  map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, write-cypher"},
+			extraHeaders:  map[string]string{server.ToolsHeader: "read-cypher, write-cypher"},
 			wantToolNames: []string{"read-cypher", "write-cypher"},
 		},
 		{
 			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
 			name:         "Error when X-Neo4j-MCP-Tools contains an invalid tool name",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "batman-tool"},
+			extraHeaders: map[string]string{server.ToolsHeader: "batman-tool"},
 			wantErr:      true,
 		},
 		{
 			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
 			name:         "Error when X-Neo4j-MCP-Tools contains an mixed valid tool names",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": "read-cypher, batman-tool"},
+			extraHeaders: map[string]string{server.ToolsHeader: "read-cypher, batman-tool"},
 			wantErr:      true,
 		},
 		{
 			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
 			name:         "Error when X-Neo4j-MCP-Tools is set as empty \"\" string",
-			extraHeaders: map[string]string{"X-Neo4j-MCP-Tools": ""},
+			extraHeaders: map[string]string{server.ToolsHeader: ""},
 			wantErr:      true,
 		},
 		{
 			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-ReadOnly applied as intersection",
 			extraHeaders: map[string]string{
-				"X-Neo4j-MCP-Tools":    "read-cypher, write-cypher",
-				"X-Neo4j-MCP-ReadOnly": "true",
+				server.ToolsHeader:    "read-cypher, write-cypher",
+				server.ReadOnlyHeader: "true",
 			},
 			// write-cypher is not read-only, so it is excluded despite being in the tools list
 			wantToolNames: []string{"read-cypher"},
@@ -491,8 +491,8 @@ func assertNoCloseOrStopError(t *testing.T, s *server.Neo4jMCPServer, errChan ch
 // defaultHeaders returns the base request headers used by most test clients.
 func defaultHeaders() map[string]string {
 	return map[string]string{
-		"Authorization":   "Basic bmVvNGo6cGFzc3dvcmQ=",
-		"X-Neo4j-MCP-URI": "bolt://test-host:7687",
+		"Authorization":  "Basic bmVvNGo6cGFzc3dvcmQ=",
+		server.URIHeader: "bolt://test-host:7687",
 	}
 }
 

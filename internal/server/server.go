@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -29,11 +30,11 @@ import (
 const (
 	protocolHTTP                = "http"
 	protocolHTTPS               = "https"
-	serverHTTPShutdownTimeout   = 65 * time.Second  // Timeout for graceful shutdown (must exceed WriteTimeout to allow active requests to complete)
 	serverHTTPReadHeaderTimeout = 5 * time.Second   // SECURITY: Maximum time to read request headers (prevents Slowloris attacks)
 	serverHTTPReadTimeout       = 15 * time.Second  // SECURITY: Maximum time to read entire request including body (prevents slow-read attacks)
-	serverHTTPWriteTimeout      = 60 * time.Second  // FUNCTIONALITY: Maximum time to write response (allows complex Neo4j queries and large result sets)
 	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
+	httpWriteTimeoutGrace       = 5 * time.Second   // Buffer added to WriteTimeout so timeout error responses can be written
+	httpShutdownGrace           = 5 * time.Second   // Buffer added to shutdown timeout so active requests can complete
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -100,6 +101,14 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		server.WithToolHandlerMiddleware(func(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 			// WithToolFilter controls tool advertisement; this middleware enforces execution
 			return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				timeout := mcpcontext.GetRequestTimeout(ctx)
+				if timeout <= 0 {
+					timeout = effectiveRequestTimeout(cfg)
+					ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
+				}
+				ctx, cancel := context.WithTimeout(ctx, timeout)
+				defer cancel()
+
 				// Guards are checked read-only first, then the configured tools list.
 				// When a request violates both, the read-only error takes precedence.
 				readOnly := mcpcontext.GetReadOnly(ctx)
@@ -129,7 +138,12 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 					return mcp.NewToolResultError(fmt.Sprintf("'%s' is not in the list of configured tools", req.Params.Name)), nil
 				}
 
-				return next(ctx, req)
+				result, err := next(ctx, req)
+				if isRequestDeadlineExceeded(ctx, err) {
+					return mcp.NewToolResultError(formatRequestTimeoutError(ctx)), nil
+				}
+
+				return result, err
 			}
 		}),
 	)
@@ -406,6 +420,8 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	)
 
 	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
+	writeTimeout := effectiveRequestTimeout(s.config) + httpWriteTimeoutGrace
+	shutdownTimeout := writeTimeout + httpShutdownGrace
 
 	// Route /healthz directly (no auth required).
 	// All other paths go through the full middleware chain which enforces auth and path validation.
@@ -419,7 +435,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 		Handler: mux,
 		// Timeouts optimized for stateless HTTP MCP requests
 		ReadTimeout:       serverHTTPReadTimeout,
-		WriteTimeout:      serverHTTPWriteTimeout,
+		WriteTimeout:      writeTimeout,
 		IdleTimeout:       serverHTTPIdleTimeout,
 		ReadHeaderTimeout: serverHTTPReadHeaderTimeout,
 	}
@@ -462,7 +478,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	select {
 	case sig := <-sigChan:
 		slog.Info("Shutdown signal received", "signal", sig.String())
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), serverHTTPShutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("Error during server shutdown", "error", err)
@@ -500,8 +516,19 @@ func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, mes
 		return nil
 	}
 
+	timeout := mcpcontext.GetRequestTimeout(ctx)
+	if timeout <= 0 {
+		timeout = effectiveRequestTimeout(s.config)
+		ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	slog.Info("Initialize request: verifying requirements...")
 	if err := s.verifyRequirements(ctx); err != nil {
+		if isRequestDeadlineExceeded(ctx, err) {
+			return errors.New(formatRequestTimeoutError(ctx))
+		}
 		return err
 	}
 	s.emitConnectionInitializedEvent(ctx)

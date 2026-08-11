@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/neo4j/mcp/internal/logger"
 )
@@ -19,7 +20,13 @@ type TransportMode string
 
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize   int32         = 100
+	DefaultSchemaSampleSize int32         = 100
+	DefaultRequestTimeout   time.Duration = 3 * time.Minute
+	// MaxRequestTimeout is the largest accepted request timeout. The HTTP server derives
+	// its write and graceful-shutdown timeouts from this value, so leaving it unbounded
+	// would let a single misconfiguration hold connections open indefinitely. The ceiling
+	// is generous enough for long-running GDS workloads.
+	MaxRequestTimeout         time.Duration = 30 * time.Minute
 	TransportModeStdio        TransportMode = "stdio"
 	TransportModeHTTP         TransportMode = "http"
 	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
@@ -53,6 +60,7 @@ type Config struct {
 	AuthHeaderName                string        // HTTP header name to read auth credentials from (default: "Authorization")
 	AllowUnauthenticatedPing      bool          // If true, allows unauthenticated ping health checks in HTTP mode
 	AllowUnauthenticatedToolsList bool          // If true, allows unauthenticated tools list in HTTP mode
+	RequestTimeout                time.Duration // Maximum duration for a single MCP request (default: 3m)
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -64,6 +72,10 @@ func (c *Config) Validate() error {
 	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 	if c.TransportMode == "" {
 		c.TransportMode = TransportModeStdio
+	}
+
+	if c.RequestTimeout == 0 {
+		c.RequestTimeout = DefaultRequestTimeout
 	}
 
 	// Validate transport mode
@@ -120,6 +132,13 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if c.RequestTimeout <= 0 {
+		return fmt.Errorf("invalid request timeout %q: must be a positive duration", c.RequestTimeout)
+	}
+	if c.RequestTimeout > MaxRequestTimeout {
+		return fmt.Errorf("invalid request timeout %q: must not exceed %s", c.RequestTimeout, MaxRequestTimeout)
+	}
+
 	return nil
 }
 
@@ -142,6 +161,7 @@ type CLIOverrides struct {
 	AuthHeaderName                string
 	AllowUnauthenticatedPing      string
 	AllowUnauthenticatedToolsList string
+	RequestTimeout                string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -188,6 +208,12 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		AllowUnauthenticatedPing:      ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
 		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
 	}
+
+	requestTimeout, err := ParseDuration(GetEnv("NEO4J_MCP_REQUEST_TIMEOUT"), DefaultRequestTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("invalid NEO4J_MCP_REQUEST_TIMEOUT: %w", err)
+	}
+	cfg.RequestTimeout = requestTimeout
 
 	if toolsEnv, ok := os.LookupEnv("NEO4J_MCP_TOOLS"); ok {
 		if toolsEnv == "" {
@@ -248,6 +274,13 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.AllowUnauthenticatedToolsList != "" {
 			cfg.AllowUnauthenticatedToolsList = ParseBool(cliOverrides.AllowUnauthenticatedToolsList, false)
+		}
+		if cliOverrides.RequestTimeout != "" {
+			requestTimeout, err := ParseDuration(cliOverrides.RequestTimeout, DefaultRequestTimeout)
+			if err != nil {
+				return nil, fmt.Errorf("invalid --neo4j-request-timeout: %w", err)
+			}
+			cfg.RequestTimeout = requestTimeout
 		}
 	}
 
@@ -334,6 +367,23 @@ func ParseInt32(value string, defaultValue int32) int32 {
 		return defaultValue
 	}
 	return int32(parsed)
+}
+
+// ParseDuration parses a Go duration string (e.g. "30s", "2m").
+// Returns the default value if the string is empty.
+// Returns an error if the value is invalid or non-positive.
+func ParseDuration(value string, defaultValue time.Duration) (time.Duration, error) {
+	if value == "" {
+		return defaultValue, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration %q: %w", value, err)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("duration %q must be positive", value)
+	}
+	return parsed, nil
 }
 
 // ParseCommaSeparatedString parses a comma-separated string into a slice of strings.

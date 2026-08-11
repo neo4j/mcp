@@ -135,7 +135,7 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
+				req.Header.Set(server.URIHeader, testCFG.URI)
 			},
 			wantStatus: http.StatusOK,
 			assertErr:  noErr,
@@ -244,7 +244,7 @@ func TestHTTPMode_URIHeader(t *testing.T) {
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Neo4j-MCP-URI", testCFG.URI)
+				req.Header.Set(server.URIHeader, testCFG.URI)
 			},
 			wantStatus: http.StatusOK,
 		},
@@ -261,7 +261,7 @@ func TestHTTPMode_URIHeader(t *testing.T) {
 			setupReq: func(req *http.Request) {
 				req.SetBasicAuth(testCFG.Username, testCFG.Password)
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Neo4j-MCP-URI", "http://localhost:7687")
+				req.Header.Set(server.URIHeader, "http://localhost:7687")
 			},
 			wantStatus: http.StatusBadRequest,
 		},

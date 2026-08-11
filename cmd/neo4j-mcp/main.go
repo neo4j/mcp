@@ -51,6 +51,7 @@ func main() {
 		AuthHeaderName:                cliArgs.AuthHeaderName,
 		AllowUnauthenticatedPing:      cliArgs.HTTPAllowUnauthenticatedPing,
 		AllowUnauthenticatedToolsList: cliArgs.HTTPAllowUnauthenticatedToolsList,
+		RequestTimeout:                cliArgs.RequestTimeout,
 	})
 	if err != nil {
 		// Can't use logger here yet, so just print to stderr

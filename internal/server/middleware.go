@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
@@ -53,6 +54,7 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	handler = pathValidationMiddleware()(handler)
 	handler = readOnlyMiddleware()(handler)
 	handler = toolsMiddleware()(handler)
+	handler = timeoutMiddleware(effectiveRequestTimeout(s.config))(handler)
 
 	return handler
 }
@@ -210,8 +212,8 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
 
-			// Build allowed headers list, always include Content-Type, Authorization, and X-Neo4j-MCP-URI.
-			allowedHeaders := []string{"Content-Type", "Authorization", uriHeader}
+			// Build allowed headers list, always including the supported Neo4j MCP headers.
+			allowedHeaders := []string{"Content-Type", "Authorization", URIHeader, ToolsHeader, ReadOnlyHeader, TimeoutHeader}
 			// If a custom auth header is configured, and it's not the default, include it
 			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
 				allowedHeaders = append(allowedHeaders, authHeaderName)
@@ -264,10 +266,10 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// r.Header.Values is used to distinguish when the header is not set
-			vals := r.Header.Values("X-Neo4j-MCP-ReadOnly")
+			vals := r.Header.Values(ReadOnlyHeader)
 
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-ReadOnly header found", http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf("Bad Request: duplicate %s header found", ReadOnlyHeader), http.StatusBadRequest)
 				return
 			}
 			if len(vals) == 1 {
@@ -278,7 +280,7 @@ func readOnlyMiddleware() func(http.Handler) http.Handler {
 				case "true":
 					readOnly = true
 				default:
-					http.Error(w, `Bad Request: "X-Neo4j-MCP-ReadOnly" must be "true" or "false"`, http.StatusBadRequest)
+					http.Error(w, fmt.Sprintf(`Bad Request: %q must be "true" or "false"`, ReadOnlyHeader), http.StatusBadRequest)
 					return
 				}
 				ctx := mcpcontext.WithReadOnly(r.Context(), readOnly)
@@ -299,9 +301,9 @@ func toolsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// r.Header.Values is used to distinguish when the header is not set
-			vals := r.Header.Values("X-Neo4j-MCP-Tools")
+			vals := r.Header.Values(ToolsHeader)
 			if len(vals) > 1 {
-				http.Error(w, "Bad Request: duplicate X-Neo4j-MCP-Tools header found", http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf("Bad Request: duplicate %s header found", ToolsHeader), http.StatusBadRequest)
 				return
 			}
 			if len(vals) == 1 {
@@ -325,6 +327,46 @@ func toolsMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// timeoutMiddleware resolves the effective request timeout from HTTP headers.
+func timeoutMiddleware(maxTimeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			effectiveTimeout, err := resolveRequestTimeout(maxTimeout, r.Header.Values(TimeoutHeader))
+			if err != nil {
+				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			ctx := mcpcontext.WithRequestTimeout(r.Context(), effectiveTimeout)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// resolveRequestTimeout determines the effective request timeout from the server
+// maximum and an optional per-request header value.
+func resolveRequestTimeout(maxTimeout time.Duration, headerValues []string) (time.Duration, error) {
+	if len(headerValues) > 1 {
+		return 0, fmt.Errorf("duplicate %s header found", TimeoutHeader)
+	}
+	if len(headerValues) == 0 {
+		return maxTimeout, nil
+	}
+
+	requested, err := time.ParseDuration(strings.TrimSpace(headerValues[0]))
+	if err != nil {
+		return 0, fmt.Errorf("%q must be a valid duration (e.g. \"30s\", \"2m\")", TimeoutHeader)
+	}
+	if requested <= 0 {
+		return 0, fmt.Errorf("%q must be a positive duration", TimeoutHeader)
+	}
+	if requested > maxTimeout {
+		return 0, fmt.Errorf("%q (%s) exceeds server maximum (%s)", TimeoutHeader, requested, maxTimeout)
+	}
+
+	return requested, nil
 }
 
 // dbNameMiddleware extracts and validates the database name from the URL path,

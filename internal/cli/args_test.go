@@ -324,6 +324,19 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "--neo4j-http-allow-unauthenticated-ping requires a value",
 		},
+		{
+			name:             "neo4j-request-timeout flag with valid value",
+			args:             []string{testProgramName, "--neo4j-request-timeout", "45s"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-request-timeout flag missing value",
+			args:             []string{testProgramName, "--neo4j-request-timeout"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-request-timeout requires a value",
+		},
 	}
 
 	for _, tt := range tests {
