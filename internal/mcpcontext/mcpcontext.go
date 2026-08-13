@@ -11,13 +11,6 @@ import (
 type contextKey string
 
 const (
-	basicAuthUserKey  contextKey = "basicAuthUser"
-	basicAuthPassKey  contextKey = "basicAuthPass"
-	bearerTokenKey    contextKey = "bearerToken"
-	databaseNameKey   contextKey = "databaseName"
-	driverKey         contextKey = "neo4jDriver"
-	readOnlyKey       contextKey = "readOnly"
-	toolsKey          contextKey = "tools"
 	requestTimeoutKey contextKey = "requestTimeout"
 	basicAuthUserKey  contextKey = "basicAuthUser"
 	basicAuthPassKey  contextKey = "basicAuthPass"
