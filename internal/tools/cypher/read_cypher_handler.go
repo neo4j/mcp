@@ -35,8 +35,6 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 	Query := args.Query
 	Params := args.Params
 
-	slog.Info("executing read cypher query", "query", Query)
-
 	// Validate that query is not empty
 	if Query == "" {
 		errMessage := "Query parameter is required and cannot be empty"
@@ -53,7 +51,7 @@ func handleReadCypher(ctx context.Context, request mcp.CallToolRequest, deps *to
 
 	if queryType != neo4j.QueryTypeReadOnly { // only queryType == "r" are allowed in read-cypher
 		errMessage := "read-cypher can only run read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead."
-		slog.Error("rejected non-read query", "type", queryType, "query", Query)
+		slog.Error("rejected non-read query", "type", queryType)
 		return mcp.NewToolResultError(errMessage), nil
 	}
 

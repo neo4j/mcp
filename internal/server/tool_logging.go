@@ -20,7 +20,7 @@ func withToolLogging(toolName string, handler server.ToolHandlerFunc) server.Too
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		start := time.Now()
 
-		slog.Info("tool call started", append(logger.AppendRequestInfo(ctx), "tool", toolName)...)
+		slog.Debug("tool call started", append(logger.AppendRequestInfo(ctx), "tool", toolName)...)
 
 		result, err := handler(ctx, req)
 		durationMS := time.Since(start).Milliseconds()
@@ -35,8 +35,13 @@ func withToolLogging(toolName string, handler server.ToolHandlerFunc) server.Too
 		if result != nil {
 			success = !result.IsError
 		}
-		slog.Info("tool call completed", append(logger.AppendRequestInfo(ctx),
-			"tool", toolName, "success", success, "duration_ms", durationMS)...)
+		if success {
+			slog.Info("tool call completed", append(logger.AppendRequestInfo(ctx),
+				"tool", toolName, "success", true, "duration_ms", durationMS)...)
+		} else {
+			slog.Warn("tool call completed", append(logger.AppendRequestInfo(ctx),
+				"tool", toolName, "success", false, "duration_ms", durationMS)...)
+		}
 
 		return result, nil
 	}

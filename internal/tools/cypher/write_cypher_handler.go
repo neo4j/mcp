@@ -42,8 +42,6 @@ func handleWriteCypher(ctx context.Context, request mcp.CallToolRequest, deps *t
 		return mcp.NewToolResultError(errMessage), nil
 	}
 
-	slog.Info("executing write cypher query", "query", Query)
-
 	// Execute the Cypher query using the database service
 	records, err := deps.DBService.ExecuteWriteQuery(ctx, Query, Params)
 	if err != nil {

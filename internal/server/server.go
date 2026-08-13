@@ -138,7 +138,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 					readOnlyHint := serverTool.Tool.Annotations.ReadOnlyHint
 					if readOnlyHint == nil || !*readOnlyHint {
-						slog.Error("tool execution blocked", append(logger.AppendRequestInfo(ctx),
+						slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
 							"tool", req.Params.Name, "reason", "read_only")...)
 						return mcp.NewToolResultError(fmt.Sprintf("'%s' is not permitted in read-only mode", req.Params.Name)), nil
 					}
@@ -146,13 +146,18 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 				tools := mcpcontext.GetTools(ctx)
 				if tools != nil && !slices.Contains(*tools, req.Params.Name) {
-					slog.Error("tool execution blocked", append(logger.AppendRequestInfo(ctx),
+					slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
 						"tool", req.Params.Name, "reason", "not_in_tools_list")...)
 					return mcp.NewToolResultError(fmt.Sprintf("'%s' is not in the list of configured tools", req.Params.Name)), nil
 				}
 
 				result, err := next(ctx, req)
 				if isRequestDeadlineExceeded(ctx, err) {
+					slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+						"mcp_method", mcp.MethodToolsCall,
+						"tool", req.Params.Name,
+						"phase", "tool_execution",
+						"request_timeout_ms", timeout.Milliseconds())...)
 					return mcp.NewToolResultError(formatRequestTimeoutError(ctx)), nil
 				}
 
@@ -524,7 +529,13 @@ func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
 // unrelated to the MCP initialize method requests and is triggered by all requests.
 func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, message any) error {
 	method, ok := jsonRPCMethod(message)
-	if !ok || method != mcp.MethodInitialize {
+	if !ok {
+		return nil
+	}
+
+	slog.Info("request started", append(logger.AppendRequestInfo(ctx), "mcp_method", method)...)
+
+	if method != mcp.MethodInitialize {
 		return nil
 	}
 
@@ -539,6 +550,10 @@ func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, mes
 	slog.Info("Initialize request: verifying requirements...")
 	if err := s.verifyRequirements(ctx); err != nil {
 		if isRequestDeadlineExceeded(ctx, err) {
+			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+				"mcp_method", mcp.MethodInitialize,
+				"phase", "initialize",
+				"request_timeout_ms", timeout.Milliseconds())...)
 			return errors.New(formatRequestTimeoutError(ctx))
 		}
 		slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
