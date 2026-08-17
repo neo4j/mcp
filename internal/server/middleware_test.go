@@ -428,8 +428,8 @@ func TestCORSMiddleware_MissingOriginHeader(t *testing.T) {
 	}
 }
 
-func TestLoggingMiddleware(t *testing.T) {
-	handler := loggingMiddleware()(mockHandler())
+func TestObservabilityMiddleware(t *testing.T) {
+	handler := observabilityMiddleware()(mockHandler())
 
 	req := httptest.NewRequest("GET", "/test?foo=bar", nil)
 	req.Header.Set("User-Agent", "test-agent")
@@ -441,10 +441,53 @@ func TestLoggingMiddleware(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", rec.Code)
 	}
 
-	// Logging middleware should not modify the response
+	// Observability middleware should not modify the response body
 	if rec.Body.String() != "OK" {
 		t.Errorf("Expected body 'OK', got %q", rec.Body.String())
 	}
+}
+
+func TestAuthTypeFromRequest(t *testing.T) {
+	t.Run("bearer", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.Header.Set("Authorization", "Bearer token")
+		if got := authTypeFromRequest(req); got != "bearer" {
+			t.Fatalf("expected bearer, got %q", got)
+		}
+	})
+
+	t.Run("basic", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.SetBasicAuth("user", "pass")
+		if got := authTypeFromRequest(req); got != "basic" {
+			t.Fatalf("expected basic, got %q", got)
+		}
+	})
+
+	t.Run("none", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		if got := authTypeFromRequest(req); got != "none" {
+			t.Fatalf("expected none, got %q", got)
+		}
+	})
+}
+
+func TestReadOnlyFromRequest(t *testing.T) {
+	t.Run("true", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.Header.Set("X-Neo4j-MCP-ReadOnly", "true")
+		got, ok := readOnlyFromRequest(req)
+		if !ok || !got {
+			t.Fatalf("expected true, got %v %v", got, ok)
+		}
+	})
+
+	t.Run("absent", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		if _, ok := readOnlyFromRequest(req); ok {
+			t.Fatal("expected header to be absent")
+		}
+	})
 }
 
 func TestAddMiddleware_FullChain(t *testing.T) {

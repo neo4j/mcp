@@ -122,7 +122,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 	res, err := neo4j.ExecuteQuery(ctx, driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
-		slog.Error("Error in ExecuteReadQuery", "error", wrappedErr)
+		slog.Error("Error in ExecuteReadQuery", ErrorLogAttrs(wrappedErr)...)
 
 		return nil, wrappedErr
 	}
@@ -145,7 +145,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	res, err := neo4j.ExecuteQuery(ctx, driver, cypher, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
-		slog.Error("Error in ExecuteWriteQuery", "error", wrappedErr)
+		slog.Error("Error in ExecuteWriteQuery", ErrorLogAttrs(wrappedErr)...)
 		return nil, wrappedErr
 	}
 
@@ -170,7 +170,7 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	res, err := neo4j.ExecuteQuery(ctx, driver, explainedQuery, params, neo4j.EagerResultTransformer, queryOptions...)
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
-		slog.Error("Error during GetQueryType", "error", wrappedErr)
+		slog.Error("Error during GetQueryType", ErrorLogAttrs(wrappedErr)...)
 		return neo4j.QueryTypeUnknown, wrappedErr
 	}
 
