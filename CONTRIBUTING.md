@@ -39,6 +39,14 @@ go run ./cmd/neo4j-mcp
 go install -C cmd/neo4j-mcp
 ```
 
+## Configuration naming
+
+When adding a configuration setting:
+
+- Prefix environment variables with `NEO4J_MCP_` and use uppercase snake case, for example `NEO4J_MCP_SCHEMA_SAMPLE_SIZE`.
+- Keep CLI flags short and use kebab case. Avoid redundant `neo4j-` or `mcp-` prefixes because the executable already provides that scope, for example `--schema-sample-size`.
+- Keep the environment variable and CLI flag names aligned, and update their help text, tests, examples, and changelog together.
+
 ## Mocks
 
 We rely on interface-based dependency injection plus generated mocks (gomock) so tests run without a live Neo4j instance.
