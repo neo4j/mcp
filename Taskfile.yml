@@ -2,18 +2,28 @@
 
 version: "3"
 
-dotenv: [".env.task"]
-
 tasks:
   build:
     cmds:
       - go build -C cmd/neo4j-mcp -o ../../bin/ {{.CLI_ARGS}}
   run:
+    dotenv: [".env.task"]
     cmds:
       - go run ./cmd/neo4j-mcp
   run:compiled:
+    dotenv: [".env.task"]
     cmds:
       - ./bin/neo4j-mcp {{.CLI_ARGS}}
+  inspect:
+    dotenv: [".env.task"]
+    cmds:
+      - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
+  interactive-client:
+    cmds:
+      - go run ./client/... bin/neo4j-mcp
+  lint:
+    cmds:
+      - golangci-lint run
   generate:
     cmds:
       - go generate ./...
@@ -33,12 +43,3 @@ tasks:
   test:clean:
     cmds:
       - go clean -testcache
-  lint:
-    cmds:
-      - golangci-lint run
-  inspect:
-    cmds:
-      - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
-  interactive-client:
-    cmds:
-      - go run ./client/... bin/neo4j-mcp
