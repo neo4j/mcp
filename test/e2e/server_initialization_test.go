@@ -265,9 +265,7 @@ func TestServerInitializationE2E(t *testing.T) {
 					IdempotentHint:  mcp.ToBoolPtr(true),
 					OpenWorldHint:   mcp.ToBoolPtr(true),
 				},
-				properties: map[string]propertyExpectation{
-					"properties": {jsonSchemaType: "object", required: true},
-				},
+				properties: map[string]propertyExpectation{},
 			},
 			"list-gds-procedures": {
 				annotations: mcp.ToolAnnotation{
@@ -277,9 +275,7 @@ func TestServerInitializationE2E(t *testing.T) {
 					IdempotentHint:  mcp.ToBoolPtr(true),
 					OpenWorldHint:   mcp.ToBoolPtr(true),
 				},
-				properties: map[string]propertyExpectation{
-					"properties": {jsonSchemaType: "object", required: true},
-				},
+				properties: map[string]propertyExpectation{},
 			},
 		}
 

@@ -12,6 +12,13 @@ By implementing the Model Context Protocol (MCP), it acts as a bridge between an
 - Run Cypher queries - execute, read, and write queries against your database in response to natural language prompts
 - Inspect and analyze data - retrieve nodes, relationships, and paths to answer questions, generate summaries, or feed data to other workflows
 
+## Tools
+
+- `get-schema` — introspect labels, relationship types, property keys
+- `read-cypher` — execute read-only Cypher queries
+- `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
+- `list-gds-procedures` — list available GDS procedures
+
 ## Migrating from v1 to v2
 
 v2 makes HTTP mode multi-tenant: the target database and Neo4j URI now come from each request, so one server can serve multiple instances.
@@ -79,12 +86,6 @@ Create / edit `mcp.json`:
 
 See [MCP documentation > Configuration](https://neo4j.com/docs/mcp/current/configuration) for more details.
 
-## Tools
-
-- `get-schema` — introspect labels, relationship types, property keys
-- `read-cypher` — execute read-only Cypher queries
-- `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
-- `list-gds-procedures` — list available GDS procedures
 
 ## Links
 
