@@ -215,12 +215,6 @@ When adding new database operations:
 - Tests failing unexpectedly → regenerate mocks, verify env vars, rerun full test suite.
 - Dependency/build issues → `go mod tidy`.
 
-## Update the MCPB bundle (for Claude Desktop)
-
-If your changes impact the end-user configuration (e.g., adding new environment variables or modifying tool definitions), you must update the `manifest.json` file. This ensures that integrations like Claude Desktop are aware of the new server configuration.
-
-For more information refer to the dedicated guide: [the MCPB build documentation](https://neo4j.com/docs/mcp/current/installation#mcpb).
-
 ### Getting help
 
 - Check existing [GitHub Issues](https://github.com/neo4j/mcp/issues)
