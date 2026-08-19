@@ -36,6 +36,8 @@ func startHTTPModeServer(t *testing.T) string {
 	// In HTTP mode the config validation rejects NEO4J_MCP_USERNAME / NEO4J_MCP_PASSWORD —
 	// credentials are supplied per-request via Basic Auth headers instead.
 	// Strip those keys so the e2e suite's env values don't cause a startup error.
+	// TODO: Server dooes not capture the stderr making the failing less visible on the surface, 
+	// it will be good to capture it.
 	cmd := exec.Command(server, // #nosec G204 -- server is a binary path built by the test harness, not user input
 		"--uri", dbs.GetDriverConf().URI,
 		"--transport-mode", "http",
@@ -43,11 +45,11 @@ func startHTTPModeServer(t *testing.T) string {
 		"--http-port", fmt.Sprintf("%d", port),
 		"--telemetry", "false",
 	)
-	cmd.Env = stripEnv(os.Environ(), "NEO4J_MCP_USERNAME", "NEO4J_MCP_PASSWORD")
+	// as for the above these environment variables are stripped so that the underline MCP SERVER start with the desire test constraints.
+	cmd.Env = stripEnv(os.Environ(), "NEO4J_USERNAME", "NEO4J_MCP_USERNAME", "NEO4J_PASSWORD", "NEO4J_PASSWORD")
 
 	require.NoError(t, cmd.Start(), "failed to start HTTP server")
 
-	
 	t.Cleanup(func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
