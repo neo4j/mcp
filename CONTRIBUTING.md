@@ -39,13 +39,17 @@ go run ./cmd/neo4j-mcp
 go install -C cmd/neo4j-mcp
 ```
 
-## Configuration naming
+## User-facing configuration naming (environment variables and CLI args)
 
-When adding a configuration setting:
+When adding a user-facing configuration setting:
 
 - Prefix environment variables with `NEO4J_MCP_` and use uppercase snake case, for example `NEO4J_MCP_SCHEMA_SAMPLE_SIZE`.
 - Keep CLI flags short and use kebab case. Avoid redundant `neo4j-` or `mcp-` prefixes because the executable already provides that scope, for example `--schema-sample-size`.
 - Keep the environment variable and CLI flag names aligned, and update their help text, tests, examples, and changelog together.
+
+Note:
+These conventions apply only to environment variables and CLI flags exposed as supported configuration for users of the Neo4j MCP server. Do not add the `MCP` scope to variables consumed by internal development, test, build, or CI helpers, because those variables configure the helper rather than the MCP server. 
+Internal tooling may intentionally use organization-wide names such as `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` for the Neo4j instance used in CI, alongside controls such as `NEO4J_IMAGE` and `USE_CONTAINER`. The unscoped connection variables are deprecated only when consumed as user-facing MCP server configuration.
 
 ## Mocks
 

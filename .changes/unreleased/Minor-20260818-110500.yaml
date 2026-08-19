@@ -32,7 +32,7 @@ body: |
   | `--neo4j-read-only` | `--read-only` |
   | `--neo4j-telemetry` | `--telemetry` |
   | `--neo4j-schema-sample-size` | `--schema-sample-size` |
-  | `--neo4j-transport-mode` | `--transport` |
+  | `--neo4j-transport-mode` | `--transport-mode` |
   | `--neo4j-http-port` | `--http-port` |
   | `--neo4j-http-host` | `--http-host` |
   | `--neo4j-http-allowed-origins` | `--http-allowed-origins` |

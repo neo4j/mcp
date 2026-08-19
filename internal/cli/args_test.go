@@ -429,8 +429,8 @@ func TestHandleArgs_CanonicalFlags(t *testing.T) {
 			expectedExitCode: -1,
 		},
 		{
-			name:             "transport",
-			args:             []string{testProgramName, "--transport", "http"},
+			name:             "transport mode",
+			args:             []string{testProgramName, "--transport-mode", "http"},
 			version:          testVersion,
 			expectedExitCode: -1,
 		},
@@ -543,7 +543,7 @@ func TestParseConfigFlags_CanonicalFlagPrecedenceAndWarning(t *testing.T) {
 		testProgramName,
 		"--uri", "bolt://canonical-host:7687",
 		"--neo4j-uri", "bolt://legacy-host:7687",
-		"--transport", "http",
+		"--transport-mode", "http",
 		"--neo4j-transport-mode", "stdio",
 	}
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)

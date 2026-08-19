@@ -29,7 +29,7 @@ Options:
   --read-only <BOOLEAN>               Enable read-only mode: true or false (overrides NEO4J_MCP_READ_ONLY)
   --telemetry <BOOLEAN>               Enable telemetry: true or false (overrides NEO4J_MCP_TELEMETRY)
   --schema-sample-size <INT>          Number of nodes to sample for schema inference (overrides NEO4J_MCP_SCHEMA_SAMPLE_SIZE)
-  --transport <MODE>                  MCP transport mode: 'stdio' or 'http' (overrides NEO4J_MCP_TRANSPORT_MODE)
+  --transport-mode <MODE>             MCP transport mode: 'stdio' or 'http' (overrides NEO4J_MCP_TRANSPORT_MODE)
   --http-port <PORT>                  HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
   --http-host <HOST>                  HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
   --http-allowed-origins <ORIGINS>    Comma-separated list of allowed CORS origins (overrides NEO4J_MCP_HTTP_ALLOWED_ORIGINS)
@@ -113,7 +113,7 @@ var argsSlice = []string{
 	"--neo4j-telemetry",
 	"--schema-sample-size",
 	"--neo4j-schema-sample-size",
-	"--transport",
+	"--transport-mode",
 	"--neo4j-transport-mode",
 	"--http-port",
 	"--neo4j-http-port",
@@ -164,8 +164,8 @@ func ParseConfigFlags() *Args {
 	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Deprecated alias for --telemetry")
 	schemaSampleSize := flag.String("schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_MCP_SCHEMA_SAMPLE_SIZE env var)")
 	neo4jSchemaSampleSize := flag.String("neo4j-schema-sample-size", "", "Deprecated alias for --schema-sample-size")
-	transport := flag.String("transport", "", "MCP transport mode: stdio or http (overrides NEO4J_MCP_TRANSPORT_MODE env var)")
-	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "Deprecated alias for --transport")
+	transportMode := flag.String("transport-mode", "", "MCP transport mode: stdio or http (overrides NEO4J_MCP_TRANSPORT_MODE env var)")
+	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "Deprecated alias for --transport-mode")
 	httpPort := flag.String("http-port", "", "HTTP server port (overrides NEO4J_MCP_HTTP_PORT env var)")
 	neo4jHTTPPort := flag.String("neo4j-http-port", "", "Deprecated alias for --http-port")
 	httpHost := flag.String("http-host", "", "HTTP server host (overrides NEO4J_MCP_HTTP_HOST env var)")
@@ -195,7 +195,7 @@ func ParseConfigFlags() *Args {
 		ReadOnly:                          mergeFlagValue(readOnly, neo4jReadOnly, "--read-only", "--neo4j-read-only"),
 		Telemetry:                         mergeFlagValue(telemetry, neo4jTelemetry, "--telemetry", "--neo4j-telemetry"),
 		SchemaSampleSize:                  mergeFlagValue(schemaSampleSize, neo4jSchemaSampleSize, "--schema-sample-size", "--neo4j-schema-sample-size"),
-		TransportMode:                     mergeFlagValue(transport, neo4jTransportMode, "--transport", "--neo4j-transport-mode"),
+		TransportMode:                     mergeFlagValue(transportMode, neo4jTransportMode, "--transport-mode", "--neo4j-transport-mode"),
 		HTTPPort:                          mergeFlagValue(httpPort, neo4jHTTPPort, "--http-port", "--neo4j-http-port"),
 		HTTPHost:                          mergeFlagValue(httpHost, neo4jHTTPHost, "--http-host", "--neo4j-http-host"),
 		HTTPAllowedOrigins:                mergeFlagValue(httpAllowedOrigins, neo4jHTTPAllowedOrigins, "--http-allowed-origins", "--neo4j-http-allowed-origins"),
