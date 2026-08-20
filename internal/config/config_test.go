@@ -459,6 +459,36 @@ func TestLoadConfig_CanonicalEnvironmentVariables(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_InvalidLogConfigurationFallsBackToDefaults(t *testing.T) {
+	t.Setenv("NEO4J_MCP_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_MCP_USERNAME", "neo4j")
+	t.Setenv("NEO4J_MCP_PASSWORD", "password")
+	t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "stdio")
+	t.Setenv("NEO4J_MCP_LOG_LEVEL", "DEBUG")
+	t.Setenv("NEO4J_MCP_LOG_FORMAT", "JSON")
+
+	var cfg *Config
+	var loadErr error
+	_, stderr := captureOutput(func() {
+		cfg, loadErr = LoadConfig(nil)
+	})
+	if loadErr != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", loadErr)
+	}
+	if cfg.LogLevel != "info" {
+		t.Errorf("LoadConfig() LogLevel = %q, want default %q", cfg.LogLevel, "info")
+	}
+	if cfg.LogFormat != "text" {
+		t.Errorf("LoadConfig() LogFormat = %q, want default %q", cfg.LogFormat, "text")
+	}
+	if !strings.Contains(stderr, "invalid NEO4J_MCP_LOG_LEVEL 'DEBUG'") {
+		t.Errorf("stderr = %q, want invalid log level warning", stderr)
+	}
+	if !strings.Contains(stderr, "invalid NEO4J_MCP_LOG_FORMAT 'JSON'") {
+		t.Errorf("stderr = %q, want invalid log format warning", stderr)
+	}
+}
+
 func TestLoadConfig_DeprecatedEnvironmentAliasWarningAndPrecedence(t *testing.T) {
 	t.Setenv("NEO4J_MCP_URI", "bolt://canonical-host:7687")
 	t.Setenv("NEO4J_MCP_USERNAME", "canonical-user")
