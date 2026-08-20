@@ -149,5 +149,4 @@ openssl s_client -connect 127.0.0.1:8443 </dev/null 2>/dev/null | grep "Cipher"
 - **`-k` flag**: Skips certificate verification (needed for self-signed certificates)
 - **Basic Auth**: All requests require `-u username:password`
 - **Content-Type**: MCP requests need `Content-Type: application/json` header
-- **X-Neo4j-MCP-URI**: HTTP mode requires this header on every request, set to the target Neo4j bolt URI (e.g. `bolt://localhost:7687`)
 - **Port**: Default port is 443 when TLS is enabled, 80 when TLS is disabled (configurable via `--neo4j-http-port` or `NEO4J_MCP_HTTP_PORT`)
