@@ -45,20 +45,20 @@ openssl req -x509 -newkey rsa:4096 \
 ```bash
 # Default port 443 when TLS is enabled
 ./bin/neo4j-mcp \
-  --neo4j-uri bolt://localhost:7687 \
-  --neo4j-transport-mode http \
-  --neo4j-http-tls-enabled true \
-  --neo4j-http-tls-cert-file cert.pem \
-  --neo4j-http-tls-key-file key.pem
+  --uri bolt://localhost:7687 \
+  --transport-mode http \
+  --http-tls-enabled true \
+  --http-tls-cert-file cert.pem \
+  --http-tls-key-file key.pem
 
 # Or specify a custom port like 8443
 ./bin/neo4j-mcp \
-  --neo4j-uri bolt://localhost:7687 \
-  --neo4j-transport-mode http \
-  --neo4j-http-port 8443 \
-  --neo4j-http-tls-enabled true \
-  --neo4j-http-tls-cert-file cert.pem \
-  --neo4j-http-tls-key-file key.pem
+  --uri bolt://localhost:7687 \
+  --transport-mode http \
+  --http-port 8443 \
+  --http-tls-enabled true \
+  --http-tls-cert-file cert.pem \
+  --http-tls-key-file key.pem
 ```
 
 
@@ -148,4 +148,4 @@ openssl s_client -connect 127.0.0.1:8443 </dev/null 2>/dev/null | grep "Cipher"
 - **`-k` flag**: Skips certificate verification (needed for self-signed certificates)
 - **Basic Auth**: All requests require `-u username:password`
 - **Content-Type**: MCP requests need `Content-Type: application/json` header
-- **Port**: Default port is 443 when TLS is enabled, 80 when TLS is disabled (configurable via `--neo4j-http-port` or `NEO4J_MCP_HTTP_PORT`)
+- **Port**: Default port is 443 when TLS is enabled, 80 when TLS is disabled (configurable via `--http-port` or `NEO4J_MCP_HTTP_PORT`)

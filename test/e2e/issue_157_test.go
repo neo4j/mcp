@@ -38,10 +38,10 @@ func TestIssue157(t *testing.T) {
 
 	cfg := dbs.GetDriverConf()
 	args := []string{
-		"--neo4j-uri", cfg.URI,
-		"--neo4j-username", cfg.Username,
-		"--neo4j-password", cfg.Password,
-		"--neo4j-database", cfg.Database,
+		"--uri", cfg.URI,
+		"--username", cfg.Username,
+		"--password", cfg.Password,
+		"--database", cfg.Database,
 	}
 
 	mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)

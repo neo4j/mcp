@@ -12,7 +12,7 @@ import (
 
 // registerTools registers all enabled MCP tools and adds them to the provided MCP server.
 // Tools are filtered according to the server configuration. For example, when the read-only
-// mode is enabled (e.g. via the NEO4J_READ_ONLY environment variable or the Config.ReadOnly flag),
+// mode is enabled (e.g. via the NEO4J_MCP_READ_ONLY environment variable or the Config.ReadOnly flag),
 // any tool that performs state mutation will be excluded; only tools annotated as read-only will be registered.
 // Note: this read-only filtering relies on the tool annotation "readonly" (ReadOnlyHint). If the annotation
 // is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).

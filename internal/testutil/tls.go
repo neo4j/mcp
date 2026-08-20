@@ -11,8 +11,9 @@ import (
 // testCertPEM is a pre-generated self-signed certificate for testing.
 // Valid for localhost and 127.0.0.1 until year 2125.
 // Generated with:
-//   openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem \
-//     -days 36500 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+//
+//	openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem \
+//	  -days 36500 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 const testCertPEM = `-----BEGIN CERTIFICATE-----
 MIIDJzCCAg+gAwIBAgIUGQUaZliZYJFuT/jVCbQjKXjInUAwDQYJKoZIhvcNAQEL
 BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MCAXDTI1MTIxMjAwMjY0NVoYDzIxMjUx
