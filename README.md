@@ -78,11 +78,6 @@ Create / edit `mcp.json`:
         "NEO4J_MCP_USERNAME": "neo4j",
         "NEO4J_MCP_PASSWORD": "password",
         "NEO4J_MCP_DATABASE": "neo4j",
-        "NEO4J_MCP_READ_ONLY": "true",
-        "NEO4J_MCP_TELEMETRY": "false",
-        "NEO4J_MCP_LOG_LEVEL": "info",
-        "NEO4J_MCP_LOG_FORMAT": "text",
-        "NEO4J_MCP_SCHEMA_SAMPLE_SIZE": "100"
       }
     }
   }
