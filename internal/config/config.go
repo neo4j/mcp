@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/neo4j/mcp/internal/logger"
 )
 
 type TransportMode string
@@ -128,6 +130,21 @@ type CLIOverrides struct {
 func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	warnOnDeprecatedUsage()
 
+	logLevel := GetEnvWithAliasesDefault("NEO4J_MCP_LOG_LEVEL", "info", "NEO4J_LOG_LEVEL")
+	logFormat := GetEnvWithAliasesDefault("NEO4J_MCP_LOG_FORMAT", "text", "NEO4J_LOG_FORMAT")
+
+	// Validate log level and use default if invalid
+	if !slices.Contains(logger.ValidLogLevels, logLevel) {
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_MCP_LOG_LEVEL '%s', using default 'info'. Valid values: %v\n", logLevel, logger.ValidLogLevels)
+		logLevel = "info"
+	}
+
+	// Validate log format and use default if invalid
+	if !slices.Contains(logger.ValidLogFormats, logFormat) {
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_MCP_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
+		logFormat = "text"
+	}
+
 	cfg := &Config{
 		URI:                           GetEnvWithAliases("NEO4J_MCP_URI", "NEO4J_URI"),
 		Username:                      GetEnvWithAliases("NEO4J_MCP_USERNAME", "NEO4J_USERNAME"),
@@ -135,8 +152,8 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		Database:                      GetEnvWithAliasesDefault("NEO4J_MCP_DATABASE", "neo4j", "NEO4J_DATABASE"),
 		ReadOnly:                      ParseBool(GetEnvWithAliases("NEO4J_MCP_READ_ONLY", "NEO4J_READ_ONLY"), false),
 		Telemetry:                     ParseBool(GetEnvWithAliases("NEO4J_MCP_TELEMETRY", "NEO4J_TELEMETRY"), true),
-		LogLevel:                      GetEnvWithAliasesDefault("NEO4J_MCP_LOG_LEVEL", "info", "NEO4J_LOG_LEVEL"),
-		LogFormat:                     GetEnvWithAliasesDefault("NEO4J_MCP_LOG_FORMAT", "text", "NEO4J_LOG_FORMAT"),
+		LogLevel:                      logLevel,
+		LogFormat:                     logFormat,
 		SchemaSampleSize:              ParseInt32(GetEnvWithAliases("NEO4J_MCP_SCHEMA_SAMPLE_SIZE", "NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
 		TransportMode:                 TransportMode(GetEnvWithAliasesDefault("NEO4J_MCP_TRANSPORT_MODE", string(TransportModeStdio), "NEO4J_TRANSPORT_MODE", "NEO4J_MCP_TRANSPORT")),
 		HTTPPort:                      GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
