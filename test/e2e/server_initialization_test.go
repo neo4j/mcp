@@ -24,10 +24,10 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -55,11 +55,11 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
-			"--neo4j-read-only", "true",
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
+			"--read-only", "true",
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -90,11 +90,11 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
-			"--neo4j-read-only", "false",
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
+			"--read-only", "false",
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -116,11 +116,11 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
-			"--neo4j-telemetry", "false",
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
+			"--telemetry", "false",
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -142,11 +142,11 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
-			"--neo4j-schema-sample-size", "50",
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
+			"--schema-sample-size", "50",
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -168,11 +168,11 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
-			"--neo4j-schema-sample-size", "not-a-number",
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
+			"--schema-sample-size", "not-a-number",
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -194,10 +194,10 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Parallel()
 
 		args := []string{
-			"--neo4j-uri", cfg.URI,
-			"--neo4j-username", cfg.Username,
-			"--neo4j-password", cfg.Password,
-			"--neo4j-database", cfg.Database,
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
 		}
 
 		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
