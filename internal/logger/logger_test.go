@@ -164,7 +164,7 @@ func TestLogLevelChange(t *testing.T) {
 }
 
 func TestRedactionLogic(t *testing.T) {
-	t.Run("sensitive keys are redacted", func(t *testing.T) {
+	t.Run("raw connection and credential keys are always redacted", func(t *testing.T) {
 		sensitiveFields := map[string]string{ // #nosec G101 -- test data for redaction logic verification
 			"password":   "my-secret-password",
 			"token":      "bearer-token-123",
@@ -172,6 +172,8 @@ func TestRedactionLogic(t *testing.T) {
 			"secret":     "super-secret-value",
 			"auth_token": "auth-token-xyz",
 			"uri":        "bolt://user:pass@localhost:7687",
+			"url":        "http://127.0.0.1:8080",
+			"listen_url": "http://127.0.0.1:8080",
 			"address":    "192.168.1.1",
 			"host":       "localhost",
 			"port":       "7687",
@@ -323,6 +325,8 @@ func TestRedactionLogic(t *testing.T) {
 
 			// Sensitive keys - Connection details
 			{"uri", true},
+			{"url", true},
+			{"listen_url", true},
 			{"address", true},
 			{"host", true},
 			{"port", true},
@@ -335,6 +339,8 @@ func TestRedactionLogic(t *testing.T) {
 			{"region", false},
 			{"database", false},
 			{"username", false},
+			{"neo4j_target", false},
+			{"db_id", false},
 			{"msg", false},
 			{"level", false},
 			{"server_address", false},
@@ -347,6 +353,40 @@ func TestRedactionLogic(t *testing.T) {
 			if result != tc.shouldMask {
 				t.Errorf("isSensitiveKey(%q) = %v, expected %v", tc.key, result, tc.shouldMask)
 			}
+		}
+	})
+}
+
+func TestConnectionEndpointLoggingPolicy(t *testing.T) {
+	t.Run("sanitized target is visible under neo4j_target", func(t *testing.T) {
+		target := logger.SafeBoltTarget("bolt://user:pass@e0c3fbb3.databases.neo4j.io")
+		buf := &bytes.Buffer{}
+		log := logger.New("info", "text", buf)
+
+		log.Info("connect", "neo4j_target", target)
+		output := buf.String()
+
+		if !strings.Contains(output, target) {
+			t.Fatalf("expected visible target %q in output: %s", target, output)
+		}
+		if strings.Contains(output, "user:pass") {
+			t.Fatalf("credentials must not appear in output: %s", output)
+		}
+	})
+
+	t.Run("sanitized value is still redacted under bolt_uri", func(t *testing.T) {
+		target := logger.SafeBoltTarget("bolt://user:pass@host:7687")
+		buf := &bytes.Buffer{}
+		log := logger.New("info", "text", buf)
+
+		log.Info("connect", "bolt_uri", target)
+		output := buf.String()
+
+		if strings.Contains(output, target) {
+			t.Fatalf("forbidden key must redact even sanitized values: %s", output)
+		}
+		if !strings.Contains(output, "[REDACTED]") {
+			t.Fatalf("expected [REDACTED] in output: %s", output)
 		}
 	})
 }

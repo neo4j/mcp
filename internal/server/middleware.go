@@ -4,16 +4,20 @@
 package server
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"errors"
-	"io"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
-	"github.com/neo4j/mcp/internal/auth"
+	"github.com/google/uuid"
+	"github.com/neo4j/mcp/internal/config"
+	"github.com/neo4j/mcp/internal/database"
+	"github.com/neo4j/mcp/internal/logger"
+	"github.com/neo4j/mcp/internal/mcpcontext"
 )
 
 const (
@@ -24,19 +28,13 @@ const (
 var errRequestBodyTooLarge = errors.New("request body too large")
 
 // chainMiddleware chains together all HTTP middleware for this server instance
+// last added middleware will be executed first
 func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
 	if s == nil || s.config == nil {
 		panic("chainMiddleware: server or config is nil")
 	}
 
-	// Chain middleware in reverse order (last added = first to execute)
-	// Execution order: PathValidator -> CORS -> Auth (Bearer/Basic) -> Logging -> Handler
-
-	// Start with the actual handler
 	handler := next
-
-	// Add logging middleware
-	handler = loggingMiddleware()(handler)
 
 	var unauthMethods []string
 	if s.config.AllowUnauthenticatedPing {
@@ -45,15 +43,123 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	if s.config.AllowUnauthenticatedToolsList {
 		unauthMethods = append(unauthMethods, "tools/list")
 	}
+
+	if s.uriResolver != nil && s.driverRegistry != nil {
+		handler = neo4jDriverMiddleware(s.uriResolver, s.driverRegistry)(handler)
+	}
+
 	handler = authMiddleware(s.config.AuthHeaderName, unauthMethods)(handler)
-
-	// Add CORS middleware (if configured) - includes Mcp-Session-Id in allowed headers
 	handler = corsMiddleware(allowedOrigins, s.config.AuthHeaderName)(handler)
-
-	// Add path validation middleware last (executes first - reject non-/mcp paths quickly)
+	handler = dbNameMiddleware()(handler)
 	handler = pathValidationMiddleware()(handler)
+	handler = readOnlyMiddleware()(handler)
+	handler = toolsMiddleware()(handler)
+	handler = timeoutMiddleware(effectiveRequestTimeout(s.config))(handler)
+	handler = observabilityMiddleware()(handler)
 
 	return handler
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.wroteHeader = true
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if !r.wroteHeader {
+		r.status = http.StatusOK
+		r.wroteHeader = true
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+// observabilityMiddleware assigns a server-generated request ID and logs request completion with status and duration.
+func observabilityMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := mcpcontext.WithRequestID(r.Context(), uuid.NewString())
+			r = r.WithContext(ctx)
+
+			start := time.Now()
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+			next.ServeHTTP(rec, r)
+
+			attrs := append(logger.AppendRequestInfo(ctx),
+				"http_method", r.Method,
+				"path", r.URL.Path,
+				"http_status", rec.status,
+				"duration_ms", time.Since(start).Milliseconds(),
+				"auth_type", authTypeFromRequest(r),
+			)
+			if tools := toolsFilterFromRequest(r); tools != "" {
+				attrs = append(attrs, "tools_filter", tools)
+			}
+			if readOnly, ok := readOnlyFromRequest(r); ok {
+				attrs = append(attrs, "read_only", readOnly)
+			}
+
+			slog.Info("request completed", attrs...)
+		})
+	}
+}
+
+// neo4jDriverMiddleware resolves the Neo4j bolt URI from the header
+func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistry) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uri, err := resolver.Resolve(r)
+			if err != nil {
+				rejectRequest(w, r, http.StatusBadRequest, uriRejectionReason(err), "Bad Request: "+err.Error())
+				return
+			}
+
+			targetInfo, err := TargetInfoFromURI(uri)
+			if err != nil {
+				rejectRequest(w, r, http.StatusBadRequest, "invalid_uri", "Bad Request: invalid Neo4j URI")
+				return
+			}
+
+			driver, err := registry.GetDriver(uri)
+			if err != nil {
+				slog.Error("Failed to create Neo4j driver for request", append(logger.AppendRequestInfo(r.Context()), "error", err)...)
+				rejectRequest(w, r, http.StatusBadRequest, "driver_create_failed", "Bad Request: failed to connect to the specified Neo4j instance")
+				return
+			}
+
+			defer func() {
+				if closeErr := driver.Close(context.Background()); closeErr != nil {
+					slog.Warn("Error closing per-request driver", append(logger.AppendRequestInfo(r.Context()), "error", closeErr)...)
+				}
+			}()
+
+			ctx := mcpcontext.WithDriver(r.Context(), driver)
+			ctx = mcpcontext.WithNeo4jTarget(ctx, targetInfo.Target)
+			if targetInfo.DBID != "" {
+				ctx = mcpcontext.WithDBID(ctx, targetInfo.DBID)
+			}
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func uriRejectionReason(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "missing required header"):
+		return "missing_uri_header"
+	case strings.Contains(msg, "scheme must be"):
+		return "invalid_uri_scheme"
+	default:
+		return "invalid_uri"
+	}
 }
 
 // authMiddleware enforces HTTP authentication (Bearer token or Basic Auth) for all requests in HTTP mode.
@@ -82,12 +188,12 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 
 				if token == "" {
 					w.Header().Set("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
-					http.Error(w, "Unauthorized: Bearer token is empty", http.StatusUnauthorized)
+					rejectRequest(w, r, http.StatusUnauthorized, "empty_bearer", "Unauthorized: Bearer token is empty")
 					return
 				}
 
 				// Bearer token provided - store in context
-				ctx := auth.WithBearerToken(r.Context(), token)
+				ctx := mcpcontext.WithBearerToken(r.Context(), token)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -103,7 +209,7 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 						ok, err := isUnauthenticatedMethodRequest(r, method)
 						if err != nil {
 							if errors.Is(err, errRequestBodyTooLarge) {
-								http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+								rejectRequest(w, r, http.StatusRequestEntityTooLarge, "body_too_large", err.Error())
 								return
 							}
 							// For other read errors or JSON errors, fall through and require auth
@@ -118,19 +224,19 @@ func authMiddleware(headerName string, unauthenticatedMethods []string) func(htt
 
 				w.Header().Add("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
 				w.Header().Add("WWW-Authenticate", `Bearer realm="Neo4j MCP Server"`)
-				http.Error(w, "Unauthorized: Basic or Bearer authentication required", http.StatusUnauthorized)
+				rejectRequest(w, r, http.StatusUnauthorized, "missing_auth", "Unauthorized: Basic or Bearer authentication required")
 				return
 			}
 
 			// Validate credentials are not empty (consistent with bearer token validation)
 			if user == "" || pass == "" {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Neo4j MCP Server"`)
-				http.Error(w, "Unauthorized: Username and password cannot be empty", http.StatusUnauthorized)
+				rejectRequest(w, r, http.StatusUnauthorized, "empty_basic_credentials", "Unauthorized: Username and password cannot be empty")
 				return
 			}
 
 			// Basic auth credentials provided - store in context
-			ctx := auth.WithBasicAuth(r.Context(), user, pass)
+			ctx := mcpcontext.WithBasicAuth(r.Context(), user, pass)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -159,8 +265,8 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
 
-			// Build allowed headers list, always include Content-Type and Authorization.
-			allowedHeaders := []string{"Content-Type", "Authorization"}
+			// Build allowed headers list, always including the supported Neo4j MCP headers.
+			allowedHeaders := []string{"Content-Type", "Authorization", URIHeader, ToolsHeader, ReadOnlyHeader, TimeoutHeader}
 			// If a custom auth header is configured, and it's not the default, include it
 			if authHeaderName != "" && !strings.EqualFold(authHeaderName, "Authorization") {
 				allowedHeaders = append(allowedHeaders, authHeaderName)
@@ -181,7 +287,7 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 	}
 }
 
-// pathValidationMiddleware validates that requests are only sent to /mcp path
+// pathValidationMiddleware validates that requests are only sent to /db/{databaseName}/mcp paths
 // and that the HTTP method is allowed. Returns 404 for all other paths to avoid
 // hanging connections, and 405 for any method other than POST or OPTIONS since
 // the MCP StreamableHTTP Transport spec requires all client messages to be POST
@@ -189,15 +295,15 @@ func corsMiddleware(allowedOrigins []string, authHeaderName string) func(http.Ha
 func pathValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Only /mcp path is valid for this MCP server
-			if r.URL.Path != "/mcp" && r.URL.Path != "/mcp/" {
-				http.Error(w, "Not Found: This server only handles requests to /mcp", http.StatusNotFound)
+			path := r.URL.Path
+			if _, err := parseMCPPath(path); err != nil {
+				rejectRequest(w, r, http.StatusNotFound, "invalid_path", "Not Found: This server only handles requests to /db/{databaseName}/mcp")
 				return
 			}
 			// Only POST and OPTIONS are supported.
 			if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 				w.Header().Set("Allow", "POST, OPTIONS")
-				http.Error(w, "Method Not Allowed: only POST is supported on /mcp", http.StatusMethodNotAllowed)
+				rejectRequest(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -205,68 +311,149 @@ func pathValidationMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// loggingMiddleware logs HTTP requests for debugging
-func loggingMiddleware() func(http.Handler) http.Handler {
+// readOnlyMiddleware reads the "X-Neo4j-MCP-ReadOnly" request header and stores
+// the resulting boolean in the request context. Accepted values are "true" and
+// "false" (case-insensitive). Any other non-empty value yields a 400 Bad Request.
+// When the header is absent it does not set the ReadOnly in the context.
+func readOnlyMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// r.Header.Values is used to distinguish when the header is not set
+			vals := r.Header.Values(ReadOnlyHeader)
 
-			slog.Debug("HTTP Request", // #nosec G706 -- logging HTTP request metadata, no user input in format string
-				"method", r.Method,
-				"url", r.URL.Path,
-				"remote_addr", r.RemoteAddr,
-				"user_agent", r.UserAgent(),
-				"content_length", r.ContentLength,
-				"host", r.Host,
-				"query", r.URL.RawQuery,
-			)
-
-			// Call the next handler
+			if len(vals) > 1 {
+				rejectRequest(w, r, http.StatusBadRequest, "duplicate_readonly_header", "Bad Request: duplicate X-Neo4j-MCP-ReadOnly header found")
+				return
+			}
+			if len(vals) == 1 {
+				var readOnly bool
+				switch strings.ToLower(vals[0]) {
+				case "false":
+					readOnly = false
+				case "true":
+					readOnly = true
+				default:
+					rejectRequest(w, r, http.StatusBadRequest, "invalid_readonly_value", `Bad Request: "X-Neo4j-MCP-ReadOnly" must be "true" or "false"`)
+					return
+				}
+				ctx := mcpcontext.WithReadOnly(r.Context(), readOnly)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-// isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
-// the request is a POST whose "method" field matches the given jsonRPCMethod.
-// The body is always restored so downstream handlers can read it normally.
-// Caller must have already wrapped r.Body with http.MaxBytesReader.
-func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool, error) {
-	if r.Method != http.MethodPost {
-		return false, nil
+// toolsMiddleware reads the "X-Neo4j-MCP-Tools" request header and stores
+// the resulting values in the request context. Accepted values are the tools
+// supported by the Neo4j MCP Server such as: "read-cypher", "get-schema".
+// Any other non-empty value yields a 400 Bad Request.
+// When the header is absent it does not set the Tools in the context.
+func toolsMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// r.Header.Values is used to distinguish when the header is not set
+			vals := r.Header.Values(ToolsHeader)
+			if len(vals) > 1 {
+				rejectRequest(w, r, http.StatusBadRequest, "duplicate_tools_header", "Bad Request: duplicate X-Neo4j-MCP-Tools header found")
+				return
+			}
+			if len(vals) == 1 {
+				tools := parseCommaSeparatedString(vals[0])
+				if len(tools) == 0 {
+					rejectRequest(w, r, http.StatusBadRequest, "invalid_tool_name", fmt.Sprintf("tool %q is invalid. Available tools are: %s", vals[0], strings.Join(config.AvailableTools, ", ")))
+					return
+				}
+
+				for _, toolName := range tools {
+					if !slices.Contains(config.AvailableTools, toolName) {
+						rejectRequest(w, r, http.StatusBadRequest, "invalid_tool_name", fmt.Sprintf("tool %q is invalid. Available tools are: %s", toolName, strings.Join(config.AvailableTools, ", ")))
+						return
+					}
+				}
+				ctx := mcpcontext.WithTools(r.Context(), tools)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+
+			}
+			next.ServeHTTP(w, r)
+		})
 	}
-	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
-		return false, errRequestBodyTooLarge
+}
+
+// timeoutMiddleware resolves the effective request timeout from HTTP headers.
+func timeoutMiddleware(maxTimeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			effectiveTimeout, err := resolveRequestTimeout(maxTimeout, r.Header.Values(TimeoutHeader))
+			if err != nil {
+				http.Error(w, "Bad Request: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			ctx := mcpcontext.WithRequestTimeout(r.Context(), effectiveTimeout)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// resolveRequestTimeout determines the effective request timeout from the server
+// maximum and an optional per-request header value.
+func resolveRequestTimeout(maxTimeout time.Duration, headerValues []string) (time.Duration, error) {
+	if len(headerValues) > 1 {
+		return 0, fmt.Errorf("duplicate %s header found", TimeoutHeader)
+	}
+	if len(headerValues) == 0 {
+		return maxTimeout, nil
 	}
 
-	buf, err := io.ReadAll(r.Body)
-	// Close the original body to free resources.
-	if rc := r.Body; rc != nil {
-		_ = rc.Close()
-	}
-
+	requested, err := time.ParseDuration(strings.TrimSpace(headerValues[0]))
 	if err != nil {
-		// Replace body with an empty reader to avoid further reads.
-		r.Body = io.NopCloser(bytes.NewReader(nil))
+		return 0, fmt.Errorf("%q must be a valid duration (e.g. \"30s\", \"2m\")", TimeoutHeader)
+	}
+	if requested <= 0 {
+		return 0, fmt.Errorf("%q must be a positive duration", TimeoutHeader)
+	}
+	if requested > maxTimeout {
+		return 0, fmt.Errorf("%q (%s) exceeds server maximum (%s)", TimeoutHeader, requested, maxTimeout)
+	}
 
-		// If MaxBytesReader triggered, it typically returns an error containing
-		// "request body too large". Map that to a sentinel error so middleware can
-		// respond with 413.
-		if strings.Contains(err.Error(), "request body too large") {
-			return false, errRequestBodyTooLarge
+	return requested, nil
+}
+
+// dbNameMiddleware extracts and validates the database name from the URL path,
+// storing it in the request context.
+func dbNameMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			database, err := parseMCPPath(r.URL.Path)
+			if err != nil {
+				rejectRequest(w, r, http.StatusBadRequest, "invalid_database_name", "Bad Request: Invalid path")
+				return
+			}
+
+			if !isValidDatabaseName(database) {
+				rejectRequest(w, r, http.StatusBadRequest, "invalid_database_name", "Bad Request: Invalid database name")
+				return
+			}
+
+			ctx := mcpcontext.WithDatabaseName(r.Context(), database)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// parseCommaSeparatedString parses a comma-separated string into a slice of strings.
+// Ensures that whitespace, trailing and leading commas are ignored.
+func parseCommaSeparatedString(value string) []string {
+	parts := strings.Split(value, ",")
+	n := 0
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			parts[n] = p
+			n++
 		}
-
-		return false, err
 	}
-
-	// Restore the read bytes so downstream handlers can read the body as usual.
-	r.Body = io.NopCloser(bytes.NewReader(buf))
-
-	var probe struct {
-		Method string `json:"method"`
-	}
-	if e := json.Unmarshal(buf, &probe); e != nil {
-		return false, e
-	}
-
-	return probe.Method == jsonRPCMethod, nil
+	return parts[:n]
 }

@@ -45,12 +45,16 @@ func GetDriverConf() *config.Config {
 	if cfg == nil {
 		log.Fatal("getDriverConf invoked before configuration is initialized.")
 	}
-	return &config.Config{
+	driverCfg := &config.Config{
 		URI:           cfg.URI,
 		Username:      cfg.Username,
 		Password:      cfg.Password,
 		TransportMode: cfg.TransportMode,
 	}
+	if cfg.TransportMode == config.TransportModeStdio {
+		driverCfg.Database = config.GetEnvWithDefault("NEO4J_DATABASE", "neo4j")
+	}
+	return driverCfg
 }
 
 // startOnce start the testcontainer imaged
