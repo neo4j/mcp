@@ -15,8 +15,8 @@ By implementing the Model Context Protocol (MCP), it acts as a bridge between an
 ## Tools
 
 - `get-schema` — introspect labels, relationship types, property keys
-- `read-cypher` — execute read-only Cypher queries
-- `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
+- `read-cypher` — execute read-only Cypher queries that do not modify database data, enforced via `EXPLAIN` and Neo4j's query-type classification. **Note:** custom procedures or functions incorrectly classified as read-only by Neo4j may bypass this check; ensuring correct classification is the responsibility of the procedure/function maintainer.
+- `write-cypher` — execute write Cypher queries (disabled if `NEO4J_MCP_READ_ONLY=true`)
 - `list-gds-procedures` — list available GDS procedures
 
 ## Migrating from v1 to v2
@@ -74,10 +74,15 @@ Create / edit `mcp.json`:
       "command": "python",
       "args": ["-m", "neo4j_mcp_server"],
       "env": {
-        "NEO4J_URI": "bolt://localhost:7687",
-        "NEO4J_USERNAME": "neo4j",
-        "NEO4J_PASSWORD": "password",
-        "NEO4J_DATABASE": "neo4j"
+        "NEO4J_MCP_URI": "bolt://localhost:7687",
+        "NEO4J_MCP_USERNAME": "neo4j",
+        "NEO4J_MCP_PASSWORD": "password",
+        "NEO4J_MCP_DATABASE": "neo4j",
+        "NEO4J_MCP_READ_ONLY": "true",
+        "NEO4J_MCP_TELEMETRY": "false",
+        "NEO4J_MCP_LOG_LEVEL": "info",
+        "NEO4J_MCP_LOG_FORMAT": "text",
+        "NEO4J_MCP_SCHEMA_SAMPLE_SIZE": "100"
       }
     }
   }
