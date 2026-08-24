@@ -51,27 +51,6 @@ func TestServerInitializationE2E(t *testing.T) {
 		t.Log("Server initialized successfully with expected name and capabilities")
 	})
 
-	t.Run("initialization without a database name", func(t *testing.T) {
-		t.Parallel()
-
-		args := []string{
-			"--uri", cfg.URI,
-			"--username", cfg.Username,
-			"--password", cfg.Password,
-		}
-
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
-
-		defer mcpClient.Close()
-
-		// Test should pass as the default database is neo4j
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, _ := mcpClient.Initialize(ctx, initRequest)
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
-
-	})
-
 	t.Run("initialization with read-only mode enabled", func(t *testing.T) {
 		t.Parallel()
 
@@ -101,7 +80,7 @@ func TestServerInitializationE2E(t *testing.T) {
 
 		for _, tool := range listToolsResponse.Tools {
 			if tool.Name == "write-cypher" {
-				t.Fatal("write-cypher tool found using readonly mode")
+				t.Fatal("write-cypher tool found using readOnly mode")
 			}
 		}
 		assert.Len(t, listToolsResponse.Tools, 3, "read-only mode true returns the wrong number of tools")

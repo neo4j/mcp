@@ -1,0 +1,151 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
+package server
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+	"strings"
+
+	"github.com/neo4j/mcp/internal/logger"
+)
+
+// isUnauthenticatedMethodRequest reads the JSON-RPC body and returns true if
+// the request is a POST whose "method" field matches the given jsonRPCMethod.
+// The body is always restored so downstream handlers can read it normally.
+// Caller must have already wrapped r.Body with http.MaxBytesReader.
+func isUnauthenticatedMethodRequest(r *http.Request, jsonRPCMethod string) (bool, error) {
+	if r.Method != http.MethodPost {
+		return false, nil
+	}
+	if r.ContentLength >= 0 && r.ContentLength > maxUnauthenticatedBodyBytes {
+		return false, errRequestBodyTooLarge
+	}
+
+	buf, err := io.ReadAll(r.Body)
+	// Close the original body to free resources.
+	if rc := r.Body; rc != nil {
+		_ = rc.Close()
+	}
+
+	if err != nil {
+		// Replace body with an empty reader to avoid further reads.
+		r.Body = io.NopCloser(bytes.NewReader(nil))
+
+		// If MaxBytesReader triggered, it typically returns an error containing
+		// "request body too large". Map that to a sentinel error so middleware can
+		// respond with 413.
+		if strings.Contains(err.Error(), "request body too large") {
+			return false, errRequestBodyTooLarge
+		}
+
+		return false, err
+	}
+
+	// Restore the read bytes so downstream handlers can read the body as usual.
+	r.Body = io.NopCloser(bytes.NewReader(buf))
+
+	var probe struct {
+		Method string `json:"method"`
+	}
+	if e := json.Unmarshal(buf, &probe); e != nil {
+		return false, e
+	}
+
+	return probe.Method == jsonRPCMethod, nil
+}
+
+// parseMCPPath parses a URL path and returns the database name and whether the path is a valid MCP endpoint.
+// The only valid path form is /db/{databaseName}/mcp (trailing slash permitted).
+func parseMCPPath(path string) (database string, err error) {
+	path = strings.TrimSuffix(path, "/")
+	parts := strings.Split(path, "/")
+	// ["", "db", "{name}", "mcp"]
+	if len(parts) == 4 && parts[1] == "db" && parts[3] == "mcp" {
+		return parts[2], nil
+	}
+	return "", errors.New("invalid path. Should be in the format /db/{databaseName}/mcp")
+}
+
+// isAlphanumeric checks if a character is an ASCII letter or digit
+func isAlphanumeric(ch rune) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+}
+
+// isValidDatabaseName checks if the provided database name is valid according to Neo4j naming rules
+func isValidDatabaseName(name string) bool {
+	// Length must be between 3 and 63 characters
+	if len(name) < 3 || len(name) > 63 {
+		return false
+	}
+
+	// Names starting with underscore or "system" are reserved for internal use
+	if strings.HasPrefix(name, "_") || strings.HasPrefix(strings.ToLower(name), "system") {
+		return false
+	}
+
+	// First and last characters must be ASCII alphabetic or numeric
+	if !isAlphanumeric(rune(name[0])) || !isAlphanumeric(rune(name[len(name)-1])) {
+		return false
+	}
+
+	// Subsequent characters must be ASCII alphabetic or numeric, dots, or dashes
+	for _, ch := range name[1 : len(name)-1] {
+		if !isAlphanumeric(ch) && ch != '.' && ch != '-' {
+			return false
+		}
+	}
+
+	return true
+}
+
+// authTypeFromRequest reports the auth mechanism from request headers without logging credentials.
+func authTypeFromRequest(r *http.Request) string {
+	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
+		if token, found := strings.CutPrefix(authHeader, "Bearer "); found && strings.TrimSpace(token) != "" {
+			return "bearer"
+		}
+	}
+	if user, pass, ok := r.BasicAuth(); ok && user != "" && pass != "" {
+		return "basic"
+	}
+	return "none"
+}
+
+// toolsFilterFromRequest returns the raw X-Neo4j-MCP-Tools header when present.
+func toolsFilterFromRequest(r *http.Request) string {
+	return r.Header.Get("X-Neo4j-MCP-Tools")
+}
+
+// readOnlyFromRequest reports whether read-only mode was requested via X-Neo4j-MCP-ReadOnly.
+func readOnlyFromRequest(r *http.Request) (bool, bool) {
+	vals := r.Header.Values("X-Neo4j-MCP-ReadOnly")
+	if len(vals) != 1 {
+		return false, false
+	}
+	switch strings.ToLower(vals[0]) {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// rejectRequest logs a rejection reason and writes an HTTP error response.
+func rejectRequest(w http.ResponseWriter, r *http.Request, status int, reason, msg string) {
+	attrs := append(logger.AppendRequestInfo(r.Context()), "reason", reason, "http_status", status)
+	// Routine probe/wrong-URL traffic is Debug; auth, config, and client errors stay Warn.
+	if reason == "invalid_path" || reason == "method_not_allowed" {
+		slog.Debug("request rejected", attrs...)
+	} else {
+		slog.Warn("request rejected", attrs...)
+	}
+	http.Error(w, msg, status)
+}

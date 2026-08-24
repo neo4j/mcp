@@ -54,7 +54,7 @@ func (m *exitMock) Exit(code int) {
 	panic(m)
 }
 
-func TestHandleArgs_DeprecatedFlags(t *testing.T) {
+func TestHandleArgs_DeprecatedFlag(t *testing.T) {
 	tests := []struct {
 		name             string
 		args             []string
@@ -63,75 +63,6 @@ func TestHandleArgs_DeprecatedFlags(t *testing.T) {
 		expectedOutput   string // substring to find in stdout or stderr
 		expectedStderr   string // substring to find in stderr (if non-empty, output is checked in stderr instead of stdout)
 	}{
-		{
-			name:             "no flags",
-			args:             []string{testProgramName},
-			version:          testVersion,
-			expectedExitCode: -1,
-		},
-		{
-			name:             "version flag short form",
-			args:             []string{testProgramName, "-v"},
-			version:          testVersion,
-			expectedExitCode: 0,
-			expectedOutput:   testVersionText,
-		},
-		{
-			name:             "version flag long form",
-			args:             []string{testProgramName, "--version"},
-			version:          testVersion,
-			expectedExitCode: 0,
-			expectedOutput:   testVersionText,
-		},
-		{
-			name:             "help flag short form",
-			args:             []string{testProgramName, "-h"},
-			version:          testVersion,
-			expectedExitCode: 0,
-			expectedOutput:   testHelpText,
-		},
-		{
-			name:             "help flag long form",
-			args:             []string{testProgramName, "--help"},
-			version:          testVersion,
-			expectedExitCode: 0,
-			expectedOutput:   testHelpText,
-		},
-		{
-			name:             "unknown flag",
-			args:             []string{testProgramName, "-x"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "unknown flag or argument: -x",
-		},
-		{
-			name:             "version flag with extra arguments",
-			args:             []string{testProgramName, "-v", "extra"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "unknown flag or argument: extra",
-		},
-		{
-			name:             "version flag at end",
-			args:             []string{testProgramName, "extra", "-v"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "unknown flag or argument: extra",
-		},
-		{
-			name:             "help and version flags together - help takes precedence",
-			args:             []string{testProgramName, "-v", "-h"},
-			version:          testVersion,
-			expectedExitCode: 0,
-			expectedOutput:   testHelpText,
-		},
-		{
-			name:             "help flag at end",
-			args:             []string{testProgramName, "extra", "-h"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "unknown flag or argument: extra",
-		},
 		{
 			name:             "neo4j-uri configuration flag",
 			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687"},
@@ -307,6 +238,24 @@ func TestHandleArgs_DeprecatedFlags(t *testing.T) {
 			expectedExitCode: 1,
 			expectedStderr:   "--neo4j-http-allow-unauthenticated-ping requires a value",
 		},
+		{
+			name:             "neo4j-tools flag with one tool name",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-tools flag with trailing comma after tool name",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema,"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-tools flag with two tool names",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema,read-cypher"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
 	}
 
 	for _, tt := range tests {
@@ -366,14 +315,34 @@ func TestHandleArgs_CanonicalFlags(t *testing.T) {
 			expectedExitCode: -1,
 		},
 		{
-			name:             "version flag",
+			name:             "no flags",
+			args:             []string{testProgramName},
+			version:          testVersion,
+			expectedExitCode: -1,
+		},
+		{
+			name:             "version flag short form",
+			args:             []string{testProgramName, "-v"},
+			version:          testVersion,
+			expectedExitCode: 0,
+			expectedOutput:   testVersionText,
+		},
+		{
+			name:             "version flag long form",
 			args:             []string{testProgramName, "--version"},
 			version:          testVersion,
 			expectedExitCode: 0,
 			expectedOutput:   testVersionText,
 		},
 		{
-			name:             "help flag",
+			name:             "help flag short form",
+			args:             []string{testProgramName, "-h"},
+			version:          testVersion,
+			expectedExitCode: 0,
+			expectedOutput:   testHelpText,
+		},
+		{
+			name:             "help flag long form",
 			args:             []string{testProgramName, "--help"},
 			version:          testVersion,
 			expectedExitCode: 0,
@@ -385,6 +354,34 @@ func TestHandleArgs_CanonicalFlags(t *testing.T) {
 			version:          testVersion,
 			expectedExitCode: 1,
 			expectedStderr:   "unknown flag or argument: -x",
+		},
+		{
+			name:             "version flag with extra arguments",
+			args:             []string{testProgramName, "-v", "extra"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "unknown flag or argument: extra",
+		},
+		{
+			name:             "version flag at end",
+			args:             []string{testProgramName, "extra", "-v"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "unknown flag or argument: extra",
+		},
+		{
+			name:             "help and version flags together - help takes precedence",
+			args:             []string{testProgramName, "-v", "-h"},
+			version:          testVersion,
+			expectedExitCode: 0,
+			expectedOutput:   testHelpText,
+		},
+		{
+			name:             "help flag at end",
+			args:             []string{testProgramName, "extra", "-h"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "unknown flag or argument: extra",
 		},
 		{
 			name:             "uri",
@@ -487,6 +484,37 @@ func TestHandleArgs_CanonicalFlags(t *testing.T) {
 			args:             []string{testProgramName, "--http-allow-unauthenticated-tools-list", "true"},
 			version:          testVersion,
 			expectedExitCode: -1,
+		},
+		{
+			name:             "neo4j-tools flag with one tool name",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-tools flag with trailing comma after tool name",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema,"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-tools flag with two tool names",
+			args:             []string{testProgramName, "--neo4j-tools", "get-schema,read-cypher"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-request-timeout flag with valid value",
+			args:             []string{testProgramName, "--neo4j-request-timeout", "45s"},
+			version:          testVersion,
+			expectedExitCode: -1, // Should not exit, flag is allowed
+		},
+		{
+			name:             "neo4j-request-timeout flag missing value",
+			args:             []string{testProgramName, "--neo4j-request-timeout"},
+			version:          testVersion,
+			expectedExitCode: 1,
+			expectedStderr:   "--neo4j-request-timeout requires a value",
 		},
 	}
 

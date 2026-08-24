@@ -45,11 +45,16 @@ func GetDriverConf() *config.Config {
 	if cfg == nil {
 		log.Fatal("getDriverConf invoked before configuration is initialized.")
 	}
-	return &config.Config{
-		URI:      cfg.URI,
-		Username: cfg.Username,
-		Password: cfg.Password,
+	driverCfg := &config.Config{
+		URI:           cfg.URI,
+		Username:      cfg.Username,
+		Password:      cfg.Password,
+		TransportMode: cfg.TransportMode,
 	}
+	if cfg.TransportMode == config.TransportModeStdio {
+		driverCfg.Database = config.GetEnvWithDefault("NEO4J_DATABASE", "neo4j")
+	}
+	return driverCfg
 }
 
 // startOnce start the testcontainer imaged
@@ -61,9 +66,10 @@ func startOnce(ctx context.Context) {
 	container = ctr
 
 	cfg = &config.Config{
-		URI:      boltURI,
-		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		URI:           boltURI,
+		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		TransportMode: config.GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", config.TransportModeStdio),
 	}
 
 	drv, err := neo4j.NewDriver(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))

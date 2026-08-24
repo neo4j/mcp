@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/neo4j/mcp/internal/logger"
 )
@@ -19,7 +20,13 @@ type TransportMode string
 
 const (
 	// DefaultSchemaSampleSize is the default number of nodes to sample per label when inferring schema
-	DefaultSchemaSampleSize   int32         = 100
+	DefaultSchemaSampleSize int32         = 100
+	DefaultRequestTimeout   time.Duration = 3 * time.Minute
+	// MaxRequestTimeout is the largest accepted request timeout. The HTTP server derives
+	// its write and graceful-shutdown timeouts from this value, so leaving it unbounded
+	// would let a single misconfiguration hold connections open indefinitely. The ceiling
+	// is generous enough for long-running GDS workloads.
+	MaxRequestTimeout         time.Duration = 30 * time.Minute
 	TransportModeStdio        TransportMode = "stdio"
 	TransportModeHTTP         TransportMode = "http"
 	DeprecatedVariableMessage string        = "Warning: deprecated %s %q; use %q instead. Support will be removed in v2.\n"
@@ -28,6 +35,9 @@ const (
 // ValidTransportModes defines the allowed transport mode values
 var ValidTransportModes = []TransportMode{TransportModeStdio, TransportModeHTTP}
 
+// AvailableTools defines the available MCP tools
+var AvailableTools = []string{"read-cypher", "write-cypher", "list-gds-procedures", "get-schema"}
+
 // Config holds the application configuration
 type Config struct {
 	URI                           string
@@ -35,6 +45,7 @@ type Config struct {
 	Password                      string // #nosec G117
 	Database                      string
 	ReadOnly                      bool // If true, disables write tools
+	Tools                         []string
 	Telemetry                     bool // If false, disables telemetry
 	LogLevel                      string
 	LogFormat                     string
@@ -49,6 +60,7 @@ type Config struct {
 	AuthHeaderName                string        // HTTP header name to read auth credentials from (default: "Authorization")
 	AllowUnauthenticatedPing      bool          // If true, allows unauthenticated ping health checks in HTTP mode
 	AllowUnauthenticatedToolsList bool          // If true, allows unauthenticated tools list in HTTP mode
+	RequestTimeout                time.Duration // Maximum duration for a single MCP request (default: 3m)
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -57,14 +69,13 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("configuration is required but was nil")
 	}
 
-	// URI is always required
-	if c.URI == "" {
-		return fmt.Errorf("Neo4j URI is required but was empty")
-	}
-
 	// Default to stdio if not provided (maintains backward compatibility with tests constructing Config directly)
 	if c.TransportMode == "" {
 		c.TransportMode = TransportModeStdio
+	}
+
+	if c.RequestTimeout == 0 {
+		c.RequestTimeout = DefaultRequestTimeout
 	}
 
 	// Validate transport mode
@@ -72,17 +83,31 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid transport mode '%s', must be one of %v", c.TransportMode, ValidTransportModes)
 	}
 
-	// For STDIO mode, require username and password from environment
-	// For HTTP mode, credentials come from per-request Basic Auth headers
+	// For STDIO mode, require URI, username, password, and database from environment.
+	// For HTTP mode, URI, credentials and database come per-request (X-Neo4j-MCP-URI header, Auth headers, and URL path);
 	if c.TransportMode == TransportModeStdio {
+		if c.URI == "" {
+			return fmt.Errorf("Neo4j URI is required for STDIO mode but was empty")
+		}
 		if c.Username == "" {
 			return fmt.Errorf("Neo4j username is required for STDIO mode")
 		}
 		if c.Password == "" {
 			return fmt.Errorf("Neo4j password is required for STDIO mode")
 		}
-	} else if c.Username != "" || c.Password != "" {
-		return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Basic Auth headers")
+		if c.Database == "" {
+			return fmt.Errorf("Neo4j database is required for STDIO mode (set NEO4J_MCP_DATABASE or use --database flag)")
+		}
+	} else {
+		if c.URI != "" {
+			return fmt.Errorf("Neo4j URI should not be set for HTTP transport mode; URI is provided per-request via X-Neo4j-MCP-URI header")
+		}
+		if c.Username != "" || c.Password != "" {
+			return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers")
+		}
+		if c.Database != "" {
+			return fmt.Errorf("NEO4J_MCP_DATABASE environment variable or ---database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+		}
 	}
 
 	// For HTTP mode with TLS enabled, require certificate and key files
@@ -101,6 +126,19 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	for _, toolName := range c.Tools {
+		if !slices.Contains(AvailableTools, toolName) {
+			return fmt.Errorf("tool %q is invalid. Available tools are: %s", toolName, strings.Join(AvailableTools, ", "))
+		}
+	}
+
+	if c.RequestTimeout <= 0 {
+		return fmt.Errorf("invalid request timeout %q: must be a positive duration", c.RequestTimeout)
+	}
+	if c.RequestTimeout > MaxRequestTimeout {
+		return fmt.Errorf("invalid request timeout %q: must not exceed %s", c.RequestTimeout, MaxRequestTimeout)
+	}
+
 	return nil
 }
 
@@ -111,6 +149,7 @@ type CLIOverrides struct {
 	Password                      string // #nosec G117
 	Database                      string
 	ReadOnly                      string
+	Tools                         *string
 	Telemetry                     string
 	TransportMode                 string
 	Port                          string
@@ -122,6 +161,7 @@ type CLIOverrides struct {
 	AuthHeaderName                string
 	AllowUnauthenticatedPing      string
 	AllowUnauthenticatedToolsList string
+	RequestTimeout                string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -129,7 +169,6 @@ type CLIOverrides struct {
 // Returns an error if required configuration is missing or invalid.
 func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	warnOnDeprecatedUsage()
-
 	logLevel := GetEnvWithAliasesDefault("NEO4J_MCP_LOG_LEVEL", "info", "NEO4J_LOG_LEVEL")
 	logFormat := GetEnvWithAliasesDefault("NEO4J_MCP_LOG_FORMAT", "text", "NEO4J_LOG_FORMAT")
 
@@ -149,7 +188,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		URI:                           GetEnvWithAliases("NEO4J_MCP_URI", "NEO4J_URI"),
 		Username:                      GetEnvWithAliases("NEO4J_MCP_USERNAME", "NEO4J_USERNAME"),
 		Password:                      GetEnvWithAliases("NEO4J_MCP_PASSWORD", "NEO4J_PASSWORD"),
-		Database:                      GetEnvWithAliasesDefault("NEO4J_MCP_DATABASE", "neo4j", "NEO4J_DATABASE"),
+		Database:                      GetEnvWithAliases("NEO4J_MCP_DATABASE", "NEO4J_DATABASE"),
 		ReadOnly:                      ParseBool(GetEnvWithAliases("NEO4J_MCP_READ_ONLY", "NEO4J_READ_ONLY"), false),
 		Telemetry:                     ParseBool(GetEnvWithAliases("NEO4J_MCP_TELEMETRY", "NEO4J_TELEMETRY"), true),
 		LogLevel:                      logLevel,
@@ -165,6 +204,19 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		AuthHeaderName:                GetEnvWithAliasesDefault("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "Authorization", "NEO4J_HTTP_AUTH_HEADER_NAME"),
 		AllowUnauthenticatedPing:      ParseBool(GetEnvWithAliases("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING", "NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
 		AllowUnauthenticatedToolsList: ParseBool(GetEnvWithAliases("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST", "NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
+	}
+
+	requestTimeout, err := ParseDuration(GetEnv("NEO4J_MCP_REQUEST_TIMEOUT"), DefaultRequestTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("invalid NEO4J_MCP_REQUEST_TIMEOUT: %w", err)
+	}
+	cfg.RequestTimeout = requestTimeout
+
+	if toolsEnv, ok := os.LookupEnv("NEO4J_MCP_TOOLS"); ok {
+		if toolsEnv == "" {
+			return nil, fmt.Errorf("invalid tools configuration: NEO4J_MCP_TOOLS is set but empty; provide a comma-separated list of tools or unset the variable")
+		}
+		cfg.Tools = ParseCommaSeparatedString(toolsEnv)
 	}
 
 	// Apply CLI overrides if provided
@@ -183,6 +235,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.ReadOnly != "" {
 			cfg.ReadOnly = ParseBool(cliOverrides.ReadOnly, false)
+		}
+		if cliOverrides.Tools != nil {
+			cfg.Tools = ParseCommaSeparatedString(*cliOverrides.Tools)
 		}
 		if cliOverrides.Telemetry != "" {
 			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
@@ -217,6 +272,13 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		if cliOverrides.AllowUnauthenticatedToolsList != "" {
 			cfg.AllowUnauthenticatedToolsList = ParseBool(cliOverrides.AllowUnauthenticatedToolsList, false)
 		}
+		if cliOverrides.RequestTimeout != "" {
+			requestTimeout, err := ParseDuration(cliOverrides.RequestTimeout, DefaultRequestTimeout)
+			if err != nil {
+				return nil, fmt.Errorf("invalid --neo4j-request-timeout: %w", err)
+			}
+			cfg.RequestTimeout = requestTimeout
+		}
 	}
 
 	// Set default HTTP port based on TLS configuration if not explicitly provided
@@ -227,6 +289,12 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		} else {
 			cfg.HTTPPort = "80"
 		}
+	}
+
+	// If tools haven't been set at this point, they have neither been provided nor explicitly unset
+	// Default to all available tools
+	if cfg.Tools == nil {
+		cfg.Tools = AvailableTools
 	}
 
 	// Normalize and validate
@@ -347,4 +415,35 @@ func ParseInt32(value string, defaultValue int32) int32 {
 		return defaultValue
 	}
 	return int32(parsed)
+}
+
+// ParseDuration parses a Go duration string (e.g. "30s", "2m").
+// Returns the default value if the string is empty.
+// Returns an error if the value is invalid or non-positive.
+func ParseDuration(value string, defaultValue time.Duration) (time.Duration, error) {
+	if value == "" {
+		return defaultValue, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration %q: %w", value, err)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("duration %q must be positive", value)
+	}
+	return parsed, nil
+}
+
+// ParseCommaSeparatedString parses a comma-separated string into a slice of strings.
+// Ensures that whitespace, trailing and leading commas are ignored.
+func ParseCommaSeparatedString(value string) []string {
+	parts := strings.Split(value, ",")
+	n := 0
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			parts[n] = p
+			n++
+		}
+	}
+	return parts[:n]
 }

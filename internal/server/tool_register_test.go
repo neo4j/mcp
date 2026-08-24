@@ -4,14 +4,15 @@
 package server_test
 
 import (
-	"fmt"
+	"sort"
 	"testing"
 
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -23,16 +24,20 @@ func TestToolRegister(t *testing.T) {
 	aService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	aService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
-
+	// Verify no db calls during tool registration
+	mockDB := db.NewMockService(ctrl)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().GetQueryType(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Times(0)
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
-		mockDB := getMockedDBService(ctrl, true)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
 			Password:      "password",
 			Database:      "neo4j",
+			Tools:         config.AvailableTools,
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
@@ -54,22 +59,21 @@ func TestToolRegister(t *testing.T) {
 		}
 	})
 
-	t.Run("should register only readonly tools when readonly", func(t *testing.T) {
-		mockDB := getMockedDBService(ctrl, true)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+	t.Run("should register only readOnly tools when readOnly", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      true,
+			Tools:         config.AvailableTools,
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
 		// update this number when a tool is added or removed.
-		// Readonly tools: get-schema, read-cypher, list-gds-procedures
+		// ReadOnly tools: get-schema, read-cypher, list-gds-procedures
 		expectedTotalToolsCount := 3
 
 		// Start server and register tools
@@ -83,15 +87,14 @@ func TestToolRegister(t *testing.T) {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
 	})
-	t.Run("should register also not write tools when readonly is set to false", func(t *testing.T) {
-		mockDB := getMockedDBService(ctrl, true)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+	t.Run("should register also write tools when readOnly is set to false", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      false,
+			Tools:         config.AvailableTools,
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
@@ -112,71 +115,78 @@ func TestToolRegister(t *testing.T) {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
 	})
-
-	t.Run("should remove GDS tools if GDS is not present", func(t *testing.T) {
-		mockDB := getMockedDBService(ctrl, false)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+	t.Run("should only register tools that are specified in config", func(t *testing.T) {
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
 			Password:      "password",
 			Database:      "neo4j",
 			ReadOnly:      false,
+			Tools:         []string{"read-cypher", "get-schema"},
 			TransportMode: config.TransportModeStdio,
 		}
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
 		// Expected tools that should be registered
-		// update this number when a tool is added or removed.
-		// Non-GDS tools: get-schema, read-cypher, write-cypher
-		expectedTotalToolsCount := 3
+		expectedTools := []string{"get-schema", "read-cypher"}
 
 		// Start server and register tools
 		err := s.Start()
 		if err != nil {
-			t.Fatalf("Start() failed: %v", err)
+			require.NoError(t, err)
 		}
-		registeredTools := len(s.MCPServer.ListTools())
 
-		if expectedTotalToolsCount != registeredTools {
-			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
+		var toolNames []string
+		tools := s.MCPServer.ListTools()
+		for _, tool := range tools {
+			toolNames = append(toolNames, tool.Tool.Name)
+		}
+		sort.Strings(toolNames)
+
+		assert.Equal(t, expectedTools, toolNames)
+	})
+	// this test is required as we're actively relying on the ReadOnly annotation for programmatic purpose
+	t.Run("all tools must have ReadOnlyHint explicitly set", func(t *testing.T) {
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			Tools:         config.AvailableTools,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		err := s.Start()
+		require.NoError(t, err)
+
+		for _, tool := range s.MCPServer.ListTools() {
+			assert.NotNilf(t, tool.Tool.Annotations.ReadOnlyHint,
+				"tool %q is missing ReadOnlyHint annotation — add mcp.WithReadOnlyHintAnnotation(true|false) to its spec",
+				tool.Tool.Name,
+			)
 		}
 	})
-}
 
-// utility to mock the invocation required by VerifyRequirements
-func getMockedDBService(ctrl *gomock.Controller, withGDS bool) *db.MockService {
-	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-		{
-			Keys: []string{"first"},
-			Values: []any{
-				int64(1),
-			},
-		},
-	}, nil)
-	checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-		{
-			Keys: []string{"apocMetaSchemaAvailable"},
-			Values: []any{
-				bool(true),
-			},
-		},
-	}, nil)
-	gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-	if withGDS {
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"gdsVersion"},
-				Values: []any{
-					string("2.22.0"),
-				},
-			},
-		}, nil)
-		return mockDB
-	}
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+	t.Run("should not register write tools when readOnly is enabled even if specified in tools config", func(t *testing.T) {
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			Tools:         []string{"write-cypher"},
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
 
-	return mockDB
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			require.NoError(t, err)
+		}
+
+		assert.Empty(t, s.MCPServer.ListTools())
+	})
 }

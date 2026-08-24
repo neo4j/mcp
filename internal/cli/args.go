@@ -27,6 +27,7 @@ Options:
   --password <PASSWORD>               Database password (overrides NEO4J_MCP_PASSWORD)
   --database <DATABASE>               Database name (overrides NEO4J_MCP_DATABASE)
   --read-only <BOOLEAN>               Enable read-only mode: true or false (overrides NEO4J_MCP_READ_ONLY)
+  --tools <TOOLS>               	  Define tools available by filtering tools returned in tools/list response
   --telemetry <BOOLEAN>               Enable telemetry: true or false (overrides NEO4J_MCP_TELEMETRY)
   --schema-sample-size <INT>          Number of nodes to sample for schema inference (overrides NEO4J_MCP_SCHEMA_SAMPLE_SIZE)
   --transport-mode <MODE>             MCP transport mode: 'stdio' or 'http' (overrides NEO4J_MCP_TRANSPORT_MODE)
@@ -39,6 +40,7 @@ Options:
   --http-auth-header-name <HEADER>    Name of the HTTP header to read auth credentials from (overrides NEO4J_MCP_HTTP_AUTH_HEADER_NAME)
   --http-allow-unauthenticated-ping <BOOLEAN> Allow unauthenticated ping (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING)
   --http-allow-unauthenticated-tools-list <BOOLEAN> Allow unauthenticated tools/list (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST)
+  --neo4j-request-timeout <DURATION>  Maximum duration for a single MCP request, up to 30m. Also caps the per-request X-Neo4j-MCP-Request-Timeout header in HTTP mode (overrides environment variable NEO4J_MCP_REQUEST_TIMEOUT)
 
 Required Environment Variables (STDIO mode):
   NEO4J_MCP_URI       Neo4j database URI
@@ -52,6 +54,7 @@ Optional Environment Variables:
   NEO4J_MCP_SCHEMA_SAMPLE_SIZE Number of nodes to sample for schema inference (default: 100)
   NEO4J_MCP_LOG_LEVEL Log level (default: info)
   NEO4J_MCP_LOG_FORMAT Log format: text or json (default: text)
+  NEO4J_MCP_TOOLS Define tools available by filtering tools returned in tools/list response (default: all tools enabled)
   NEO4J_MCP_TRANSPORT_MODE MCP transport mode (default: stdio)
   NEO4J_MCP_HTTP_PORT HTTP server port (default: 443 with TLS, 80 without TLS)
   NEO4J_MCP_HTTP_HOST HTTP server host (default: 127.0.0.1)
@@ -62,6 +65,7 @@ Optional Environment Variables:
   NEO4J_MCP_HTTP_AUTH_HEADER_NAME Name of the HTTP header to read auth credentials from (default: Authorization)
   NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING Allow unauthenticated ping health checks (default: false)
   NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST Allow unauthenticated tool listing (default: false)
+  NEO4J_MCP_REQUEST_TIMEOUT Maximum duration for a single MCP request (default: 3m, maximum: 30m)
 
 Deprecated environment variables and --neo4j-* flags remain accepted in v1 and emit a warning. They will be removed in v2. The deprecated environment aliases are the previous unscoped names shown in the project changelog.
 
@@ -82,6 +86,7 @@ type Args struct {
 	Password                          string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
 	Database                          string
 	ReadOnly                          string
+	Tools                             *string // allows explicit empty string arguments to be differentiated from unset arguments
 	Telemetry                         string
 	SchemaSampleSize                  string
 	TransportMode                     string
@@ -94,6 +99,7 @@ type Args struct {
 	AuthHeaderName                    string
 	HTTPAllowUnauthenticatedPing      string
 	HTTPAllowUnauthenticatedToolsList string
+	RequestTimeout                    string
 }
 
 // this is a list of known configuration flags to be skipped in HandleArgs
@@ -109,6 +115,7 @@ var argsSlice = []string{
 	"--neo4j-database",
 	"--read-only",
 	"--neo4j-read-only",
+	"--neo4j-tools",
 	"--telemetry",
 	"--neo4j-telemetry",
 	"--schema-sample-size",
@@ -133,6 +140,7 @@ var argsSlice = []string{
 	"--neo4j-http-allow-unauthenticated-ping",
 	"--http-allow-unauthenticated-tools-list",
 	"--neo4j-http-allow-unauthenticated-tools-list",
+	"--neo4j-request-timeout",
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
@@ -160,6 +168,14 @@ func ParseConfigFlags() *Args {
 	neo4jDatabase := flag.String("neo4j-database", "", "Deprecated alias for --database")
 	readOnly := flag.String("read-only", "", "Enable read-only mode: true or false (overrides NEO4J_MCP_READ_ONLY env var)")
 	neo4jReadOnly := flag.String("neo4j-read-only", "", "Deprecated alias for --read-only")
+	var neo4jTools *string
+	flag.Func("neo4j-tools", "Define tools available by filtering tools returned in tools/list response", func(s string) error {
+		if s == "" {
+			return fmt.Errorf("cannot be empty; omit the flag to use all tools, or provide a comma-separated list of tools")
+		}
+		neo4jTools = &s
+		return nil
+	})
 	telemetry := flag.String("telemetry", "", "Enable telemetry: true or false (overrides NEO4J_MCP_TELEMETRY env var)")
 	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Deprecated alias for --telemetry")
 	schemaSampleSize := flag.String("schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_MCP_SCHEMA_SAMPLE_SIZE env var)")
@@ -184,7 +200,7 @@ func ParseConfigFlags() *Args {
 	neo4jHTTPAllowUnauthenticatedPing := flag.String("neo4j-http-allow-unauthenticated-ping", "", "Deprecated alias for --http-allow-unauthenticated-ping")
 	allowUnauthenticatedToolsList := flag.String("http-allow-unauthenticated-tools-list", "", "Allow unauthenticated tools/list: true or false (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST env var)")
 	neo4jHTTPAllowUnauthenticatedToolsList := flag.String("neo4j-http-allow-unauthenticated-tools-list", "", "Deprecated alias for --http-allow-unauthenticated-tools-list")
-
+	neo4jRequestTimeout := flag.String("neo4j-request-timeout", "", "Maximum duration for a single MCP request, up to 30m (overrides NEO4J_MCP_REQUEST_TIMEOUT env var)")
 	flag.Parse()
 
 	return &Args{
@@ -193,6 +209,7 @@ func ParseConfigFlags() *Args {
 		Password:                          mergeFlagValue(password, neo4jPassword, "--password", "--neo4j-password"),
 		Database:                          mergeFlagValue(database, neo4jDatabase, "--database", "--neo4j-database"),
 		ReadOnly:                          mergeFlagValue(readOnly, neo4jReadOnly, "--read-only", "--neo4j-read-only"),
+		Tools:                             neo4jTools,
 		Telemetry:                         mergeFlagValue(telemetry, neo4jTelemetry, "--telemetry", "--neo4j-telemetry"),
 		SchemaSampleSize:                  mergeFlagValue(schemaSampleSize, neo4jSchemaSampleSize, "--schema-sample-size", "--neo4j-schema-sample-size"),
 		TransportMode:                     mergeFlagValue(transportMode, neo4jTransportMode, "--transport-mode", "--neo4j-transport-mode"),
@@ -205,6 +222,7 @@ func ParseConfigFlags() *Args {
 		HTTPAllowUnauthenticatedPing:      mergeFlagValue(allowUnauthenticatedPing, neo4jHTTPAllowUnauthenticatedPing, "--http-allow-unauthenticated-ping", "--neo4j-http-allow-unauthenticated-ping"),
 		HTTPAllowUnauthenticatedToolsList: mergeFlagValue(allowUnauthenticatedToolsList, neo4jHTTPAllowUnauthenticatedToolsList, "--http-allow-unauthenticated-tools-list", "--neo4j-http-allow-unauthenticated-tools-list"),
 		AuthHeaderName:                    mergeFlagValue(authHeaderName, neo4jAuthHeaderName, "--http-auth-header-name", "--neo4j-http-auth-header-name"),
+		RequestTimeout:                    *neo4jRequestTimeout,
 	}
 }
 
