@@ -29,7 +29,7 @@ const (
 	MaxRequestTimeout         time.Duration = 30 * time.Minute
 	TransportModeStdio        TransportMode = "stdio"
 	TransportModeHTTP         TransportMode = "http"
-	DeprecatedVariableMessage string        = "Warning: deprecated environment variable \"%s\". Please use: \"%s\" instead\n"
+	DeprecatedVariableMessage string        = "Warning: deprecated %s %q; use %q instead. Support will be removed in v2.\n"
 )
 
 // ValidTransportModes defines the allowed transport mode values
@@ -96,7 +96,7 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("Neo4j password is required for STDIO mode")
 		}
 		if c.Database == "" {
-			return fmt.Errorf("Neo4j database is required for STDIO mode (set NEO4J_DATABASE or use --neo4j-database flag)")
+			return fmt.Errorf("Neo4j database is required for STDIO mode (set NEO4J_MCP_DATABASE or use --database flag)")
 		}
 	} else {
 		if c.URI != "" {
@@ -106,7 +106,7 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers")
 		}
 		if c.Database != "" {
-			return fmt.Errorf("NEO4J_DATABASE environment variable or --neo4j-database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+			return fmt.Errorf("NEO4J_MCP_DATABASE environment variable or ---database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
 		}
 	}
 
@@ -168,45 +168,42 @@ type CLIOverrides struct {
 // CLI flag values take precedence over environment variables.
 // Returns an error if required configuration is missing or invalid.
 func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
-	logLevel := GetEnvWithDefault("NEO4J_LOG_LEVEL", "info")
-	logFormat := GetEnvWithDefault("NEO4J_LOG_FORMAT", "text")
+	warnOnDeprecatedUsage()
+	logLevel := GetEnvWithAliasesDefault("NEO4J_MCP_LOG_LEVEL", "info", "NEO4J_LOG_LEVEL")
+	logFormat := GetEnvWithAliasesDefault("NEO4J_MCP_LOG_FORMAT", "text", "NEO4J_LOG_FORMAT")
 
 	// Validate log level and use default if invalid
 	if !slices.Contains(logger.ValidLogLevels, logLevel) {
-		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_LEVEL '%s', using default 'info'. Valid values: %v\n", logLevel, logger.ValidLogLevels)
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_MCP_LOG_LEVEL '%s', using default 'info'. Valid values: %v\n", logLevel, logger.ValidLogLevels)
 		logLevel = "info"
 	}
 
 	// Validate log format and use default if invalid
 	if !slices.Contains(logger.ValidLogFormats, logFormat) {
-		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
+		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_MCP_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
 		logFormat = "text"
 	}
 
-	if GetEnv("NEO4J_MCP_TRANSPORT") != "" {
-		fmt.Fprintf(os.Stderr, DeprecatedVariableMessage, "NEO4J_MCP_TRANSPORT", "NEO4J_TRANSPORT_MODE")
-	}
-
 	cfg := &Config{
-		URI:                           GetEnv("NEO4J_URI"),
-		Username:                      GetEnv("NEO4J_USERNAME"),
-		Password:                      GetEnv("NEO4J_PASSWORD"),
-		Database:                      GetEnv("NEO4J_DATABASE"),
-		ReadOnly:                      ParseBool(GetEnv("NEO4J_READ_ONLY"), false),
-		Telemetry:                     ParseBool(GetEnv("NEO4J_TELEMETRY"), true),
+		URI:                           GetEnvWithAliases("NEO4J_MCP_URI", "NEO4J_URI"),
+		Username:                      GetEnvWithAliases("NEO4J_MCP_USERNAME", "NEO4J_USERNAME"),
+		Password:                      GetEnvWithAliases("NEO4J_MCP_PASSWORD", "NEO4J_PASSWORD"),
+		Database:                      GetEnvWithAliases("NEO4J_MCP_DATABASE", "NEO4J_DATABASE"),
+		ReadOnly:                      ParseBool(GetEnvWithAliases("NEO4J_MCP_READ_ONLY", "NEO4J_READ_ONLY"), false),
+		Telemetry:                     ParseBool(GetEnvWithAliases("NEO4J_MCP_TELEMETRY", "NEO4J_TELEMETRY"), true),
 		LogLevel:                      logLevel,
 		LogFormat:                     logFormat,
-		SchemaSampleSize:              ParseInt32(GetEnv("NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:                 GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT", TransportModeStdio)),
+		SchemaSampleSize:              ParseInt32(GetEnvWithAliases("NEO4J_MCP_SCHEMA_SAMPLE_SIZE", "NEO4J_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
+		TransportMode:                 TransportMode(GetEnvWithAliasesDefault("NEO4J_MCP_TRANSPORT_MODE", string(TransportModeStdio), "NEO4J_TRANSPORT_MODE", "NEO4J_MCP_TRANSPORT")),
 		HTTPPort:                      GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
 		HTTPHost:                      GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
 		HTTPAllowedOrigins:            GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
 		HTTPTLSEnabled:                ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
 		HTTPTLSCertFile:               GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
 		HTTPTLSKeyFile:                GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
-		AuthHeaderName:                GetEnvWithDefault("NEO4J_HTTP_AUTH_HEADER_NAME", "Authorization"),
-		AllowUnauthenticatedPing:      ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
-		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
+		AuthHeaderName:                GetEnvWithAliasesDefault("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "Authorization", "NEO4J_HTTP_AUTH_HEADER_NAME"),
+		AllowUnauthenticatedPing:      ParseBool(GetEnvWithAliases("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING", "NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
+		AllowUnauthenticatedToolsList: ParseBool(GetEnvWithAliases("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST", "NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
 	}
 
 	requestTimeout, err := ParseDuration(GetEnv("NEO4J_MCP_REQUEST_TIMEOUT"), DefaultRequestTimeout)
@@ -303,7 +300,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	// Normalize and validate
 	headName := strings.TrimSpace(cfg.AuthHeaderName)
 	if headName == "" {
-		return nil, fmt.Errorf("invalid auth header name: explicitly configured header name cannot be empty; unset NEO4J_HTTP_AUTH_HEADER_NAME or provide a valid header name")
+		return nil, fmt.Errorf("invalid auth header name: explicitly configured header name cannot be empty; unset NEO4J_MCP_HTTP_AUTH_HEADER_NAME or provide a valid header name")
 	}
 	// store normalized value
 	cfg.AuthHeaderName = headName
@@ -319,6 +316,57 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 // GetEnv returns the value of an environment variable or empty string if not set
 func GetEnv(key string) string {
 	return os.Getenv(key)
+}
+
+// GetEnvWithAliases returns the canonical environment variable value, falling
+// back to deprecated aliases when the canonical variable is unset or empty.
+func GetEnvWithAliases(canonical string, aliases ...string) string {
+	if value := os.Getenv(canonical); value != "" {
+		return value
+	}
+	for _, alias := range aliases {
+		if value := os.Getenv(alias); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+var deprecatedEnvironmentVariables = []struct {
+	alias     string
+	canonical string
+}{
+	{alias: "NEO4J_URI", canonical: "NEO4J_MCP_URI"},
+	{alias: "NEO4J_USERNAME", canonical: "NEO4J_MCP_USERNAME"},
+	{alias: "NEO4J_PASSWORD", canonical: "NEO4J_MCP_PASSWORD"},
+	{alias: "NEO4J_DATABASE", canonical: "NEO4J_MCP_DATABASE"},
+	{alias: "NEO4J_READ_ONLY", canonical: "NEO4J_MCP_READ_ONLY"},
+	{alias: "NEO4J_TELEMETRY", canonical: "NEO4J_MCP_TELEMETRY"},
+	{alias: "NEO4J_LOG_LEVEL", canonical: "NEO4J_MCP_LOG_LEVEL"},
+	{alias: "NEO4J_LOG_FORMAT", canonical: "NEO4J_MCP_LOG_FORMAT"},
+	{alias: "NEO4J_TRANSPORT_MODE", canonical: "NEO4J_MCP_TRANSPORT_MODE"},
+	{alias: "NEO4J_MCP_TRANSPORT", canonical: "NEO4J_MCP_TRANSPORT_MODE"},
+	{alias: "NEO4J_SCHEMA_SAMPLE_SIZE", canonical: "NEO4J_MCP_SCHEMA_SAMPLE_SIZE"},
+	{alias: "NEO4J_HTTP_AUTH_HEADER_NAME", canonical: "NEO4J_MCP_HTTP_AUTH_HEADER_NAME"},
+	{alias: "NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING", canonical: "NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING"},
+	{alias: "NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST", canonical: "NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"},
+}
+
+func warnOnDeprecatedUsage() {
+	for _, variable := range deprecatedEnvironmentVariables {
+		if os.Getenv(variable.alias) != "" {
+			fmt.Fprintf(os.Stderr, DeprecatedVariableMessage, "environment variable", variable.alias, variable.canonical)
+		}
+	}
+}
+
+// GetEnvWithAliasesDefault returns the canonical or deprecated environment
+// variable value, or defaultValue when all names are unset or empty.
+func GetEnvWithAliasesDefault(canonical, defaultValue string, aliases ...string) string {
+	if value := GetEnvWithAliases(canonical, aliases...); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 // GetEnvWithDefault returns the value of an environment variable or a default value
