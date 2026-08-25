@@ -23,7 +23,7 @@ import (
 func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 	t.Parallel()
 
-	baseURL := startHTTPModeServer(t, "--neo4j-request-timeout", "5s")
+	baseURL := startHTTPModeServer(t, "--request-timeout", "5s")
 
 	tests := []struct {
 		name     string
@@ -95,7 +95,7 @@ func TestHTTPRequestTimeoutInitialize(t *testing.T) {
 		},
 		{
 			name:       "When the server maximum timeout expires, initialize should fail with the timeout error",
-			serverArgs: []string{"--neo4j-request-timeout", "1ms"},
+			serverArgs: []string{"--request-timeout", "1ms"},
 			wantErr:    "request timed out after 1ms",
 		},
 	}

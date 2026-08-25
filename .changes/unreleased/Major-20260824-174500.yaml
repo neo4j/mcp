@@ -1,0 +1,4 @@
+kind: Major
+body: |
+  Removed deprecated environment-variable aliases and --neo4j-* CLI flags; user-facing environment variables now use the NEO4J_MCP_ prefix.
+time: 2026-08-24T17:45:00+01:00
