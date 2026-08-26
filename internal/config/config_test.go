@@ -107,7 +107,7 @@ func TestConfig_Validate(t *testing.T) {
 				TransportMode: TransportModeHTTP,
 			},
 			wantErr: true,
-			errMsg:  "NEO4J_MCP_DATABASE environment variable or ---database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)",
+			errMsg:  "NEO4J_MCP_DATABASE environment variable or --database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)",
 		},
 		{
 			name: "credentials set for HTTP mode should raise error",
@@ -168,53 +168,6 @@ func TestLoadConfig_ValidConfig(t *testing.T) {
 	cfg, err := LoadConfig(nil)
 	if err != nil {
 		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
-
-	if cfg == nil {
-		t.Fatal("LoadConfig() returned nil config")
-	}
-
-	if cfg.URI != "bolt://localhost:7687" {
-		t.Errorf("LoadConfig() URI = %v, want bolt://localhost:7687", cfg.URI)
-	}
-	if cfg.Username != "testuser" {
-		t.Errorf("LoadConfig() Username = %v, want testuser", cfg.Username)
-	}
-	if cfg.Password != "testpass" {
-		t.Errorf("LoadConfig() Password = %v, want testpass", cfg.Password)
-	}
-	if cfg.Database != "neo4j" {
-		t.Errorf("LoadConfig() Database = %v, want neo4j", cfg.Database)
-	}
-}
-
-func TestLoadConfig_DeprecatedValidConfig(t *testing.T) {
-	// Unit test: set required env variables and verify LoadConfig works
-	t.Setenv("NEO4J_MCP_TRANSPORT", "stdio")
-	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
-	t.Setenv("NEO4J_USERNAME", "testuser")
-	t.Setenv("NEO4J_PASSWORD", "testpass")
-	t.Setenv("NEO4J_DATABASE", "neo4j")
-
-	var cfg *Config
-	var loadErr error
-	_, stderr := captureOutput(func() {
-		cfg, loadErr = LoadConfig(nil)
-	})
-	if loadErr != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", loadErr)
-	}
-
-	for _, alias := range []string{
-		"NEO4J_MCP_TRANSPORT",
-		"NEO4J_URI",
-		"NEO4J_USERNAME",
-		"NEO4J_PASSWORD",
-		"NEO4J_DATABASE",
-	} {
-		if !strings.Contains(stderr, `deprecated environment variable "`+alias+`"`) {
-			t.Errorf("deprecation warnings = %q, want warning for %s", stderr, alias)
-		}
 	}
 
 	if cfg == nil {
@@ -308,8 +261,6 @@ func TestLoadConfig_PartialCLIOverrides(t *testing.T) {
 	overrides := &CLIOverrides{
 		URI:      "bolt://cli-host:7687",
 		Username: "cli-user",
-		Password: "",
-		Database: "",
 	}
 
 	cfg, err := LoadConfig(overrides)
@@ -479,7 +430,7 @@ func TestLoadConfig_CanonicalEnvironmentVariables(t *testing.T) {
 		t.Fatalf("LoadConfig() unexpected error: %v", loadErr)
 	}
 	if stderr != "" {
-		t.Fatalf("LoadConfig() emitted unexpected deprecation warning: %q", stderr)
+		t.Fatalf("LoadConfig() emitted unexpected warning: %q", stderr)
 	}
 
 	if cfg.URI != "bolt://canonical-host:7687" ||
@@ -525,62 +476,6 @@ func TestLoadConfig_InvalidLogConfigurationFallsBackToDefaults(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "invalid NEO4J_MCP_LOG_FORMAT 'JSON'") {
 		t.Errorf("stderr = %q, want invalid log format warning", stderr)
-	}
-}
-
-func TestLoadConfig_DeprecatedEnvironmentAliasWarningAndPrecedence(t *testing.T) {
-	t.Setenv("NEO4J_MCP_URI", "bolt://canonical-host:7687")
-	t.Setenv("NEO4J_MCP_USERNAME", "canonical-user")
-	t.Setenv("NEO4J_MCP_PASSWORD", "canonical-password")
-	t.Setenv("NEO4J_MCP_DATABASE", "canonical-db")
-	t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "stdio")
-	t.Setenv("NEO4J_URI", "bolt://legacy-host:7687")
-
-	var cfg *Config
-	var loadErr error
-	_, stderr := captureOutput(func() {
-		cfg, loadErr = LoadConfig(nil)
-	})
-	if loadErr != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", loadErr)
-	}
-	if cfg.URI != "bolt://canonical-host:7687" {
-		t.Fatalf("LoadConfig() URI = %q, want canonical value", cfg.URI)
-	}
-	if !strings.Contains(stderr, `deprecated environment variable "NEO4J_URI"`) {
-		t.Fatalf("deprecation warning = %q, want NEO4J_URI warning", stderr)
-	}
-	if !strings.Contains(stderr, "NEO4J_MCP_URI") {
-		t.Fatalf("deprecation warning = %q, want canonical replacement", stderr)
-	}
-	if strings.Contains(stderr, "legacy-host") {
-		t.Fatalf("deprecation warning exposed configured value: %q", stderr)
-	}
-}
-
-func TestLoadConfig_TransportEnvironmentAliasPrecedence(t *testing.T) {
-	t.Setenv("NEO4J_MCP_URI", "bolt://canonical-host:7687")
-	t.Setenv("NEO4J_MCP_USERNAME", "canonical-user")
-	t.Setenv("NEO4J_MCP_PASSWORD", "canonical-password")
-	t.Setenv("NEO4J_MCP_DATABASE", "canonical-db")
-	t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "")
-	t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
-	t.Setenv("NEO4J_MCP_TRANSPORT", "http")
-
-	var cfg *Config
-	var loadErr error
-	_, stderr := captureOutput(func() {
-		cfg, loadErr = LoadConfig(nil)
-	})
-	if loadErr != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", loadErr)
-	}
-	if cfg.TransportMode != TransportModeStdio {
-		t.Fatalf("LoadConfig() TransportMode = %q, want NEO4J_TRANSPORT_MODE precedence", cfg.TransportMode)
-	}
-	if !strings.Contains(stderr, `deprecated environment variable "NEO4J_TRANSPORT_MODE"`) ||
-		!strings.Contains(stderr, `deprecated environment variable "NEO4J_MCP_TRANSPORT"`) {
-		t.Fatalf("deprecation warnings = %q, want both transport aliases", stderr)
 	}
 }
 
@@ -727,9 +622,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
 
-		overrides := &CLIOverrides{
-			TLSEnabled: "true",
-		}
+		overrides := &CLIOverrides{TLSEnabled: "true"}
 
 		cfg, err := LoadConfig(overrides)
 		if err != nil {
@@ -847,9 +740,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
 		// Don't set NEO4J_MCP_HTTP_PORT in environment
 
-		overrides := &CLIOverrides{
-			Port: "9443",
-		}
+		overrides := &CLIOverrides{Port: "9443"}
 
 		cfg, err := LoadConfig(overrides)
 		if err != nil {
@@ -870,9 +761,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
 		// Don't set NEO4J_MCP_HTTP_PORT
 
-		overrides := &CLIOverrides{
-			TLSEnabled: "true",
-		}
+		overrides := &CLIOverrides{TLSEnabled: "true"}
 
 		cfg, err := LoadConfig(overrides)
 		if err != nil {
@@ -928,7 +817,7 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_MCP_USERNAME", "neo4j")
 		t.Setenv("NEO4J_MCP_PASSWORD", "password")
 		t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
-		t.Setenv("NEO4J_DATABASE", "neo4j")
+		t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 		// Don't set NEO4J_MCP_HTTP_ALLOWED_ORIGINS
 
 		cfg, err := LoadConfig(nil)
@@ -946,12 +835,10 @@ func TestLoadConfig_HTTPAllowedOrigins(t *testing.T) {
 		t.Setenv("NEO4J_MCP_URI", "bolt://localhost:7687")
 		t.Setenv("NEO4J_MCP_USERNAME", "neo4j")
 		t.Setenv("NEO4J_MCP_PASSWORD", "password")
-		t.Setenv("NEO4J_DATABASE", "neo4j")
+		t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS", "https://env-example.com")
 
-		overrides := &CLIOverrides{
-			AllowedOrigins: "https://cli-example.com",
-		}
+		overrides := &CLIOverrides{AllowedOrigins: "https://cli-example.com"}
 
 		cfg, err := LoadConfig(overrides)
 		if err != nil {
@@ -1011,9 +898,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "X-Env-Auth")
 		t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 
-		overrides := &CLIOverrides{
-			AuthHeaderName: "X-CLI-Auth",
-		}
+		overrides := &CLIOverrides{AuthHeaderName: "X-CLI-Auth"}
 
 		cfg, err := LoadConfig(overrides)
 		if err != nil {
@@ -1033,9 +918,7 @@ func TestLoadConfig_AuthHeaderName(t *testing.T) {
 		t.Setenv("NEO4J_MCP_PASSWORD", "password")
 		t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 
-		overrides := &CLIOverrides{
-			AuthHeaderName: "   ", // non-empty but only whitespace -> should be trimmed to empty and cause an error
-		}
+		overrides := &CLIOverrides{AuthHeaderName: "   "} // non-empty but only whitespace -> should be trimmed to empty and cause an error
 
 		cfg, err := LoadConfig(overrides)
 		if err == nil {
@@ -1151,16 +1034,16 @@ func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
-			t.Setenv("NEO4J_URI", "bolt://localhost:7687")
-			t.Setenv("NEO4J_USERNAME", "neo4j")
-			t.Setenv("NEO4J_PASSWORD", "password")
-			t.Setenv("NEO4J_DATABASE", "neo4j")
+			t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "stdio")
+			t.Setenv("NEO4J_MCP_URI", "bolt://localhost:7687")
+			t.Setenv("NEO4J_MCP_USERNAME", "neo4j")
+			t.Setenv("NEO4J_MCP_PASSWORD", "password")
+			t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 			if tt.toolsEnv != nil {
 				t.Setenv("NEO4J_MCP_TOOLS", *tt.toolsEnv)
 			}
 
-			cfg, err := LoadConfig(&CLIOverrides{})
+			cfg, err := LoadConfig(nil)
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -1225,18 +1108,20 @@ func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
-			t.Setenv("NEO4J_URI", "bolt://localhost:7687")
-			t.Setenv("NEO4J_USERNAME", "neo4j")
-			t.Setenv("NEO4J_PASSWORD", "password")
-			t.Setenv("NEO4J_DATABASE", "neo4j")
+			t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "stdio")
+			t.Setenv("NEO4J_MCP_URI", "bolt://localhost:7687")
+			t.Setenv("NEO4J_MCP_USERNAME", "neo4j")
+			t.Setenv("NEO4J_MCP_PASSWORD", "password")
+			t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 			if tt.toolsEnv != "" {
 				t.Setenv("NEO4J_MCP_TOOLS", tt.toolsEnv)
 			}
 
-			cfg, err := LoadConfig(&CLIOverrides{
-				Tools: tt.cliTools,
-			})
+			overrides := &CLIOverrides{}
+			if tt.cliTools != nil {
+				overrides.Tools = tt.cliTools
+			}
+			cfg, err := LoadConfig(overrides)
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -1254,11 +1139,11 @@ func newStringPtr(s string) *string {
 }
 
 func TestLoadConfig_RequestTimeout(t *testing.T) {
-	t.Setenv("NEO4J_TRANSPORT_MODE", "stdio")
-	t.Setenv("NEO4J_URI", "bolt://localhost:7687")
-	t.Setenv("NEO4J_USERNAME", "testuser")
-	t.Setenv("NEO4J_PASSWORD", "testpass")
-	t.Setenv("NEO4J_DATABASE", "neo4j")
+	t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "stdio")
+	t.Setenv("NEO4J_MCP_URI", "bolt://localhost:7687")
+	t.Setenv("NEO4J_MCP_USERNAME", "testuser")
+	t.Setenv("NEO4J_MCP_PASSWORD", "testpass")
+	t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
 
 	t.Run("default value", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "")
@@ -1293,7 +1178,8 @@ func TestLoadConfig_RequestTimeout(t *testing.T) {
 	t.Run("cli override", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "45s")
 
-		cfg, err := LoadConfig(&CLIOverrides{RequestTimeout: "20s"})
+		overrides := &CLIOverrides{RequestTimeout: "20s"}
+		cfg, err := LoadConfig(overrides)
 		require.NoError(t, err)
 		assert.Equal(t, 20*time.Second, cfg.RequestTimeout)
 	})
@@ -1316,7 +1202,8 @@ func TestLoadConfig_RequestTimeout(t *testing.T) {
 	t.Run("above the maximum is rejected from the CLI flag", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_REQUEST_TIMEOUT", "")
 
-		_, err := LoadConfig(&CLIOverrides{RequestTimeout: "100h"})
+		overrides := &CLIOverrides{RequestTimeout: "100h"}
+		_, err := LoadConfig(overrides)
 		require.ErrorContains(t, err, "must not exceed 30m0s")
 	})
 }
