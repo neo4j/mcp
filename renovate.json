@@ -19,7 +19,7 @@
             "groupName": null
         },
         {
-            "matchUpdateTypes": ["minor", "patch"],
+            "matchUpdateTypes": ["minor", "patch", "digest"],
             "groupName": "minor-and-patch"
         }
     ]
