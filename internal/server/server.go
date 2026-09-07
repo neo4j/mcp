@@ -18,13 +18,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/analytics"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
@@ -40,7 +40,7 @@ const (
 
 // Neo4jMCPServer represents the MCP server instance
 type Neo4jMCPServer struct {
-	MCPServer       *server.MCPServer
+	MCPServer       *mcp.Server
 	httpServer      *http.Server
 	HTTPServerReady chan struct{}
 	shutdownChan    chan struct{}
@@ -50,6 +50,10 @@ type Neo4jMCPServer struct {
 	anService       analytics.Service
 	uriResolver     URIResolver
 	driverRegistry  database.DriverRegistry
+	// toolsByName holds every registered tool's spec, keyed by name, so the
+	// tools/call middleware can check a tool's ReadOnlyHint without relying on
+	// SDK-internal registry introspection (no public equivalent in go-sdk).
+	toolsByName map[string]*mcp.Tool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -62,6 +66,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		dbService:       dbService,
 		version:         version,
 		anService:       anService,
+		toolsByName:     make(map[string]*mcp.Tool),
 	}
 
 	if cfg.TransportMode == config.TransportModeHTTP {
@@ -69,106 +74,174 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		neo4jServer.driverRegistry = &database.PerRequestDriverRegistry{}
 	}
 
-	hooks := neo4jServer.configureHooks()
-
-	mcpServer := server.NewMCPServer(
-		"neo4j-mcp",
-		version,
-		server.WithToolCapabilities(true),
-		server.WithHooks(hooks),
-		server.WithInstructions("This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database,"+
-			"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher."),
-		server.WithToolFilter(func(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
-			// This hook filter tools depending on the X-Neo4j-MCP-Tools and X-Neo4j-MCP-ReadOnly http header
-			readOnly := mcpcontext.GetReadOnly(ctx)
-			requestedTools := mcpcontext.GetTools(ctx)
-			// early return when no per-request filters are not defined
-			if readOnly == nil && requestedTools == nil {
-				return tools
-			}
-			var filteredTools = make([]mcp.Tool, 0, len(tools))
-			for _, tool := range tools {
-				if readOnly != nil && *readOnly && (tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint) {
-					continue
-				}
-				if requestedTools != nil && !slices.Contains(*requestedTools, tool.GetName()) {
-					continue
-				}
-
-				filteredTools = append(filteredTools, tool)
-			}
-			if len(filteredTools) != len(tools) {
-				slog.Debug("tools filtered for request",
-					"advertised", len(filteredTools),
-					"total", len(tools),
-				)
-			}
-			return filteredTools
-		}),
-		server.WithToolHandlerMiddleware(func(next server.ToolHandlerFunc) server.ToolHandlerFunc {
-			// WithToolFilter controls tool advertisement; this middleware enforces execution
-			return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-				timeout := mcpcontext.GetRequestTimeout(ctx)
-				if timeout <= 0 {
-					timeout = effectiveRequestTimeout(cfg)
-					ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
-				}
-				ctx, cancel := context.WithTimeout(ctx, timeout)
-				defer cancel()
-
-				// Guards are checked read-only first, then the configured tools list.
-				// When a request violates both, the read-only error takes precedence.
-				readOnly := mcpcontext.GetReadOnly(ctx)
-				if readOnly != nil && *readOnly {
-					mcpServer := server.ServerFromContext(ctx)
-					if mcpServer == nil {
-						// Should be unreachable: the SDK always injects the server into
-						// the context before invoking tool handler middleware.
-						slog.Error("internal error: MCP server missing from context", logger.AppendRequestInfo(ctx)...)
-						return nil, fmt.Errorf("internal error: MCP server missing from context")
-					}
-
-					serverTool := mcpServer.GetTool(req.Params.Name)
-					if serverTool == nil {
-						// Should be unreachable: the SDK rejects unknown tool names before
-						// the middleware runs (see TestHTTPPerRequestToolsExecutionGuardInvalidTool).
-						slog.Error("internal error: tool not found", append(logger.AppendRequestInfo(ctx), "tool", req.Params.Name)...)
-						return nil, fmt.Errorf("internal error: tool %q not found", req.Params.Name)
-					}
-
-					readOnlyHint := serverTool.Tool.Annotations.ReadOnlyHint
-					if readOnlyHint == nil || !*readOnlyHint {
-						slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
-							"tool", req.Params.Name, "reason", "read_only")...)
-						return mcp.NewToolResultError(fmt.Sprintf("'%s' is not permitted in read-only mode", req.Params.Name)), nil
-					}
-				}
-
-				tools := mcpcontext.GetTools(ctx)
-				if tools != nil && !slices.Contains(*tools, req.Params.Name) {
-					slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
-						"tool", req.Params.Name, "reason", "not_in_tools_list")...)
-					return mcp.NewToolResultError(fmt.Sprintf("'%s' is not in the list of configured tools", req.Params.Name)), nil
-				}
-
-				result, err := next(ctx, req)
-				if isRequestDeadlineExceeded(ctx, err) {
-					slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
-						"mcp_method", mcp.MethodToolsCall,
-						"tool", req.Params.Name,
-						"phase", "tool_execution",
-						"request_timeout_ms", timeout.Milliseconds())...)
-					return mcp.NewToolResultError(formatRequestTimeoutError(ctx)), nil
-				}
-
-				return result, err
-			}
-		}),
+	mcpServer := mcp.NewServer(
+		&mcp.Implementation{Name: "neo4j-mcp", Version: version},
+		&mcp.ServerOptions{
+			Instructions: "This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database," +
+				"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher.",
+		},
 	)
 
 	neo4jServer.MCPServer = mcpServer
 
+	mcpServer.AddReceivingMiddleware(
+		neo4jServer.requestMiddleware,
+		neo4jServer.toolsListMiddleware,
+		neo4jServer.toolsCallMiddleware,
+	)
+
 	return neo4jServer
+}
+
+// requestMiddleware logs every incoming request and verifies Neo4j requirements during the initialize handshake.
+// Only initialize requests are checked; other methods pass through unchanged.
+func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		slog.Info("request started", append(logger.AppendRequestInfo(ctx), "mcp_method", method)...)
+
+		if method != "initialize" {
+			return next(ctx, method, req)
+		}
+
+		timeout := mcpcontext.GetRequestTimeout(ctx)
+		if timeout <= 0 {
+			timeout = effectiveRequestTimeout(s.config)
+			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		slog.Info("Initialize request: verifying requirements...")
+		if err := s.verifyRequirements(ctx); err != nil {
+			if isRequestDeadlineExceeded(ctx, err) {
+				slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+					"mcp_method", "initialize",
+					"phase", "initialize",
+					"request_timeout_ms", timeout.Milliseconds())...)
+				return nil, errors.New(formatRequestTimeoutError(ctx))
+			}
+			slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
+			return nil, err
+		}
+		slog.Info("initialize requirements verified", logger.AppendRequestInfo(ctx)...)
+		s.emitConnectionInitializedEvent(ctx)
+
+		return next(ctx, method, req)
+	}
+}
+
+// toolsListMiddleware filters advertised tools depending on the X-Neo4j-MCP-Tools and
+// X-Neo4j-MCP-ReadOnly HTTP headers.
+func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		if method != "tools/list" {
+			return next(ctx, method, req)
+		}
+
+		res, err := next(ctx, method, req)
+		if err != nil {
+			return res, err
+		}
+
+		listResult, ok := res.(*mcp.ListToolsResult)
+		if !ok {
+			return res, err
+		}
+
+		readOnly := mcpcontext.GetReadOnly(ctx)
+		requestedTools := mcpcontext.GetTools(ctx)
+		// early return when no per-request filters are defined
+		if readOnly == nil && requestedTools == nil {
+			return listResult, nil
+		}
+
+		filteredTools := make([]*mcp.Tool, 0, len(listResult.Tools))
+		for _, tool := range listResult.Tools {
+			if readOnly != nil && *readOnly && (tool.Annotations == nil || !tool.Annotations.ReadOnlyHint) {
+				continue
+			}
+			if requestedTools != nil && !slices.Contains(*requestedTools, tool.Name) {
+				continue
+			}
+			filteredTools = append(filteredTools, tool)
+		}
+
+		if len(filteredTools) != len(listResult.Tools) {
+			slog.Debug("tools filtered for request",
+				"advertised", len(filteredTools),
+				"total", len(listResult.Tools),
+			)
+		}
+
+		listResult.Tools = filteredTools
+
+		return listResult, nil
+	}
+}
+
+// toolsCallMiddleware enforces execution-time read-only/tool-list guards, applies the
+// per-request timeout, and emits post-call analytics events.
+func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		if method != "tools/call" {
+			return next(ctx, method, req)
+		}
+
+		callReq, ok := req.(*mcp.CallToolRequest)
+		if !ok {
+			return next(ctx, method, req)
+		}
+
+		toolName := callReq.Params.Name
+
+		timeout := mcpcontext.GetRequestTimeout(ctx)
+		if timeout <= 0 {
+			timeout = effectiveRequestTimeout(s.config)
+			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		// Guards are checked read-only first, then the configured tools list.
+		// When a request violates both, the read-only error takes precedence.
+		readOnly := mcpcontext.GetReadOnly(ctx)
+		if readOnly != nil && *readOnly {
+			tool, ok := s.toolsByName[toolName]
+			if !ok {
+				// Should be unreachable: the SDK rejects unknown tool names before
+				// the middleware runs (see TestHTTPPerRequestToolsExecutionGuardInvalidTool).
+				slog.Error("internal error: tool not found", append(logger.AppendRequestInfo(ctx), "tool", toolName)...)
+				return nil, fmt.Errorf("internal error: tool %q not found", toolName)
+			}
+
+			if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+				slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
+					"tool", toolName, "reason", "read_only")...)
+				return tools.NewToolErrorResult(fmt.Sprintf("'%s' is not permitted in read-only mode", toolName)), nil
+			}
+		}
+
+		requestedTools := mcpcontext.GetTools(ctx)
+		if requestedTools != nil && !slices.Contains(*requestedTools, toolName) {
+			slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
+				"tool", toolName, "reason", "not_in_tools_list")...)
+			return tools.NewToolErrorResult(fmt.Sprintf("'%s' is not in the list of configured tools", toolName)), nil
+		}
+
+		result, err := next(ctx, method, req)
+		if isRequestDeadlineExceeded(ctx, err) {
+			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+				"mcp_method", "tools/call",
+				"tool", toolName,
+				"phase", "tool_execution",
+				"request_timeout_ms", timeout.Milliseconds())...)
+			return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
+		}
+
+		s.handleToolCallComplete(toolName, callReq.Params.Arguments, result)
+
+		return result, err
+	}
 }
 
 // Start initializes and starts the MCP server
@@ -180,7 +253,7 @@ func (s *Neo4jMCPServer) Start() error {
 		return s.StartHTTPServer()
 	case config.TransportModeStdio:
 		{
-			return server.ServeStdio(s.MCPServer)
+			return s.MCPServer.Run(context.Background(), &mcp.StdioTransport{})
 		}
 	default:
 		return fmt.Errorf("unsupported transport mode: %s", s.config.TransportMode)
@@ -431,9 +504,9 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	)
 
 	// Create the StreamableHTTPServer - it serves on /mcp path by default
-	mcpServerHTTP := server.NewStreamableHTTPServer(
-		s.MCPServer,
-		server.WithStateLess(true),
+	mcpServerHTTP := mcp.NewStreamableHTTPHandler(
+		func(*http.Request) *mcp.Server { return s.MCPServer },
+		&mcp.StreamableHTTPOptions{Stateless: true},
 	)
 
 	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
@@ -512,79 +585,11 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	}
 }
 
-// configureHooks sets up MCP SDK hooks for tool call tracking
-func (s *Neo4jMCPServer) configureHooks() *server.Hooks {
-	hooks := &server.Hooks{}
-
-	hooks.AddAfterCallTool(s.handleToolCallComplete)
-
-	hooks.AddOnRequestInitialization(s.onRequestInitialization)
-
-	return hooks
-}
-
-// onRequestInitialization verifies Neo4j requirements during the initialize handshake.
-// Only initialize requests are checked; other methods pass through unchanged.
-// onRequestInitialization naming from the mcp-go sdk may be counter intuitive as is it
-// unrelated to the MCP initialize method requests and is triggered by all requests.
-func (s *Neo4jMCPServer) onRequestInitialization(ctx context.Context, _ any, message any) error {
-	method, ok := jsonRPCMethod(message)
-	if !ok {
-		return nil
-	}
-
-	slog.Info("request started", append(logger.AppendRequestInfo(ctx), "mcp_method", method)...)
-
-	if method != mcp.MethodInitialize {
-		return nil
-	}
-
-	timeout := mcpcontext.GetRequestTimeout(ctx)
-	if timeout <= 0 {
-		timeout = effectiveRequestTimeout(s.config)
-		ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
-	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	slog.Info("Initialize request: verifying requirements...")
-	if err := s.verifyRequirements(ctx); err != nil {
-		if isRequestDeadlineExceeded(ctx, err) {
-			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
-				"mcp_method", mcp.MethodInitialize,
-				"phase", "initialize",
-				"request_timeout_ms", timeout.Milliseconds())...)
-			return errors.New(formatRequestTimeoutError(ctx))
-		}
-		slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
-		return err
-	}
-	slog.Info("initialize requirements verified", logger.AppendRequestInfo(ctx)...)
-	s.emitConnectionInitializedEvent(ctx)
-	return nil
-}
-
-// jsonRPCMethod extracts the JSON-RPC method from a raw request envelope.
-func jsonRPCMethod(message any) (mcp.MCPMethod, bool) {
-	raw, ok := message.(json.RawMessage)
-	if !ok {
-		return "", false
-	}
-	var envelope mcp.JSONRPCRequest
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return mcp.MCPMethod(""), false
-	}
-
-	return mcp.MCPMethod(envelope.Request.Method), envelope.Method != ""
-}
-
 // handleToolCallComplete is called after every tool call completes
-func (s *Neo4jMCPServer) handleToolCallComplete(_ context.Context, _ any, request *mcp.CallToolRequest, result any) {
+func (s *Neo4jMCPServer) handleToolCallComplete(toolName string, rawArgs json.RawMessage, result mcp.Result) {
 	if s.anService == nil || !s.anService.IsEnabled() {
 		return
 	}
-
-	toolName := request.Params.Name
 
 	// Type assert result to *mcp.CallToolResult
 	toolResult, ok := result.(*mcp.CallToolResult)
@@ -597,15 +602,16 @@ func (s *Neo4jMCPServer) handleToolCallComplete(_ context.Context, _ any, reques
 
 	// Handle GDS events for cypher tools
 	if toolName == "read-cypher" || toolName == "write-cypher" {
-		s.emitGDSEventsIfNeeded(request)
+		s.emitGDSEventsIfNeeded(rawArgs)
 	}
 }
 
 // emitGDSEventsIfNeeded checks if the cypher query contains GDS calls and emits appropriate events
-func (s *Neo4jMCPServer) emitGDSEventsIfNeeded(request *mcp.CallToolRequest) {
-	// Type assert Arguments to map[string]any
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
+func (s *Neo4jMCPServer) emitGDSEventsIfNeeded(rawArgs json.RawMessage) {
+	// Arguments arrive as raw JSON at this point in the middleware chain — the typed
+	// unmarshal into the tool's Input struct happens later, inside mcp.AddTool's handler.
+	var args map[string]any
+	if err := json.Unmarshal(rawArgs, &args); err != nil {
 		return
 	}
 
@@ -628,3 +634,4 @@ func (s *Neo4jMCPServer) emitGDSEventsIfNeeded(request *mcp.CallToolRequest) {
 		s.anService.EmitEvent(s.anService.NewGDSProjDropEvent())
 	}
 }
+
