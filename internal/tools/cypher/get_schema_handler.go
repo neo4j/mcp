@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
@@ -27,18 +27,18 @@ const (
 )
 
 // GetSchemaHandler returns a handler function for the get_schema tool
-func GetSchemaHandler(deps *tools.ToolDependencies, schemaSampleSize int32) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func GetSchemaHandler(deps *tools.ToolDependencies, schemaSampleSize int32) mcp.ToolHandlerFor[struct{}, any] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		return handleGetSchema(ctx, deps, schemaSampleSize)
 	}
 }
 
 // handleGetSchema retrieves Neo4j schema information using APOC
-func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSampleSize int32) (*mcp.CallToolResult, error) {
+func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSampleSize int32) (*mcp.CallToolResult, any, error) {
 	if deps.DBService == nil {
 		errMessage := "database service is not initialized"
 		slog.Error(errMessage)
-		return mcp.NewToolResultError(errMessage), nil
+		return tools.NewToolErrorResult(errMessage), nil, nil
 	}
 
 	slog.Info("retrieving schema from the database")
@@ -49,24 +49,24 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSa
 	})
 	if err != nil {
 		slog.Error("failed to execute schema query", database.ErrorLogAttrs(err)...)
-		return mcp.NewToolResultError(err.Error()), nil
+		return tools.NewToolErrorResult(err.Error()), nil, nil
 	}
 	if len(records) == 0 {
 		slog.Debug("schema is empty, no data in the database")
-		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
+		return tools.NewToolTextResult("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil, nil
 	}
 	structuredOutput, err := processCypherSchema(records)
 	if err != nil {
 		slog.Error("failed to process get-schema Cypher Query", "error", err)
-		return mcp.NewToolResultError(err.Error()), nil
+		return tools.NewToolErrorResult(err.Error()), nil, nil
 	}
 	jsonData, err := json.Marshal(structuredOutput)
 	if err != nil {
 		slog.Error("failed to serialize structured schema", "error", err)
-		return mcp.NewToolResultError(err.Error()), nil
+		return tools.NewToolErrorResult(err.Error()), nil, nil
 
 	}
-	return mcp.NewToolResultText(string(jsonData)), nil
+	return tools.NewToolTextResult(string(jsonData)), nil, nil
 }
 
 type SchemaItem struct {
