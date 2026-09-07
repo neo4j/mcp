@@ -10,12 +10,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
@@ -161,12 +162,35 @@ func (tc *E2ETestContext) AssertJSONListContainsObject(responseBody string, expe
 	assert.Contains(tc.t, actualList, expectedNormalized, "List at '%s' did not contain expected object")
 }
 
-func BuildInitializeRequest() mcp.InitializeRequest {
-	InitializeRequest := mcp.InitializeRequest{}
-	InitializeRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-	InitializeRequest.Params.ClientInfo = mcp.Implementation{
+// NewTestClient returns an MCP client configured for use in e2e tests.
+func NewTestClient() *mcp.Client {
+	return mcp.NewClient(&mcp.Implementation{
 		Name:    "test-client",
 		Version: "1.0.0",
+	}, nil)
+}
+
+// headerInjectingTransport adds a fixed set of headers to every outgoing request.
+type headerInjectingTransport struct {
+	headers map[string]string
+	base    http.RoundTripper
+}
+
+func (t *headerInjectingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+
+	for k, v := range t.headers {
+		req.Header.Set(k, v)
 	}
-	return InitializeRequest
+
+	return t.base.RoundTrip(req)
+}
+
+// NewHeaderInjectingHTTPClient returns an *http.Client that adds headers to every
+// request, for use as [mcp.StreamableClientTransport]'s HTTPClient field.
+func NewHeaderInjectingHTTPClient(headers map[string]string, timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: &headerInjectingTransport{headers: headers, base: http.DefaultTransport},
+	}
 }
