@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"flag"
 	"io"
 	"os"
 	"strings"
@@ -54,252 +53,7 @@ func (m *exitMock) Exit(code int) {
 	panic(m)
 }
 
-func TestHandleArgs_DeprecatedFlag(t *testing.T) {
-	tests := []struct {
-		name             string
-		args             []string
-		version          string
-		expectedExitCode int    // -1 means no exit, 0 or 1 for exit codes
-		expectedOutput   string // substring to find in stdout or stderr
-		expectedStderr   string // substring to find in stderr (if non-empty, output is checked in stderr instead of stdout)
-	}{
-		{
-			name:             "neo4j-uri configuration flag",
-			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "multiple configuration flags",
-			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--neo4j-username", "user"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flags are allowed
-		},
-		{
-			name:             "configuration flag missing value - at end",
-			args:             []string{testProgramName, "--neo4j-uri"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-uri requires a value",
-		},
-		{
-			name:             "configuration flag missing value - followed by another flag",
-			args:             []string{testProgramName, "--neo4j-uri", "--neo4j-username", "user"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-uri requires a value (got flag --neo4j-username instead)",
-		},
-		{
-			name:             "neo4j-password missing value",
-			args:             []string{testProgramName, "--neo4j-password"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-password requires a value",
-		},
-		{
-			name:             "neo4j-database missing value - followed by another flag",
-			args:             []string{testProgramName, "--neo4j-database", "--neo4j-uri", "bolt://localhost"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-database requires a value (got flag --neo4j-uri instead)",
-		},
-		{
-			name:             "configuration flags with valid values",
-			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--neo4j-username", "neo4j", "--neo4j-password", "password", "--neo4j-database", "neo4j"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit
-		},
-		{
-			name:             "schema sample size flag with valid value",
-			args:             []string{testProgramName, "--neo4j-schema-sample-size", "500"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit
-		},
-		{
-			name:             "schema sample size flag missing value",
-			args:             []string{testProgramName, "--neo4j-schema-sample-size"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-schema-sample-size requires a value",
-		},
-		{
-			name:             "transport mode flag valid value",
-			args:             []string{testProgramName, "--neo4j-transport-mode", "http"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "transport mode flag missing value",
-			args:             []string{testProgramName, "--neo4j-transport-mode"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-transport-mode requires a value",
-		},
-		{
-			name:             "transport mode flag missing value followed by another flag",
-			args:             []string{testProgramName, "--neo4j-transport-mode", "--neo4j-uri", "bolt://localhost:7687"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-transport-mode requires a value (got flag --neo4j-uri instead)",
-		},
-		{
-			name:             "http tls enabled flag with valid value",
-			args:             []string{testProgramName, "--neo4j-http-tls-enabled", "true"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http tls enabled flag missing value",
-			args:             []string{testProgramName, "--neo4j-http-tls-enabled"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-http-tls-enabled requires a value",
-		},
-		{
-			name:             "http tls cert file flag with valid value",
-			args:             []string{testProgramName, "--neo4j-http-tls-cert-file", "/path/to/cert.pem"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http tls cert file flag missing value",
-			args:             []string{testProgramName, "--neo4j-http-tls-cert-file"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-http-tls-cert-file requires a value",
-		},
-		{
-			name:             "http tls key file flag with valid value",
-			args:             []string{testProgramName, "--neo4j-http-tls-key-file", "/path/to/key.pem"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http tls key file flag missing value",
-			args:             []string{testProgramName, "--neo4j-http-tls-key-file"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-http-tls-key-file requires a value",
-		},
-		{
-			name:             "http allowed origins flag with valid value",
-			args:             []string{testProgramName, "--neo4j-http-allowed-origins", "https://example.com"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http allowed origins flag with multiple origins",
-			args:             []string{testProgramName, "--neo4j-http-allowed-origins", "https://example.com,https://example2.com"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http allowed origins flag missing value",
-			args:             []string{testProgramName, "--neo4j-http-allowed-origins"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-http-allowed-origins requires a value",
-		},
-		{
-			name:             "http auth header name flag with valid value",
-			args:             []string{testProgramName, "--neo4j-http-auth-header-name", "X-Custom-Auth"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http auth header name flag missing value",
-			args:             []string{testProgramName, "--neo4j-http-auth-header-name"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-http-auth-header-name requires a value",
-		},
-		{
-			name:             "double dash separator stops flag processing",
-			args:             []string{testProgramName, "--", "--unknown-flag"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, -- stops our flag processing
-		},
-		{
-			name:             "double dash separator with config flags before it",
-			args:             []string{testProgramName, "--neo4j-uri", "bolt://localhost:7687", "--", "--unknown-flag"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, config flag before -- is valid
-		},
-		{
-			name:             "http allow unauthenticated ping with valid value",
-			args:             []string{testProgramName, "--neo4j-http-allow-unauthenticated-ping", "true"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "http allow unauthenticated ping with missing value",
-			args:             []string{testProgramName, "--neo4j-http-allow-unauthenticated-ping"},
-			version:          testVersion,
-			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-http-allow-unauthenticated-ping requires a value",
-		},
-		{
-			name:             "neo4j-tools flag with one tool name",
-			args:             []string{testProgramName, "--neo4j-tools", "get-schema"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "neo4j-tools flag with trailing comma after tool name",
-			args:             []string{testProgramName, "--neo4j-tools", "get-schema,"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-		{
-			name:             "neo4j-tools flag with two tool names",
-			args:             []string{testProgramName, "--neo4j-tools", "get-schema,read-cypher"},
-			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			originalArgs := os.Args
-			originalOsExit := osExit
-			t.Cleanup(func() {
-				os.Args = originalArgs
-				osExit = originalOsExit
-			})
-
-			os.Args = tt.args
-			mock := &exitMock{}
-			osExit = mock.Exit
-
-			stdout, stderr := captureOutput(func() {
-				defer func() {
-					if r := recover(); r != mock {
-						if r != nil {
-							panic(r)
-						}
-					}
-				}()
-				HandleArgs(tt.version)
-			})
-
-			shouldExit := tt.expectedExitCode != -1
-			if shouldExit != mock.called {
-				t.Errorf("exit called: got %v, want %v", mock.called, shouldExit)
-			}
-			if mock.called && mock.code != tt.expectedExitCode {
-				t.Errorf("exit code: got %d, want %d", mock.code, tt.expectedExitCode)
-			}
-			if tt.expectedStderr != "" && !strings.Contains(stderr, tt.expectedStderr) {
-				t.Errorf("stderr: got %q, want to contain %q", stderr, tt.expectedStderr)
-			}
-			if tt.expectedOutput != "" && !strings.Contains(stdout, tt.expectedOutput) {
-				t.Errorf("stdout: got %q, want to contain %q", stdout, tt.expectedOutput)
-			}
-		})
-	}
-}
-
-func TestHandleArgs_CanonicalFlags(t *testing.T) {
+func TestHandleArgs(t *testing.T) {
 	tests := []struct {
 		name             string
 		args             []string
@@ -486,35 +240,35 @@ func TestHandleArgs_CanonicalFlags(t *testing.T) {
 			expectedExitCode: -1,
 		},
 		{
-			name:             "neo4j-tools flag with one tool name",
-			args:             []string{testProgramName, "--neo4j-tools", "get-schema"},
+			name:             "tools flag with one tool name",
+			args:             []string{testProgramName, "--tools", "get-schema"},
 			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
+			expectedExitCode: -1,
 		},
 		{
-			name:             "neo4j-tools flag with trailing comma after tool name",
-			args:             []string{testProgramName, "--neo4j-tools", "get-schema,"},
+			name:             "tools flag with trailing comma after tool name",
+			args:             []string{testProgramName, "--tools", "get-schema,"},
 			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
+			expectedExitCode: -1,
 		},
 		{
-			name:             "neo4j-tools flag with two tool names",
-			args:             []string{testProgramName, "--neo4j-tools", "get-schema,read-cypher"},
+			name:             "tools flag with two tool names",
+			args:             []string{testProgramName, "--tools", "get-schema,read-cypher"},
 			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
+			expectedExitCode: -1,
 		},
 		{
-			name:             "neo4j-request-timeout flag with valid value",
-			args:             []string{testProgramName, "--neo4j-request-timeout", "45s"},
+			name:             "request-timeout flag with valid value",
+			args:             []string{testProgramName, "--request-timeout", "45s"},
 			version:          testVersion,
-			expectedExitCode: -1, // Should not exit, flag is allowed
+			expectedExitCode: -1,
 		},
 		{
-			name:             "neo4j-request-timeout flag missing value",
-			args:             []string{testProgramName, "--neo4j-request-timeout"},
+			name:             "request-timeout flag missing value",
+			args:             []string{testProgramName, "--request-timeout"},
 			version:          testVersion,
 			expectedExitCode: 1,
-			expectedStderr:   "--neo4j-request-timeout requires a value",
+			expectedStderr:   "--request-timeout requires a value",
 		},
 	}
 
@@ -556,43 +310,5 @@ func TestHandleArgs_CanonicalFlags(t *testing.T) {
 				t.Errorf("stdout: got %q, want to contain %q", stdout, tt.expectedOutput)
 			}
 		})
-	}
-}
-
-func TestParseConfigFlags_CanonicalFlagPrecedenceAndWarning(t *testing.T) {
-	originalArgs := os.Args
-	originalCommandLine := flag.CommandLine
-	t.Cleanup(func() {
-		os.Args = originalArgs
-		flag.CommandLine = originalCommandLine
-	})
-
-	os.Args = []string{
-		testProgramName,
-		"--uri", "bolt://canonical-host:7687",
-		"--neo4j-uri", "bolt://legacy-host:7687",
-		"--transport-mode", "http",
-		"--neo4j-transport-mode", "stdio",
-	}
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	flag.CommandLine.SetOutput(io.Discard)
-
-	var args *Args
-	_, stderr := captureOutput(func() {
-		args = ParseConfigFlags()
-	})
-
-	if args.URI != "bolt://canonical-host:7687" {
-		t.Fatalf("ParseConfigFlags() URI = %q, want canonical value", args.URI)
-	}
-	if args.TransportMode != "http" {
-		t.Fatalf("ParseConfigFlags() TransportMode = %q, want canonical value", args.TransportMode)
-	}
-	if !strings.Contains(stderr, `deprecated CLI flag "--neo4j-uri"`) ||
-		!strings.Contains(stderr, `deprecated CLI flag "--neo4j-transport-mode"`) {
-		t.Fatalf("deprecation warnings = %q, want warnings for deprecated flags", stderr)
-	}
-	if strings.Contains(stderr, "legacy-host") {
-		t.Fatalf("deprecation warning exposed configured value: %q", stderr)
 	}
 }
