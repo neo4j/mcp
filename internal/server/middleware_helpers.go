@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	// "github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/neo4j/mcp/internal/logger"
 )
 
@@ -149,3 +150,22 @@ func rejectRequest(w http.ResponseWriter, r *http.Request, status int, reason, m
 	}
 	http.Error(w, msg, status)
 }
+
+// // writeJSONRPCError writes an HTTP-level rejection as a JSON-RPC-shaped error body, so that
+// // the error message can be decoded and surfaced instead of falling back to the bare HTTP status text.
+// func writeJSONRPCError(w http.ResponseWriter, status int, msg string) {
+// 	id, _ := jsonrpc.MakeID(float64(0))
+
+// 	data, err := jsonrpc.EncodeMessage(&jsonrpc.Response{
+// 		ID:    id,
+// 		Error: &jsonrpc.Error{Code: jsonrpc.CodeInvalidRequest, Message: msg},
+// 	})
+// 	if err != nil {
+// 		http.Error(w, msg, status)
+// 		return
+// 	}
+	
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(status)
+// 	w.Write(data)
+// }

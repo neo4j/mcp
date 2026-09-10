@@ -4,6 +4,7 @@
 package gds
 
 import (
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/tools"
 )
@@ -25,6 +26,12 @@ func ListGDSProceduresSpec() *mcp.Tool {
 			DestructiveHint: tools.BoolPtr(false),
 			IdempotentHint:  true,
 			OpenWorldHint:   tools.BoolPtr(true),
+		},
+		// Set explicitly rather than left nil otherwise "properties" is omitted entirely 
+		// which breaks OpenAI API compatibility (see issue #157).
+		InputSchema: &jsonschema.Schema{
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{},
 		},
 	}
 }
