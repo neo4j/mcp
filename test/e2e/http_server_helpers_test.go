@@ -10,6 +10,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -108,15 +109,14 @@ func waitForHealthz(t *testing.T, url string) {
 	t.Fatalf("server at %s did not become ready within 10s", url)
 }
 
-// newHTTPClient builds an MCP streamable-HTTP client forwarding the provided headers.
-func newHTTPClient(t *testing.T, mcpURL string, headers map[string]string, opts ...client.ClientOption) *client.Client {
+// newHTTPClient connects an MCP client over streamable HTTP, forwarding the provided headers. 
+func newHTTPClient(t *testing.T, ctx context.Context, mcpURL string, headers map[string]string) (*mcp.Client, *mcp.ClientSession, error) {
 	t.Helper()
 
-	httpTransport, err := transport.NewStreamableHTTP(mcpURL,
-		transport.WithHTTPTimeout(15*time.Second),
-		transport.WithHTTPHeaders(headers),
-	)
-	require.NoError(t, err, "failed to build streamable HTTP transport")
+	mcpClient := helpers.NewTestClient()
+	httpClient := helpers.NewHeaderInjectingHTTPClient(headers, 15*time.Second)
 
-	return client.NewClient(httpTransport, opts...)
+	clientSession, err := mcpClient.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: mcpURL, HTTPClient: httpClient}, nil)
+
+	return mcpClient, clientSession, err
 }

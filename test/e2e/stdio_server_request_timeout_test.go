@@ -7,11 +7,11 @@ package e2e
 
 import (
 	"context"
+	"os/exec"
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
@@ -50,14 +50,11 @@ func TestStdioRequestTimeoutInitialize(t *testing.T) {
 				"--neo4j-request-timeout", tc.timeout,
 			}
 
-			mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-			require.NoError(t, err, "failed to create MCP client")
-			defer mcpClient.Close()
-
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			mcpClient := helpers.NewTestClient()
+			_, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
 			require.ErrorContains(t, err, tc.wantErr)
 		})
 	}
@@ -106,22 +103,18 @@ func TestStdioRequestTimeoutToolCall(t *testing.T) {
 				"--neo4j-request-timeout", tc.timeout,
 			}
 
-			mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-			require.NoError(t, err, "failed to create MCP client")
-			defer mcpClient.Close()
-
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			mcpClient := helpers.NewTestClient()
+			session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
 			require.NoError(t, err, "expected initialize to succeed within the %s budget", tc.timeout)
+			defer session.Close()
 
-			callToolResponse, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name: "read-cypher",
-					Arguments: map[string]any{
-						"query": tc.query,
-					},
+			callToolResponse, err := session.CallTool(ctx, &mcp.CallToolParams{
+				Name: "read-cypher",
+				Arguments: map[string]any{
+					"query": tc.query,
 				},
 			})
 			require.NoError(t, err)
@@ -129,7 +122,7 @@ func TestStdioRequestTimeoutToolCall(t *testing.T) {
 			if tc.wantError {
 				require.True(t, callToolResponse.IsError, "expected a tool error, got: %+v", callToolResponse)
 
-				textContent, ok := callToolResponse.Content[0].(mcp.TextContent)
+				textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
 				require.True(t, ok)
 				require.Contains(t, textContent.Text, tc.wantMsg)
 				return
