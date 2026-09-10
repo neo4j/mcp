@@ -7,14 +7,18 @@ package e2e
 
 import (
 	"context"
+	"os/exec"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func boolPtr(b bool) *bool {
+	return &b
+}
 
 func TestServerInitializationE2E(t *testing.T) {
 	ctx := context.Background()
@@ -30,23 +34,19 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--database", cfg.Database,
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
-
-		defer mcpClient.Close()
-
-		// Test initialization
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
-		require.NoError(t, err, "failed to initialize MCP server")
+		mcpClient := helpers.NewTestClient()
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client")
+		defer session.Close()
 
 		// Verify server info
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
-		assert.NotEmpty(t, initResponse.ServerInfo.Version)
+		initializeResult := session.InitializeResult()
+		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
+		assert.NotEmpty(t, initializeResult.ServerInfo.Version)
 
 		// Verify capabilities
-		assert.NotNil(t, initResponse.Capabilities)
-		assert.NotNil(t, initResponse.Capabilities.Tools)
+		assert.NotNil(t, initializeResult.Capabilities)
+		assert.NotNil(t, initializeResult.Capabilities.Tools)
 
 		t.Log("Server initialized successfully with expected name and capabilities")
 	})
@@ -62,20 +62,16 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--read-only", "true",
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
-
-		defer mcpClient.Close()
-
-		// Test initialization in read-only mode
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
-		require.NoError(t, err, "failed to initialize MCP server in read-only mode")
-
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		mcpClient := helpers.NewTestClient()
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client")
+		defer session.Close()
+		
+		initializeResult := session.InitializeResult()
+		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
 
 		// List tools to verify read-only mode behavior
-		listToolsResponse, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
+		listToolsResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		require.NoError(t, err, "failed to list tools in read-only mode")
 
 		for _, tool := range listToolsResponse.Tools {
@@ -97,18 +93,15 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--read-only", "false",
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
+		mcpClient := helpers.NewTestClient()
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client")
+		defer session.Close()
 
-		defer mcpClient.Close()
+		initializeResult := session.InitializeResult()
+		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
 
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
-		require.NoError(t, err, "failed to initialize MCP server in read-only mode")
-
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
-
-		listToolsResponse, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
+		listToolsResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		require.NoError(t, err, "failed to list tools with read-only mode as false")
 		assert.Len(t, listToolsResponse.Tools, 4, "read-only mode false returns the wrong number of tools")
 	})
@@ -123,17 +116,13 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--telemetry", "false",
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
+		mcpClient := helpers.NewTestClient()
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client")
+		defer session.Close()
 
-		defer mcpClient.Close()
-
-		// Test initialization with telemetry disabled
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
-		require.NoError(t, err, "failed to initialize MCP server with telemetry disabled")
-
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		initializeResult := session.InitializeResult()
+		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
 
 		t.Log("Server initialized successfully with telemetry disabled")
 	})
@@ -149,17 +138,13 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--schema-sample-size", "50",
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
+		mcpClient := helpers.NewTestClient()
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client")
+		defer session.Close()
 
-		defer mcpClient.Close()
-
-		// Test initialization with custom schema sample size
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
-		require.NoError(t, err, "failed to initialize MCP server with custom schema sample size")
-
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		initializeResult := session.InitializeResult()
+		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
 
 		t.Log("Server initialized successfully with custom schema sample size")
 	})
@@ -175,17 +160,14 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--schema-sample-size", "not-a-number",
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
-
-		defer mcpClient.Close()
-
+		mcpClient := helpers.NewTestClient()
 		// Server should handle invalid schema sample size gracefully (falling back to default)
-		initRequest := helpers.BuildInitializeRequest()
-		initResponse, err := mcpClient.Initialize(ctx, initRequest)
-		require.NoError(t, err, "failed to initialize MCP server with invalid schema sample size")
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client with invalid schema sample size")
+		defer session.Close()
 
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		initializeResult := session.InitializeResult()
+		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
 
 		t.Log("Server initialized successfully with invalid schema sample size (using default value)")
 	})
@@ -200,14 +182,12 @@ func TestServerInitializationE2E(t *testing.T) {
 			"--database", cfg.Database,
 		}
 
-		mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-		require.NoError(t, err, "failed to create MCP client")
-		defer mcpClient.Close()
+		mcpClient := helpers.NewTestClient()
+		session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+		require.NoError(t, err, "failed to connect MCP client")
+		defer session.Close()
 
-		_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
-		require.NoError(t, err, "failed to initialize MCP server")
-
-		listResponse, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
+		listResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		require.NoError(t, err, "failed to list tools")
 		require.NotEmpty(t, listResponse.Tools, "expected at least one tool")
 
@@ -218,7 +198,7 @@ func TestServerInitializationE2E(t *testing.T) {
 
 		type toolExpectation struct {
 			description string
-			annotations mcp.ToolAnnotation
+			annotations mcp.ToolAnnotations
 			// properties is the set of property names that MUST be present
 			// on inputSchema.properties, keyed by property name. The value
 			// describes additional per-property expectations. (see issue #157 for clear indication on why)
@@ -231,12 +211,12 @@ func TestServerInitializationE2E(t *testing.T) {
 		expected := map[string]toolExpectation{
 			"read-cypher": {
 				description: "read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead.",
-				annotations: mcp.ToolAnnotation{
+				annotations: mcp.ToolAnnotations{
 					Title:           "Read Cypher",
-					ReadOnlyHint:    mcp.ToBoolPtr(true),
-					DestructiveHint: mcp.ToBoolPtr(false),
-					IdempotentHint:  mcp.ToBoolPtr(true),
-					OpenWorldHint:   mcp.ToBoolPtr(true),
+					ReadOnlyHint:    true,
+					DestructiveHint: boolPtr(false),
+					IdempotentHint:  true,
+					OpenWorldHint:   boolPtr(true),
 				},
 				properties: map[string]propertyExpectation{
 					"query":  {jsonSchemaType: "string", required: true},
@@ -245,12 +225,12 @@ func TestServerInitializationE2E(t *testing.T) {
 			},
 			"write-cypher": {
 				description: "write-cypher executes any arbitrary Cypher query, with write access, against the user-configured Neo4j database.",
-				annotations: mcp.ToolAnnotation{
+				annotations: mcp.ToolAnnotations{
 					Title:           "Write Cypher",
-					ReadOnlyHint:    mcp.ToBoolPtr(false),
-					DestructiveHint: mcp.ToBoolPtr(true),
-					IdempotentHint:  mcp.ToBoolPtr(false),
-					OpenWorldHint:   mcp.ToBoolPtr(true),
+					ReadOnlyHint:    false,
+					DestructiveHint: boolPtr(true),
+					IdempotentHint:  false,
+					OpenWorldHint:   boolPtr(true),
 				},
 				properties: map[string]propertyExpectation{
 					"query":  {jsonSchemaType: "string", required: true},
@@ -258,28 +238,28 @@ func TestServerInitializationE2E(t *testing.T) {
 				},
 			},
 			"get-schema": {
-				annotations: mcp.ToolAnnotation{
+				annotations: mcp.ToolAnnotations{
 					Title:           "Get Neo4j Schema",
-					ReadOnlyHint:    mcp.ToBoolPtr(true),
-					DestructiveHint: mcp.ToBoolPtr(false),
-					IdempotentHint:  mcp.ToBoolPtr(true),
-					OpenWorldHint:   mcp.ToBoolPtr(true),
+					ReadOnlyHint:    true,
+					DestructiveHint: boolPtr(false),
+					IdempotentHint:  true,
+					OpenWorldHint:   boolPtr(true),
 				},
 				properties: map[string]propertyExpectation{},
 			},
 			"list-gds-procedures": {
-				annotations: mcp.ToolAnnotation{
+				annotations: mcp.ToolAnnotations{
 					Title:           "List available Neo4j GDS procedures",
-					ReadOnlyHint:    mcp.ToBoolPtr(true),
-					DestructiveHint: mcp.ToBoolPtr(false),
-					IdempotentHint:  mcp.ToBoolPtr(true),
-					OpenWorldHint:   mcp.ToBoolPtr(true),
+					ReadOnlyHint:    true,
+					DestructiveHint: boolPtr(false),
+					IdempotentHint:  true,
+					OpenWorldHint:   boolPtr(true),
 				},
 				properties: map[string]propertyExpectation{},
 			},
 		}
 
-		advertised := make(map[string]mcp.Tool, len(listResponse.Tools))
+		advertised := make(map[string]*mcp.Tool, len(listResponse.Tools))
 		for _, tool := range listResponse.Tools {
 			advertised[tool.Name] = tool
 		}
@@ -294,35 +274,38 @@ func TestServerInitializationE2E(t *testing.T) {
 						"description for %q does not match spec", name)
 				}
 
-				require.NotNilf(t, tool.Annotations.ReadOnlyHint, "tool %q is missing readOnlyHint annotation", name)
 				require.NotNilf(t, tool.Annotations.DestructiveHint, "tool %q is missing destructiveHint annotation", name)
-				require.NotNilf(t, tool.Annotations.IdempotentHint, "tool %q is missing idempotentHint annotation", name)
 				require.NotNilf(t, tool.Annotations.OpenWorldHint, "tool %q is missing openWorldHint annotation", name)
 
 				assert.Equalf(t, exp.annotations.Title, tool.Annotations.Title,
 					"annotations.title mismatch for %q", name)
-				assert.Equalf(t, *exp.annotations.ReadOnlyHint, *tool.Annotations.ReadOnlyHint,
+				assert.Equalf(t, exp.annotations.ReadOnlyHint, tool.Annotations.ReadOnlyHint,
 					"annotations.readOnlyHint mismatch for %q", name)
 				assert.Equalf(t, *exp.annotations.DestructiveHint, *tool.Annotations.DestructiveHint,
 					"annotations.destructiveHint mismatch for %q", name)
-				assert.Equalf(t, *exp.annotations.IdempotentHint, *tool.Annotations.IdempotentHint,
+				assert.Equalf(t, exp.annotations.IdempotentHint, tool.Annotations.IdempotentHint,
 					"annotations.idempotentHint mismatch for %q", name)
 				assert.Equalf(t, *exp.annotations.OpenWorldHint, *tool.Annotations.OpenWorldHint,
 					"annotations.openWorldHint mismatch for %q", name)
 
-				assert.Equalf(t, "object", tool.InputSchema.Type,
+				schema, ok := tool.InputSchema.(map[string]any)
+				require.Truef(t, ok, "inputSchema for %q should unmarshal to a map, got %T", name, tool.InputSchema)
+
+				assert.Equalf(t, "object", schema["type"],
 					"inputSchema.type for %q must be \"object\" per MCP spec", name)
-				require.NotNilf(t, tool.InputSchema.Properties,
+
+				properties, _ := schema["properties"].(map[string]any)
+				require.NotNilf(t, properties,
 					"inputSchema.properties for %q must be present per MCP spec", name)
 
 				// Every expected property must appear in inputSchema.properties
 				// with the declared JSON Schema type.
 				var expectedRequired []string
 				for propName, propExp := range exp.properties {
-					raw, ok := tool.InputSchema.Properties[propName]
+					raw, ok := properties[propName]
 					if !assert.Truef(t, ok,
 						"tool %q is missing expected input property %q (properties=%v)",
-						name, propName, tool.InputSchema.Properties) {
+						name, propName, properties) {
 						continue
 					}
 
@@ -344,14 +327,23 @@ func TestServerInitializationE2E(t *testing.T) {
 
 				// inputSchema.properties should not advertise fields that
 				// aren't declared in the spec's input struct.
-				for advertisedProp := range tool.InputSchema.Properties {
+				for advertisedProp := range properties {
 					_, known := exp.properties[advertisedProp]
 					assert.Truef(t, known,
 						"tool %q advertises unexpected input property %q",
 						name, advertisedProp)
 				}
 
-				assert.ElementsMatchf(t, expectedRequired, tool.InputSchema.Required,
+				var actualRequired []string
+				if requiredRaw, ok := schema["required"].([]any); ok {
+					for _, required := range requiredRaw {
+						if requiredName, ok := required.(string); ok {
+							actualRequired = append(actualRequired, requiredName)
+						}
+					}
+				}
+
+				assert.ElementsMatchf(t, expectedRequired, actualRequired,
 					"inputSchema.required for %q does not match spec-declared required fields",
 					name)
 

@@ -7,10 +7,10 @@ package e2e
 
 import (
 	"context"
+	"os/exec"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,14 +28,12 @@ func TestEmptyParamsE2E(t *testing.T) {
 		"--database", cfg.Database,
 	}
 
-	mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
-	require.NoError(t, err, "failed to create MCP client")
+	mcpClient := helpers.NewTestClient()
+	session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
+	require.NoError(t, err, "failed to connect MCP client")
 	t.Cleanup(func() {
-		mcpClient.Close()
+		session.Close()
 	})
-
-	_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
-	require.NoError(t, err, "failed to initialize MCP server")
 
 	t.Run("write-cypher succeeds without params argument", func(t *testing.T) {
 		t.Parallel()
@@ -44,18 +42,16 @@ func TestEmptyParamsE2E(t *testing.T) {
 		label := tc.GetUniqueLabel("NoParams")
 		// Call write-cypher with only the required `query` field — no `params`.
 		// This verifies that `params` is truly optional.
-		resp, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name: "write-cypher",
-				Arguments: map[string]any{
-					"query": "CREATE (n:" + label.String() + " ) SET n.prop = \"test\" RETURN n",
-				},
+		resp, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name: "write-cypher",
+			Arguments: map[string]any{
+				"query": "CREATE (n:" + label.String() + " ) SET n.prop = \"test\" RETURN n",
 			},
 		})
 		require.NoError(t, err, "CallTool returned an unexpected transport error")
 		require.False(t, resp.IsError, "write-cypher failed: %v", resp.Content)
 
-		textContent, ok := mcp.AsTextContent(resp.Content[0])
+		textContent, ok := resp.Content[0].(*mcp.TextContent)
 		require.True(t, ok, "expected TextContent in response")
 		assert.NotEmpty(t, textContent.Text, "expected non-empty response body")
 	})
@@ -66,18 +62,16 @@ func TestEmptyParamsE2E(t *testing.T) {
 
 		// Call read-cypher with only the required `query` field — no `params`.
 		// This verifies that `params` is truly optional.
-		resp, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name: "read-cypher",
-				Arguments: map[string]any{
-					"query": "RETURN 1",
-				},
+		resp, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name: "read-cypher",
+			Arguments: map[string]any{
+				"query": "RETURN 1",
 			},
 		})
 		require.NoError(t, err, "CallTool returned an unexpected transport error")
 		require.False(t, resp.IsError, "read-cypher failed: %v", resp.Content)
 
-		textContent, ok := mcp.AsTextContent(resp.Content[0])
+		textContent, ok := resp.Content[0].(*mcp.TextContent)
 		require.True(t, ok, "expected TextContent in response")
 		assert.NotEmpty(t, textContent.Text, "expected non-empty response body")
 	})
