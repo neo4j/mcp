@@ -9,9 +9,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"io"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -76,25 +74,15 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			
+			client := NewRawHttpClient(headers, baseURL, "/db/neo4j/mcp", nil, nil)
 
-			req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/db/neo4j/mcp", strings.NewReader(`{"jsonrpc":"2.0","method":"ping","id":1}`))
-			require.NoError(t, reqErr)
-			for name, value := range headers {
-				req.Header.Set(name, value)
-			}
+			resp, respBody, err := client.Initialize(ctx)
+			require.NoError(t, err)
 
-			resp, doErr := http.DefaultClient.Do(req)
-			require.NoError(t, doErr)
-			defer resp.Body.Close()
+			respErr := errors.New(respBody)
 
 			require.Equal(t, tc.wantStatus, resp.StatusCode)
-
-			respBody, readErr := io.ReadAll(resp.Body)
-			require.NoError(t, readErr)
-
-			err := errors.New(strings.TrimSpace(string(respBody)))
-			require.ErrorContains(t, err, tc.wantBody)
+			require.ErrorContains(t, respErr, tc.wantBody)
 		})
 	}
 }
