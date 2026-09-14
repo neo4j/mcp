@@ -19,7 +19,7 @@ func TestListGdsProcedures(t *testing.T) {
 	tc := helpers.NewTestContext(t, dbs.GetDriver())
 
 	listGds := gds.ListGdsProceduresHandler(tc.Deps)
-	res := tc.CallTool(listGds, nil)
+	res := helpers.CallTool(tc, listGds, struct{}{})
 
 	var procedures []map[string]any
 	tc.ParseJSONResponse(res, &procedures)
