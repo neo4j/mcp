@@ -15,6 +15,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpserver "github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/mcp/test/httpmethods"
 
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +75,7 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			client := NewRawHttpClient(headers, baseURL, "/db/neo4j/mcp", nil, nil)
+			client := httpmethods.NewRawHttpClient(headers, baseURL, "/db/neo4j/mcp", nil, nil)
 
 			resp, respBody, err := client.Initialize(ctx)
 			require.NoError(t, err)
