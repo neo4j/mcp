@@ -2,6 +2,13 @@ name: Neo4j MCP Server tests and linting
 
 on:
   workflow_call:
+    secrets:
+      AURA_URL:
+        required: true
+      AURA_USERNAME:
+        required: true
+      AURA_PASSWORD:
+        required: true
 
 permissions:
   contents: read
