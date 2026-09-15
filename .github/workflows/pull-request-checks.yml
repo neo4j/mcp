@@ -12,7 +12,10 @@ permissions:
 jobs:
   build-and-test:
     uses: ./.github/workflows/build-and-test.yml
-    secrets: inherit
+    secrets:
+      AURA_URL: ${{ secrets.AURA_URL }}
+      AURA_USERNAME: ${{ secrets.AURA_USERNAME }}
+      AURA_PASSWORD: ${{ secrets.AURA_PASSWORD }}
 
   license:
     uses: ./.github/workflows/licence-checker.yml
