@@ -46,16 +46,22 @@ func TestMalformedArgumentsE2E(t *testing.T) {
 			wantTextContain: "arguments",
 		},
 		{
-			name: "required query field is missing",
-			arguments: map[string]any{
-				"invalid_field": "value",
-			},
+			name:            "required query field is missing",
+			arguments:       map[string]any{},
 			wantTextContain: "query",
 		},
 		{
 			name:            "query field has the wrong type",
 			arguments:       map[string]any{"query": 123},
 			wantTextContain: "query",
+		},
+		{
+			name: "unexpected additional properties",
+			arguments: map[string]any{
+				"query":         "MATCH (n) RETURN n",
+				"invalid_field": "value",
+			},
+			wantTextContain: "invalid_field",
 		},
 	}
 
