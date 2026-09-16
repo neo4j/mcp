@@ -21,7 +21,7 @@ AND NOT (name CONTAINS "estimate")
 RETURN name, description, signature, type`
 
 func ListGdsProceduresHandler(deps *tools.ToolDependencies) mcp.ToolHandlerFor[struct{}, any] {
-	return func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		return handleListGdsProcedures(ctx, deps)
 	}
 }

@@ -14,7 +14,7 @@ import (
 )
 
 func ReadCypherHandler(deps *tools.ToolDependencies) mcp.ToolHandlerFor[ReadCypherInput, any] {
-	return func(ctx context.Context, req *mcp.CallToolRequest, args ReadCypherInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, args ReadCypherInput) (*mcp.CallToolResult, any, error) {
 		return handleReadCypher(ctx, args, deps)
 	}
 }

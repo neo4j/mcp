@@ -28,7 +28,7 @@ const (
 
 // GetSchemaHandler returns a handler function for the get_schema tool
 func GetSchemaHandler(deps *tools.ToolDependencies, schemaSampleSize int32) mcp.ToolHandlerFor[struct{}, any] {
-	return func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		return handleGetSchema(ctx, deps, schemaSampleSize)
 	}
 }

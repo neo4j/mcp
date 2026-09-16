@@ -13,7 +13,7 @@ import (
 )
 
 func WriteCypherHandler(deps *tools.ToolDependencies) mcp.ToolHandlerFor[WriteCypherInput, any] {
-	return func(ctx context.Context, req *mcp.CallToolRequest, args WriteCypherInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, args WriteCypherInput) (*mcp.CallToolResult, any, error) {
 		return handleWriteCypher(ctx, args, deps)
 	}
 }

@@ -131,7 +131,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
-		_, err = connectInProcessClient(t, context.Background(), s.MCPServer)
+		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
 		if err != nil {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
 		}
@@ -150,7 +150,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
-		_, err = connectInProcessClient(t, context.Background(), s.MCPServer)
+		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
 		if err == nil {
 			t.Fatal("Expect error during initialization, when no connection can be established, got nil")
 		}
@@ -176,7 +176,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
-		_, err = connectInProcessClient(t, context.Background(), s.MCPServer)
+		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
 		if err == nil {
 			t.Fatal("Expect error during initialization, when unexpected results are returned, got nil")
 		}
@@ -218,7 +218,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
-		_, err = connectInProcessClient(t, context.Background(), s.MCPServer)
+		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
 		if err != nil {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
 		}
@@ -256,7 +256,7 @@ func TestInitializeRequestHook(t *testing.T) {
 		if err != nil {
 			t.Errorf("error while starting the MCP Server")
 		}
-		_, err = connectInProcessClient(t, context.Background(), s.MCPServer)
+		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
 		if err != nil {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
 		}
@@ -337,7 +337,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 		if err != nil {
 			t.Errorf("Start() unexpected error = %v", err)
 		}
-		_, err = connectInProcessClient(t, context.Background(), s.MCPServer)
+		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
 		if err != nil {
 			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
 		}
@@ -368,7 +368,7 @@ func withFreshStdin(t *testing.T) {
 }
 
 // connectInProcessClient connects an MCP client directly to mcpServer over an in-memory transport pair.
-func connectInProcessClient(t *testing.T, ctx context.Context, mcpServer *mcp.Server) (*mcp.ClientSession, error) {
+func connectInProcessClient(ctx context.Context, t *testing.T, mcpServer *mcp.Server) (*mcp.ClientSession, error) {
 	t.Helper()
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
