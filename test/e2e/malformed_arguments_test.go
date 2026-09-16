@@ -14,6 +14,7 @@ import (
 	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
 
 func TestMalformedArgumentsE2E(t *testing.T) {
 	t.Parallel()
