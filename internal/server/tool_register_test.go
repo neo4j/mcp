@@ -193,7 +193,7 @@ func listRegisteredTools(t *testing.T, s *server.Neo4jMCPServer) []*mcp.Tool {
 	t.Helper()
 
 	ctx := context.Background()
-	session, err := connectInProcessClient(t, ctx, s.MCPServer)
+	session, err := connectInProcessClient(ctx, t, s.MCPServer)
 	if err != nil {
 		t.Fatalf("failed to connect in-process client: %v", err)
 	}
