@@ -84,6 +84,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	mcpServer.AddReceivingMiddleware(
 		neo4jServer.requestMiddleware,
 		neo4jServer.toolsListMiddleware,
+		neo4jServer.analyticsMiddleware,
 		neo4jServer.toolsCallMiddleware,
 	)
 
@@ -177,8 +178,27 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 	}
 }
 
-// toolsCallMiddleware enforces execution-time read-only/tool-list guards, applies the
-// per-request timeout, and emits post-call analytics events.
+// analyticsMiddleware emits post-call analytics events for every "tools/call" outcome..
+func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		if method != "tools/call" {
+			return next(ctx, method, req)
+		}
+
+		callReq, ok := req.(*mcp.CallToolRequest)
+		if !ok {
+			return next(ctx, method, req)
+		}
+
+		result, err := next(ctx, method, req)
+		s.handleToolCallComplete(callReq.Params.Name, callReq.Params.Arguments, result)
+
+		return result, err
+	}
+}
+
+// toolsCallMiddleware enforces execution-time read-only/tool-list guards and applies the
+// per-request timeout.
 func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		if method != "tools/call" {
@@ -235,8 +255,6 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 				"request_timeout_ms", timeout.Milliseconds())...)
 			return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
 		}
-
-		s.handleToolCallComplete(toolName, callReq.Params.Arguments, result)
 
 		return result, err
 	}
