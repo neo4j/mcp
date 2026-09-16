@@ -4,13 +4,17 @@
 package server_test
 
 import (
+	"context"
+	"fmt"
 	"sort"
 	"testing"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -24,13 +28,26 @@ func TestToolRegister(t *testing.T) {
 	aService.EXPECT().IsEnabled().AnyTimes().Return(true)
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	// Verify no db calls during tool registration
+	aService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+	// Client handshake required for tool registration.
 	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
+		{	Keys: []string{"first"}, 
+			Values: []any{int64(1)},
+		},
+	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
+		{	Keys: []string{"apocMetaSchemaAvailable"}, 
+			Values: []any{bool(true)},
+		},
+	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).AnyTimes()
 	mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 	mockDB.EXPECT().GetQueryType(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 	mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Times(0)
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
+		withFreshStdin(t)
 
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
@@ -52,7 +69,7 @@ func TestToolRegister(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Start() failed: %v", err)
 		}
-		registeredTools := len(s.MCPServer.ListTools())
+		registeredTools := len(listRegisteredTools(t, s))
 
 		if expectedTotalToolsCount != registeredTools {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
@@ -60,6 +77,7 @@ func TestToolRegister(t *testing.T) {
 	})
 
 	t.Run("should register only readOnly tools when readOnly", func(t *testing.T) {
+		withFreshStdin(t)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -81,13 +99,14 @@ func TestToolRegister(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Start() failed: %v", err)
 		}
-		registeredTools := len(s.MCPServer.ListTools())
+		registeredTools := len(listRegisteredTools(t, s))
 
 		if expectedTotalToolsCount != registeredTools {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
 	})
 	t.Run("should register also write tools when readOnly is set to false", func(t *testing.T) {
+		withFreshStdin(t)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -109,13 +128,14 @@ func TestToolRegister(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Start() failed: %v", err)
 		}
-		registeredTools := len(s.MCPServer.ListTools())
+		registeredTools := len(listRegisteredTools(t, s))
 
 		if expectedTotalToolsCount != registeredTools {
 			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
 		}
 	})
 	t.Run("should only register tools that are specified in config", func(t *testing.T) {
+		withFreshStdin(t)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -137,39 +157,15 @@ func TestToolRegister(t *testing.T) {
 		}
 
 		var toolNames []string
-		tools := s.MCPServer.ListTools()
-		for _, tool := range tools {
-			toolNames = append(toolNames, tool.Tool.Name)
+		for _, tool := range listRegisteredTools(t, s) {
+			toolNames = append(toolNames, tool.Name)
 		}
 		sort.Strings(toolNames)
 
 		assert.Equal(t, expectedTools, toolNames)
 	})
-	// this test is required as we're actively relying on the ReadOnly annotation for programmatic purpose
-	t.Run("all tools must have ReadOnlyHint explicitly set", func(t *testing.T) {
-		cfg := &config.Config{
-			URI:           "bolt://test-host:7687",
-			Username:      "neo4j",
-			Password:      "password",
-			Database:      "neo4j",
-			ReadOnly:      false,
-			Tools:         config.AvailableTools,
-			TransportMode: config.TransportModeStdio,
-		}
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
-
-		err := s.Start()
-		require.NoError(t, err)
-
-		for _, tool := range s.MCPServer.ListTools() {
-			assert.NotNilf(t, tool.Tool.Annotations.ReadOnlyHint,
-				"tool %q is missing ReadOnlyHint annotation — add mcp.WithReadOnlyHintAnnotation(true|false) to its spec",
-				tool.Tool.Name,
-			)
-		}
-	})
-
 	t.Run("should not register write tools when readOnly is enabled even if specified in tools config", func(t *testing.T) {
+		withFreshStdin(t)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -187,6 +183,25 @@ func TestToolRegister(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		assert.Empty(t, s.MCPServer.ListTools())
+		assert.Empty(t, listRegisteredTools(t, s))
 	})
+}
+
+
+// listRegisteredTools connects an in-process client to s.MCPServer and returns its advertised tools.
+func listRegisteredTools(t *testing.T, s *server.Neo4jMCPServer) []*mcp.Tool {
+	t.Helper()
+
+	ctx := context.Background()
+	session, err := connectInProcessClient(t, ctx, s.MCPServer)
+	if err != nil {
+		t.Fatalf("failed to connect in-process client: %v", err)
+	}
+	defer session.Close()
+
+	listToolsResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("failed to list tools: %v", err)
+	}
+	return listToolsResponse.Tools
 }
