@@ -50,9 +50,6 @@ type Neo4jMCPServer struct {
 	anService       analytics.Service
 	uriResolver     URIResolver
 	driverRegistry  database.DriverRegistry
-	// toolsByName holds every registered tool's spec, keyed by name, so the
-	// tools/call middleware can check a tool's ReadOnlyHint without relying on
-	// SDK-internal registry introspection (no public equivalent in go-sdk).
 	toolsByName map[string]*mcp.Tool
 }
 
