@@ -8,13 +8,14 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
+	"errors"
+	"net/http"
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpserver "github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/mcp/test/e2e/helpers"
+	"github.com/neo4j/mcp/test/httpmethods"
 
 	"github.com/stretchr/testify/require"
 )
@@ -28,26 +29,31 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 	tests := []struct {
 		name     string
 		timeout  string
+		wantStatus int
 		wantBody string
 	}{
 		{
 			name:     "When X-Neo4j-MCP-Request-Timeout exceeds the server maximum, the request should be rejected",
 			timeout:  "10s",
+			wantStatus: http.StatusBadRequest,
 			wantBody: "exceeds server maximum",
 		},
 		{
 			name:     "When X-Neo4j-MCP-Request-Timeout is not a valid duration, the request should be rejected",
 			timeout:  "not-a-duration",
+			wantStatus: http.StatusBadRequest,
 			wantBody: "must be a valid duration",
 		},
 		{
 			name:     "When X-Neo4j-MCP-Request-Timeout is not positive, the request should be rejected",
 			timeout:  "0s",
+			wantStatus: http.StatusBadRequest,
 			wantBody: "must be a positive duration",
 		},
 		{
 			name:     "When X-Neo4j-MCP-Request-Timeout is negative, the request should be rejected",
 			timeout:  "-1s",
+			wantStatus: http.StatusBadRequest,
 			wantBody: "must be a positive duration",
 		},
 	}
@@ -62,17 +68,22 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 				"Authorization":         "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
 				mcpserver.URIHeader:     cfg.URI,
 				mcpserver.TimeoutHeader: tc.timeout,
+				"Content-Type":          "application/json",
+				"Accept":                "application/json, text/event-stream",
 			}
-
-			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers, client.WithSession())
-			defer httpClient.Close()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			err := httpClient.Ping(ctx)
-			require.ErrorContains(t, err, "request failed with status 400")
-			require.ErrorContains(t, err, tc.wantBody)
+			client := httpmethods.NewRawHttpClient(headers, http.MethodPost, baseURL, "/db/neo4j/mcp", nil, nil)
+
+			resp, respBody, err := client.Initialize(ctx)
+			require.NoError(t, err)
+
+			respErr := errors.New(respBody)
+
+			require.Equal(t, tc.wantStatus, resp.StatusCode)
+			require.ErrorContains(t, respErr, tc.wantBody)
 		})
 	}
 }
@@ -115,15 +126,11 @@ func TestHTTPRequestTimeoutInitialize(t *testing.T) {
 				headers[mcpserver.TimeoutHeader] = tc.timeout
 			}
 
-			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)
-			defer httpClient.Close()
-
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			require.NoError(t, httpClient.Start(ctx), "http client failed to start")
 
-			_, err := httpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			_, err := newHTTPClient(t, ctx, baseURL+"/db/neo4j/mcp", headers)
 			require.ErrorContains(t, err, tc.wantErr)
 		})
 	}
@@ -171,23 +178,17 @@ func TestHTTPRequestTimeoutToolCall(t *testing.T) {
 				mcpserver.TimeoutHeader: tc.timeout,
 			}
 
-			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)
-			defer httpClient.Close()
-
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			require.NoError(t, httpClient.Start(ctx), "http client failed to start")
-
-			_, err := httpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			session, err := newHTTPClient(t, ctx, baseURL+"/db/neo4j/mcp", headers)
 			require.NoError(t, err, "expected initialize to succeed within the %s budget", tc.timeout)
+			defer session.Close()
 
-			callToolResponse, err := httpClient.CallTool(ctx, mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name: "read-cypher",
-					Arguments: map[string]any{
-						"query": tc.query,
-					},
+			callToolResponse, err := session.CallTool(ctx, &mcp.CallToolParams{
+				Name: "read-cypher",
+				Arguments: map[string]any{
+					"query": tc.query,
 				},
 			})
 			require.NoError(t, err)
@@ -195,7 +196,7 @@ func TestHTTPRequestTimeoutToolCall(t *testing.T) {
 			if tc.wantError {
 				require.True(t, callToolResponse.IsError, "expected a tool error, got: %+v", callToolResponse)
 
-				textContent, ok := callToolResponse.Content[0].(mcp.TextContent)
+				textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
 				require.True(t, ok)
 				require.Contains(t, textContent.Text, tc.wantMsg)
 				return

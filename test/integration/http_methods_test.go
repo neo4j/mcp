@@ -8,11 +8,9 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +18,7 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/mcp/test/httpmethods"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -121,7 +120,9 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 		method       string
 		path         string
 		body         string
-		setupReq     func(*http.Request)
+		headers      map[string]string
+		username     *string
+		password     *string
 		wantStatus   int
 		wantBody     string
 		wantAllowHdr string
@@ -132,11 +133,13 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			method: http.MethodPost,
 			path:   dbPath,
 			body:   pingBody,
-			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
-				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set(server.URIHeader, testCFG.URI)
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				"Accept":         "application/json, text/event-stream",
+				server.URIHeader: testCFG.URI,
 			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
 			wantStatus: http.StatusOK,
 			assertErr:  noErr,
 		},
@@ -146,8 +149,8 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 			name:   "OPTIONS /db/{db}/mcp returns 204 CORS preflight",
 			method: http.MethodOptions,
 			path:   dbPath,
-			setupReq: func(req *http.Request) {
-				req.Header.Set("Origin", "http://example.com")
+			headers: map[string]string{
+				"Origin": "http://example.com",
 			},
 			wantStatus: http.StatusNoContent,
 			assertErr:  noErr,
@@ -192,31 +195,15 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var bodyReader io.Reader
-			if tc.body != "" {
-				bodyReader = strings.NewReader(tc.body)
-			}
+			client := httpmethods.NewRawHttpClient(tc.headers, tc.method, baseURL, tc.path, tc.username, tc.password)
 
-			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+tc.path, bodyReader)
+			resp, respBody, err := client.Ping(context.Background())
 			require.NoError(t, err)
-
-			if tc.setupReq != nil {
-				tc.setupReq(req)
-			}
-
-			resp, err := http.DefaultClient.Do(req)
-			tc.assertErr(t, err)
-			if err != nil {
-				return
-			}
-			defer resp.Body.Close()
 
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)
 
 			if tc.wantBody != "" {
-				body, err := io.ReadAll(resp.Body)
-				require.NoError(t, err)
-				assert.Equal(t, tc.wantBody, strings.TrimSpace(string(body)))
+				assert.Equal(t, tc.wantBody, respBody)
 			}
 
 			if tc.wantAllowHdr != "" {
@@ -232,37 +219,42 @@ func TestHTTPMode_URIHeader(t *testing.T) {
 	_, baseURL := startHTTPServer(t)
 	testCFG := dbs.GetDriverConf()
 	path := "/db/neo4j/mcp"
-	body := `{"jsonrpc":"2.0","method":"ping","id":1}`
 
 	tests := []struct {
 		name       string
-		setupReq   func(*http.Request)
+		headers    map[string]string
+		username   *string
+		password   *string
 		wantStatus int
 	}{
 		{
 			name: "valid X-Neo4j-MCP-URI returns 200",
-			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
-				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set(server.URIHeader, testCFG.URI)
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				"Accept":         "application/json, text/event-stream",
+				server.URIHeader: testCFG.URI,
 			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
 			wantStatus: http.StatusOK,
 		},
 		{
 			name: "missing X-Neo4j-MCP-URI returns 400",
-			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
-				req.Header.Set("Content-Type", "application/json")
+			headers: map[string]string{
+				"Content-Type": "application/json",
 			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "invalid URI scheme in X-Neo4j-MCP-URI returns 400",
-			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
-				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set(server.URIHeader, "http://localhost:7687")
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				server.URIHeader: "http://localhost:7687",
 			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
 			wantStatus: http.StatusBadRequest,
 		},
 	}
@@ -270,13 +262,13 @@ func TestHTTPMode_URIHeader(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+path, strings.NewReader(body))
-			require.NoError(t, err)
-			tc.setupReq(req)
 
-			resp, err := http.DefaultClient.Do(req)
+			client := httpmethods.NewRawHttpClient(tc.headers, http.MethodPost, baseURL, path, tc.username, tc.password)
+
+			resp, respBody, err := client.Ping(context.Background())
 			require.NoError(t, err)
-			defer resp.Body.Close()
+
+			t.Logf("response status=%d body=%s", resp.StatusCode, respBody)
 
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)
 		})

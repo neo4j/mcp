@@ -45,7 +45,7 @@ func TestGetSchema(t *testing.T) {
 	}
 
 	getSchema := cypher.GetSchemaHandler(tc.Deps, 100)
-	res := tc.CallTool(getSchema, nil)
+	res := helpers.CallTool(tc, getSchema, struct{}{})
 
 	var schemaEntries []SchemaItem
 	tc.ParseJSONResponse(res, &schemaEntries)
