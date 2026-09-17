@@ -1,0 +1,4 @@
+kind: Patch
+body: |
+  Requirement checks now run only on MCP `initialize`, and GDS is verified only when `list-gds-procedures` is enabled.
+time: 2026-07-23T17:13:17.244117+01:00

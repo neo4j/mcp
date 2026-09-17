@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -47,11 +48,11 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSa
 		"sampleSize": schemaSampleSize,
 	})
 	if err != nil {
-		slog.Error("failed to execute schema query", "error", err)
+		slog.Error("failed to execute schema query", database.ErrorLogAttrs(err)...)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	if len(records) == 0 {
-		slog.Warn("schema is empty, no data in the database")
+		slog.Debug("schema is empty, no data in the database")
 		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
 	}
 	structuredOutput, err := processCypherSchema(records)

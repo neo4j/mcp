@@ -3,6 +3,8 @@ FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aab
 
 ARG VERSION=development
 
+ARG VERSION=development
+
 LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp"
 
 WORKDIR /build
