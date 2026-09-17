@@ -70,7 +70,6 @@ func TestIssue157(t *testing.T) {
 		// Serialize response to JSON
 		responseJSON, err := json.MarshalIndent(mcpListToolsResponse, "", "  ")
 		require.NoError(t, err, "failed to marshal listToolsResponse")
-		t.Logf("ListTools Response:\n%s", string(responseJSON))
 
 		// Unmarshal into our struct to check properties
 		var parsed listToolsResponse
@@ -84,5 +83,4 @@ func TestIssue157(t *testing.T) {
 				tool.Name)
 		}
 	})
-
 }
