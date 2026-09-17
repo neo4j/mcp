@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"strings"
 
-	// "github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/neo4j/mcp/internal/logger"
 )
 
