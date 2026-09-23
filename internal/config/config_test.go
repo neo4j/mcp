@@ -1098,19 +1098,22 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 
 func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 	tests := []struct {
-		name          string
-		toolsEnv      *string
-		expectedTools []string
-		wantErr       string
+		name             string
+		toolsEnv         *string
+		expectedTools    []string
+		expectedExplicit bool
+		wantErr          string
 	}{
 		{
-			name:          "When tool list is not provided, default tool list should be used",
-			expectedTools: AvailableTools,
+			name:             "When tool list is not provided, default tool list should be used",
+			expectedTools:    AvailableTools,
+			expectedExplicit: false,
 		},
 		{
-			name:          "When tool list is provided, it should replace default tool list",
-			toolsEnv:      newStringPtr("read-cypher,get-schema"),
-			expectedTools: []string{"read-cypher", "get-schema"},
+			name:             "When tool list is provided, it should replace default tool list",
+			toolsEnv:         newStringPtr("read-cypher,get-schema"),
+			expectedTools:    []string{"read-cypher", "get-schema"},
+			expectedExplicit: true,
 		},
 		{
 			name:     "When tool name is invalid, should raise error",
@@ -1118,24 +1121,28 @@ func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 			wantErr:  `tool "invalid-tool" is invalid. Available tools are: read-cypher, write-cypher, list-gds-procedures, get-schema`,
 		},
 		{
-			name:          "When tool name has surrounding whitespace, it should be trimmed",
-			toolsEnv:      newStringPtr("write-cypher ,read-cypher"),
-			expectedTools: []string{"write-cypher", "read-cypher"},
+			name:             "When tool name has surrounding whitespace, it should be trimmed",
+			toolsEnv:         newStringPtr("write-cypher ,read-cypher"),
+			expectedTools:    []string{"write-cypher", "read-cypher"},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list contains only commas, no tools should be selected",
-			toolsEnv:      newStringPtr(",,"),
-			expectedTools: []string{},
+			name:             "When tool list contains only commas, no tools should be selected",
+			toolsEnv:         newStringPtr(",,"),
+			expectedTools:    []string{},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list contains a leading comma, it should be ignored",
-			toolsEnv:      newStringPtr(",read-cypher,write-cypher"),
-			expectedTools: []string{"read-cypher", "write-cypher"},
+			name:             "When tool list contains a leading comma, it should be ignored",
+			toolsEnv:         newStringPtr(",read-cypher,write-cypher"),
+			expectedTools:    []string{"read-cypher", "write-cypher"},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list contains a trailing comma, it should be ignored",
-			toolsEnv:      newStringPtr("read-cypher,write-cypher,"),
-			expectedTools: []string{"read-cypher", "write-cypher"},
+			name:             "When tool list contains a trailing comma, it should be ignored",
+			toolsEnv:         newStringPtr("read-cypher,write-cypher,"),
+			expectedTools:    []string{"read-cypher", "write-cypher"},
+			expectedExplicit: true,
 		},
 		{
 			name:     "When tool list is provided as empty string, should raise error",
@@ -1143,9 +1150,10 @@ func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 			wantErr:  "NEO4J_MCP_TOOLS is set but empty",
 		},
 		{
-			name:          "When tool list is unset, all tools should be enabled",
-			toolsEnv:      nil,
-			expectedTools: AvailableTools,
+			name:             "When tool list is unset, all tools should be enabled",
+			toolsEnv:         nil,
+			expectedTools:    AvailableTools,
+			expectedExplicit: false,
 		},
 	}
 
@@ -1168,28 +1176,32 @@ func TestLoadConfig_Neo4jMCPToolsEnvVar(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedTools, cfg.Tools)
+			assert.Equal(t, tt.expectedExplicit, cfg.ToolsExplicitlySet)
 		})
 	}
 }
 
 func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
 	tests := []struct {
-		name          string
-		toolsEnv      string
-		cliTools      *string
-		expectedTools []string
-		wantErr       string
+		name             string
+		toolsEnv         string
+		cliTools         *string
+		expectedTools    []string
+		expectedExplicit bool
+		wantErr          string
 	}{
 		{
-			name:          "When tool list is provided, it should replace default tool list",
-			cliTools:      newStringPtr("write-cypher"),
-			expectedTools: []string{"write-cypher"},
+			name:             "When tool list is provided, it should replace default tool list",
+			cliTools:         newStringPtr("write-cypher"),
+			expectedTools:    []string{"write-cypher"},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list is provided in both CLI and env var, CLI should take precedence",
-			toolsEnv:      "read-cypher,get-schema",
-			cliTools:      newStringPtr("write-cypher"),
-			expectedTools: []string{"write-cypher"},
+			name:             "When tool list is provided in both CLI and env var, CLI should take precedence",
+			toolsEnv:         "read-cypher,get-schema",
+			cliTools:         newStringPtr("write-cypher"),
+			expectedTools:    []string{"write-cypher"},
+			expectedExplicit: true,
 		},
 		{
 			name:     "When tool name is invalid, should raise error",
@@ -1197,29 +1209,34 @@ func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
 			wantErr:  `tool "invalid-tool" is invalid. Available tools are: read-cypher, write-cypher, list-gds-procedures, get-schema`,
 		},
 		{
-			name:          "When tool name has surrounding whitespace, it should be trimmed",
-			cliTools:      newStringPtr("write-cypher ,read-cypher"),
-			expectedTools: []string{"write-cypher", "read-cypher"},
+			name:             "When tool name has surrounding whitespace, it should be trimmed",
+			cliTools:         newStringPtr("write-cypher ,read-cypher"),
+			expectedTools:    []string{"write-cypher", "read-cypher"},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list contains only commas, no tools should be selected",
-			cliTools:      newStringPtr(",,"),
-			expectedTools: []string{},
+			name:             "When tool list contains only commas, no tools should be selected",
+			cliTools:         newStringPtr(",,"),
+			expectedTools:    []string{},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list contains a leading comma, it should be ignored",
-			cliTools:      newStringPtr(",read-cypher,write-cypher"),
-			expectedTools: []string{"read-cypher", "write-cypher"},
+			name:             "When tool list contains a leading comma, it should be ignored",
+			cliTools:         newStringPtr(",read-cypher,write-cypher"),
+			expectedTools:    []string{"read-cypher", "write-cypher"},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list contains a trailing comma, it should be ignored",
-			cliTools:      newStringPtr("read-cypher,write-cypher,"),
-			expectedTools: []string{"read-cypher", "write-cypher"},
+			name:             "When tool list contains a trailing comma, it should be ignored",
+			cliTools:         newStringPtr("read-cypher,write-cypher,"),
+			expectedTools:    []string{"read-cypher", "write-cypher"},
+			expectedExplicit: true,
 		},
 		{
-			name:          "When tool list is unset, all tools should be enabled",
-			cliTools:      nil,
-			expectedTools: AvailableTools,
+			name:             "When tool list is unset, all tools should be enabled",
+			cliTools:         nil,
+			expectedTools:    AvailableTools,
+			expectedExplicit: false,
 		},
 	}
 
@@ -1244,6 +1261,7 @@ func TestLoadConfig_Neo4jMCPToolsCLIOverride(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedTools, cfg.Tools)
+			assert.Equal(t, tt.expectedExplicit, cfg.ToolsExplicitlySet)
 		})
 	}
 }
