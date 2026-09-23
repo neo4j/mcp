@@ -46,6 +46,7 @@ type Config struct {
 	Database                      string
 	ReadOnly                      bool // If true, disables write tools
 	Tools                         []string
+	ToolsExplicitlySet            bool // True when Tools is set via NEO4J_MCP_TOOLS or the --tools CLI flag.
 	Telemetry                     bool // If false, disables telemetry
 	LogLevel                      string
 	LogFormat                     string
@@ -293,6 +294,7 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 
 	// If tools haven't been set at this point, they have neither been provided nor explicitly unset
 	// Default to all available tools
+	cfg.ToolsExplicitlySet = cfg.Tools != nil
 	if cfg.Tools == nil {
 		cfg.Tools = AvailableTools
 	}
