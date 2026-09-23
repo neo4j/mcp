@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools"
@@ -23,6 +24,11 @@ const (
         WITH key, value[key] as value
         RETURN key, value { .properties, .type, .relationships } as value
     `
+
+	// bloomInternalPrefix marks labels and relationship types that Neo4j Bloom uses to store
+	// its own metadata (e.g. _Bloom_Perspective_, _Bloom_Scene_, _Bloom_HAS_SCENE_).
+	// They are not part of the user's data model, so they are excluded from the schema.
+	bloomInternalPrefix = "_Bloom_"
 )
 
 // GetSchemaHandler returns a handler function for the get_schema tool
@@ -50,14 +56,14 @@ func handleGetSchema(ctx context.Context, deps *tools.ToolDependencies, schemaSa
 		slog.Error("failed to execute schema query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	if len(records) == 0 {
-		slog.Warn("schema is empty, no data in the database")
-		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
-	}
 	structuredOutput, err := processCypherSchema(records)
 	if err != nil {
 		slog.Error("failed to process get-schema Cypher Query", "error", err)
 		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if len(structuredOutput) == 0 {
+		slog.Warn("schema is empty, no data in the database")
+		return mcp.NewToolResultText("The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned."), nil
 	}
 	jsonData, err := json.Marshal(structuredOutput)
 	if err != nil {
@@ -133,6 +139,9 @@ func processCypherSchema(records []*neo4j.Record) ([]SchemaItem, error) {
 		keyStr, ok := keyRaw.(string)
 		if !ok {
 			return nil, fmt.Errorf("invalid key returned")
+		}
+		if strings.HasPrefix(keyStr, bloomInternalPrefix) {
+			continue
 		}
 
 		// Extract "value" (The map containing properties, type, relationships)

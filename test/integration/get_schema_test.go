@@ -6,7 +6,9 @@
 package integration
 
 import (
+	"context"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/neo4j/mcp/internal/tools/cypher"
@@ -69,6 +71,46 @@ func TestGetSchema(t *testing.T) {
 		"founded": "INTEGER",
 	}
 	assertSchemaEntryHasProperties(t, companyEntry.Value.Properties, companyProperties)
+}
+
+func TestGetSchemaExcludesBloomMetadata(t *testing.T) {
+	t.Parallel()
+	tc := helpers.NewTestContext(t, dbs.GetDriver())
+
+	movieLabel, err := tc.SeedNode("Movie", map[string]any{"title": "The Matrix"})
+	if err != nil {
+		t.Fatalf("failed to seed Movie node: %v", err)
+	}
+
+	// Bloom stores perspectives and scenes under fixed labels, so they cannot be made unique per test.
+	// Tag them with the test ID and remove them explicitly.
+	bloomParams := map[string]any{"testId": tc.TestID}
+	_, err = tc.Service.ExecuteWriteQuery(context.Background(),
+		"CREATE (:_Bloom_Perspective_ {name: 'Movies', testId: $testId})-[:_Bloom_HAS_SCENE_]->(:_Bloom_Scene_ {name: 'Scene 1', testId: $testId})",
+		bloomParams)
+	if err != nil {
+		t.Fatalf("failed to seed Bloom metadata: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := tc.Service.ExecuteWriteQuery(context.Background(),
+			"MATCH (n) WHERE (n:_Bloom_Perspective_ OR n:_Bloom_Scene_) AND n.testId = $testId DETACH DELETE n",
+			bloomParams); err != nil {
+			t.Logf("cleanup of Bloom metadata failed: %v", err)
+		}
+	})
+
+	getSchema := cypher.GetSchemaHandler(tc.Deps, 100)
+	res := tc.CallTool(getSchema, nil)
+
+	var schemaEntries []SchemaItem
+	tc.ParseJSONResponse(res, &schemaEntries)
+
+	assertSchemaHasLabel(t, schemaEntries, movieLabel.String())
+	for _, entry := range schemaEntries {
+		if strings.HasPrefix(entry.Key, "_Bloom_") {
+			t.Errorf("expected Bloom metadata to be excluded from the schema, found %s", entry.Key)
+		}
+	}
 }
 
 // assertSchemaHasLabel checks if the schema contains a node type with expected label
