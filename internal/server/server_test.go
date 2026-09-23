@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -16,6 +17,8 @@ import (
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -112,15 +115,6 @@ func TestInitializeRequestHook(t *testing.T) {
 				},
 			},
 		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"gdsVersion"},
-				Values: []any{
-					string("2.22.0"),
-				},
-			},
-		}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
 
@@ -182,84 +176,114 @@ func TestInitializeRequestHook(t *testing.T) {
 		}
 	})
 
-	t.Run("starts server successfully if GDS is not found", func(t *testing.T) {
+}
+
+// TestNeo4jMCPServerStdioModeGDSGating tests that list-gds-procedures is gated on actual GDS availability at
+// tools/list time: omitted when default-enabled, but errors when explicitly requested and GDS is unavailable.
+func TestNeo4jMCPServerStdioModeGDSGating(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+
+	const gdsErrorSubstring = "Graph Data Science (GDS) library does not appear to be installed"
+
+	baseCfg := config.Config{
+		URI:           "bolt://test-host:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		Tools:         config.AvailableTools,
+		TransportMode: config.TransportModeStdio,
+	}
+
+	t.Run("GDS unavailable and only default-enabled: omitted from tools/list, no error", func(t *testing.T) {
 		withFreshStdin(t)
 
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"first"},
-				Values: []any{
-					int64(1),
-				},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"apocMetaSchemaAvailable"},
-				Values: []any{
-					bool(true),
-				},
-			},
-		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
 
-		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
+		cfg := baseCfg
+		s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+		require.NoError(t, s.Start())
 
-		if s == nil {
-			t.Fatal("NewNeo4jMCPServer() expected non-nil server, got nil")
-		}
+		session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+		require.NoError(t, err)
+		defer session.Close()
 
-		err := s.Start()
-
-		if err != nil {
-			t.Errorf("error while starting the MCP Server")
-		}
-		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
-		if err != nil {
-			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
-		}
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
+		sort.Strings(toolNames)
+		assert.Equal(t, []string{"get-schema", "read-cypher", "write-cypher"}, toolNames)
 	})
 
-	t.Run("skips GDS verification when list-gds-procedures is not enabled", func(t *testing.T) {
+	t.Run("GDS unavailable and explicitly requested via Config.Tools: tools/list fails", func(t *testing.T) {
 		withFreshStdin(t)
 
-		cfgWithoutGDS := &config.Config{
-			URI:           "bolt://test-host:7687",
-			Username:      "neo4j",
-			Password:      "password",
-			Database:      "neo4j",
-			Tools:         []string{"read-cypher", "write-cypher", "get-schema"},
-			TransportMode: config.TransportModeStdio,
-		}
 		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"first"},
-				Values: []any{int64(1)},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"apocMetaSchemaAvailable"},
-				Values: []any{bool(true)},
-			},
-		}, nil)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
 
-		s := server.NewNeo4jMCPServer("test-version", cfgWithoutGDS, mockDB, analyticsService)
-		err := s.Start()
-		if err != nil {
-			t.Errorf("error while starting the MCP Server")
-		}
-		_, err = connectInProcessClient(context.Background(), t, s.MCPServer)
-		if err != nil {
-			t.Fatalf("Expect no error during initialization, got: %s", err.Error())
-		}
+		cfg := baseCfg
+		cfg.ToolsExplicitlySet = true // operator explicitly configured Config.Tools to include list-gds-procedures
+		s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+		require.NoError(t, s.Start())
+
+		session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+		require.NoError(t, err)
+		defer session.Close()
+
+		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, gdsErrorSubstring)
+	})
+
+	t.Run("GDS unavailable but tool excluded by Config.Tools: no error, zero GDS probes", func(t *testing.T) {
+		withFreshStdin(t)
+
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		// Zero calls expected: list-gds-procedures isn't in Config.Tools, and neither requestMiddleware or
+		// toolsListMiddleware should ever probe GDS availability.
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(0)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		cfg.Tools = []string{"read-cypher", "write-cypher", "get-schema"}
+		s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+		require.NoError(t, s.Start())
+
+		session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+		require.NoError(t, err)
+		defer session.Close()
+
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
+		sort.Strings(toolNames)
+		assert.Equal(t, []string{"get-schema", "read-cypher", "write-cypher"}, toolNames)
 	})
 }
 
@@ -292,15 +316,6 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 			Keys: []string{"apocMetaSchemaAvailable"},
 			Values: []any{
 				bool(true),
-			},
-		},
-	}, nil)
-	gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{
-			Keys: []string{"gdsVersion"},
-			Values: []any{
-				string("2.22.0"),
 			},
 		},
 	}, nil)
@@ -350,7 +365,7 @@ func TestNewNeo4jMCPServerEvents(t *testing.T) {
 	})
 }
 
-// withFreshStdin gives os.Stdin a new file for the duration of the test, restoring the original afterward. 
+// withFreshStdin gives os.Stdin a new file for the duration of the test, restoring the original afterward.
 func withFreshStdin(t *testing.T) {
 	t.Helper()
 
