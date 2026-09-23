@@ -28,7 +28,7 @@ import (
 // startHTTPModeServer launches the server binary in HTTP mode on a random free port.
 // It polls /healthz until the server is ready and returns the base URL.
 // The server process is automatically terminated when the test ends.
-// extraArgs are appended to the server command line (e.g. "--neo4j-request-timeout", "5s").
+// extraArgs are appended to the server command line (e.g. "--request-timeout", "5s").
 func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 	t.Helper()
 
@@ -42,10 +42,10 @@ func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
 	// Strip those keys so any locally-set env values don't cause a startup validation error.
 	args := append([]string{
-		"--neo4j-transport-mode", "http",
-		"--neo4j-http-host", "127.0.0.1",
-		"--neo4j-http-port", fmt.Sprintf("%d", port),
-		"--neo4j-telemetry", "false",
+		"--transport-mode", "http",
+		"--http-host", "127.0.0.1",
+		"--http-port", fmt.Sprintf("%d", port),
+		"--telemetry", "false",
 	}, extraArgs...)
 	cmd := exec.Command(server, args...) // #nosec G204 -- server is a binary path built by the test harness, not user input
 	cmd.Env = stripEnv(os.Environ(), "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "NEO4J_DATABASE", "NEO4J_MCP_URI", "NEO4J_MCP_USERNAME", "NEO4J_MCP_PASSWORD", "NEO4J_MCP_DATABASE")

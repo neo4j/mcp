@@ -27,7 +27,7 @@ Options:
   --password <PASSWORD>               Database password (overrides NEO4J_MCP_PASSWORD)
   --database <DATABASE>               Database name (overrides NEO4J_MCP_DATABASE)
   --read-only <BOOLEAN>               Enable read-only mode: true or false (overrides NEO4J_MCP_READ_ONLY)
-  --tools <TOOLS>               	  Define tools available by filtering tools returned in tools/list response
+  --tools <TOOLS>                     Define tools available by filtering tools returned in tools/list response
   --telemetry <BOOLEAN>               Enable telemetry: true or false (overrides NEO4J_MCP_TELEMETRY)
   --schema-sample-size <INT>          Number of nodes to sample for schema inference (overrides NEO4J_MCP_SCHEMA_SAMPLE_SIZE)
   --transport-mode <MODE>             MCP transport mode: 'stdio' or 'http' (overrides NEO4J_MCP_TRANSPORT_MODE)
@@ -40,7 +40,7 @@ Options:
   --http-auth-header-name <HEADER>    Name of the HTTP header to read auth credentials from (overrides NEO4J_MCP_HTTP_AUTH_HEADER_NAME)
   --http-allow-unauthenticated-ping <BOOLEAN> Allow unauthenticated ping (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING)
   --http-allow-unauthenticated-tools-list <BOOLEAN> Allow unauthenticated tools/list (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST)
-  --neo4j-request-timeout <DURATION>  Maximum duration for a single MCP request, up to 30m. Also caps the per-request X-Neo4j-MCP-Request-Timeout header in HTTP mode (overrides environment variable NEO4J_MCP_REQUEST_TIMEOUT)
+  --request-timeout <DURATION>       Maximum duration for a single MCP request, up to 30m. Also caps the per-request X-Neo4j-MCP-Request-Timeout header in HTTP mode (overrides environment variable NEO4J_MCP_REQUEST_TIMEOUT)
 
 Required Environment Variables (STDIO mode):
   NEO4J_MCP_URI       Neo4j database URI
@@ -66,8 +66,6 @@ Optional Environment Variables:
   NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING Allow unauthenticated ping health checks (default: false)
   NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST Allow unauthenticated tool listing (default: false)
   NEO4J_MCP_REQUEST_TIMEOUT Maximum duration for a single MCP request (default: 3m, maximum: 30m)
-
-Deprecated environment variables and --neo4j-* flags remain accepted in v1 and emit a warning. They will be removed in v2. The deprecated environment aliases are the previous unscoped names shown in the project changelog.
 
 Examples:
   # Using environment variables
@@ -106,123 +104,77 @@ type Args struct {
 // add new config flags here as needed
 var argsSlice = []string{
 	"--uri",
-	"--neo4j-uri",
 	"--username",
-	"--neo4j-username",
 	"--password",
-	"--neo4j-password",
 	"--database",
-	"--neo4j-database",
 	"--read-only",
-	"--neo4j-read-only",
-	"--neo4j-tools",
+	"--tools",
 	"--telemetry",
-	"--neo4j-telemetry",
 	"--schema-sample-size",
-	"--neo4j-schema-sample-size",
 	"--transport-mode",
-	"--neo4j-transport-mode",
 	"--http-port",
-	"--neo4j-http-port",
 	"--http-host",
-	"--neo4j-http-host",
 	"--http-allowed-origins",
-	"--neo4j-http-allowed-origins",
 	"--http-tls-enabled",
-	"--neo4j-http-tls-enabled",
 	"--http-tls-cert-file",
-	"--neo4j-http-tls-cert-file",
 	"--http-tls-key-file",
-	"--neo4j-http-tls-key-file",
 	"--http-auth-header-name",
-	"--neo4j-http-auth-header-name",
 	"--http-allow-unauthenticated-ping",
-	"--neo4j-http-allow-unauthenticated-ping",
 	"--http-allow-unauthenticated-tools-list",
-	"--neo4j-http-allow-unauthenticated-tools-list",
-	"--neo4j-request-timeout",
+	"--request-timeout",
 }
 
 // ParseConfigFlags parses CLI flags and returns configuration values.
 // It should be called after HandleArgs to ensure help/version flags are processed first.
-const deprecatedFlagMessage = "Warning: deprecated CLI flag %q; use %q instead. Support will be removed in v2.\n"
-
-func mergeFlagValue(canonical, deprecated *string, canonicalName, deprecatedName string) string {
-	if *deprecated != "" {
-		fmt.Fprintf(os.Stderr, deprecatedFlagMessage, deprecatedName, canonicalName)
-	}
-	if *canonical != "" {
-		return *canonical
-	}
-	return *deprecated
-}
-
 func ParseConfigFlags() *Args {
 	uri := flag.String("uri", "", "Neo4j connection URI (overrides NEO4J_MCP_URI env var)")
-	neo4jURI := flag.String("neo4j-uri", "", "Deprecated alias for --uri")
 	username := flag.String("username", "", "Neo4j username (overrides NEO4J_MCP_USERNAME env var)")
-	neo4jUsername := flag.String("neo4j-username", "", "Deprecated alias for --username")
 	password := flag.String("password", "", "Neo4j password (overrides NEO4J_MCP_PASSWORD env var)")
-	neo4jPassword := flag.String("neo4j-password", "", "Deprecated alias for --password")
 	database := flag.String("database", "", "Neo4j database name (overrides NEO4J_MCP_DATABASE env var)")
-	neo4jDatabase := flag.String("neo4j-database", "", "Deprecated alias for --database")
 	readOnly := flag.String("read-only", "", "Enable read-only mode: true or false (overrides NEO4J_MCP_READ_ONLY env var)")
-	neo4jReadOnly := flag.String("neo4j-read-only", "", "Deprecated alias for --read-only")
-	var neo4jTools *string
-	flag.Func("neo4j-tools", "Define tools available by filtering tools returned in tools/list response", func(s string) error {
+	var tools *string
+	flag.Func("tools", "Define tools available by filtering tools returned in tools/list response", func(s string) error {
 		if s == "" {
 			return fmt.Errorf("cannot be empty; omit the flag to use all tools, or provide a comma-separated list of tools")
 		}
-		neo4jTools = &s
+		tools = &s
 		return nil
 	})
 	telemetry := flag.String("telemetry", "", "Enable telemetry: true or false (overrides NEO4J_MCP_TELEMETRY env var)")
-	neo4jTelemetry := flag.String("neo4j-telemetry", "", "Deprecated alias for --telemetry")
 	schemaSampleSize := flag.String("schema-sample-size", "", "Number of nodes to sample for schema inference (overrides NEO4J_MCP_SCHEMA_SAMPLE_SIZE env var)")
-	neo4jSchemaSampleSize := flag.String("neo4j-schema-sample-size", "", "Deprecated alias for --schema-sample-size")
 	transportMode := flag.String("transport-mode", "", "MCP transport mode: stdio or http (overrides NEO4J_MCP_TRANSPORT_MODE env var)")
-	neo4jTransportMode := flag.String("neo4j-transport-mode", "", "Deprecated alias for --transport-mode")
 	httpPort := flag.String("http-port", "", "HTTP server port (overrides NEO4J_MCP_HTTP_PORT env var)")
-	neo4jHTTPPort := flag.String("neo4j-http-port", "", "Deprecated alias for --http-port")
 	httpHost := flag.String("http-host", "", "HTTP server host (overrides NEO4J_MCP_HTTP_HOST env var)")
-	neo4jHTTPHost := flag.String("neo4j-http-host", "", "Deprecated alias for --http-host")
 	httpAllowedOrigins := flag.String("http-allowed-origins", "", "Comma-separated list of allowed CORS origins (overrides NEO4J_MCP_HTTP_ALLOWED_ORIGINS env var)")
-	neo4jHTTPAllowedOrigins := flag.String("neo4j-http-allowed-origins", "", "Deprecated alias for --http-allowed-origins")
 	httpTLSEnabled := flag.String("http-tls-enabled", "", "Enable TLS/HTTPS for HTTP server: true or false (overrides NEO4J_MCP_HTTP_TLS_ENABLED env var)")
-	neo4jHTTPTLSEnabled := flag.String("neo4j-http-tls-enabled", "", "Deprecated alias for --http-tls-enabled")
 	httpTLSCertFile := flag.String("http-tls-cert-file", "", "Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE env var)")
-	neo4jHTTPTLSCertFile := flag.String("neo4j-http-tls-cert-file", "", "Deprecated alias for --http-tls-cert-file")
 	httpTLSKeyFile := flag.String("http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
-	neo4jHTTPTLSKeyFile := flag.String("neo4j-http-tls-key-file", "", "Deprecated alias for --http-tls-key-file")
 	authHeaderName := flag.String("http-auth-header-name", "", "Name of the HTTP header to read auth credentials from (overrides NEO4J_MCP_HTTP_AUTH_HEADER_NAME env var)")
-	neo4jAuthHeaderName := flag.String("neo4j-http-auth-header-name", "", "Deprecated alias for --http-auth-header-name")
 	allowUnauthenticatedPing := flag.String("http-allow-unauthenticated-ping", "", "Allow unauthenticated ping: true or false (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING env var)")
-	neo4jHTTPAllowUnauthenticatedPing := flag.String("neo4j-http-allow-unauthenticated-ping", "", "Deprecated alias for --http-allow-unauthenticated-ping")
 	allowUnauthenticatedToolsList := flag.String("http-allow-unauthenticated-tools-list", "", "Allow unauthenticated tools/list: true or false (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST env var)")
-	neo4jHTTPAllowUnauthenticatedToolsList := flag.String("neo4j-http-allow-unauthenticated-tools-list", "", "Deprecated alias for --http-allow-unauthenticated-tools-list")
-	neo4jRequestTimeout := flag.String("neo4j-request-timeout", "", "Maximum duration for a single MCP request, up to 30m (overrides NEO4J_MCP_REQUEST_TIMEOUT env var)")
+	requestTimeout := flag.String("request-timeout", "", "Maximum duration for a single MCP request, up to 30m (overrides NEO4J_MCP_REQUEST_TIMEOUT env var)")
 	flag.Parse()
 
 	return &Args{
-		URI:                               mergeFlagValue(uri, neo4jURI, "--uri", "--neo4j-uri"),
-		Username:                          mergeFlagValue(username, neo4jUsername, "--username", "--neo4j-username"),
-		Password:                          mergeFlagValue(password, neo4jPassword, "--password", "--neo4j-password"),
-		Database:                          mergeFlagValue(database, neo4jDatabase, "--database", "--neo4j-database"),
-		ReadOnly:                          mergeFlagValue(readOnly, neo4jReadOnly, "--read-only", "--neo4j-read-only"),
-		Tools:                             neo4jTools,
-		Telemetry:                         mergeFlagValue(telemetry, neo4jTelemetry, "--telemetry", "--neo4j-telemetry"),
-		SchemaSampleSize:                  mergeFlagValue(schemaSampleSize, neo4jSchemaSampleSize, "--schema-sample-size", "--neo4j-schema-sample-size"),
-		TransportMode:                     mergeFlagValue(transportMode, neo4jTransportMode, "--transport-mode", "--neo4j-transport-mode"),
-		HTTPPort:                          mergeFlagValue(httpPort, neo4jHTTPPort, "--http-port", "--neo4j-http-port"),
-		HTTPHost:                          mergeFlagValue(httpHost, neo4jHTTPHost, "--http-host", "--neo4j-http-host"),
-		HTTPAllowedOrigins:                mergeFlagValue(httpAllowedOrigins, neo4jHTTPAllowedOrigins, "--http-allowed-origins", "--neo4j-http-allowed-origins"),
-		HTTPTLSEnabled:                    mergeFlagValue(httpTLSEnabled, neo4jHTTPTLSEnabled, "--http-tls-enabled", "--neo4j-http-tls-enabled"),
-		HTTPTLSCertFile:                   mergeFlagValue(httpTLSCertFile, neo4jHTTPTLSCertFile, "--http-tls-cert-file", "--neo4j-http-tls-cert-file"),
-		HTTPTLSKeyFile:                    mergeFlagValue(httpTLSKeyFile, neo4jHTTPTLSKeyFile, "--http-tls-key-file", "--neo4j-http-tls-key-file"),
-		HTTPAllowUnauthenticatedPing:      mergeFlagValue(allowUnauthenticatedPing, neo4jHTTPAllowUnauthenticatedPing, "--http-allow-unauthenticated-ping", "--neo4j-http-allow-unauthenticated-ping"),
-		HTTPAllowUnauthenticatedToolsList: mergeFlagValue(allowUnauthenticatedToolsList, neo4jHTTPAllowUnauthenticatedToolsList, "--http-allow-unauthenticated-tools-list", "--neo4j-http-allow-unauthenticated-tools-list"),
-		AuthHeaderName:                    mergeFlagValue(authHeaderName, neo4jAuthHeaderName, "--http-auth-header-name", "--neo4j-http-auth-header-name"),
-		RequestTimeout:                    *neo4jRequestTimeout,
+		URI:                               *uri,
+		Username:                          *username,
+		Password:                          *password,
+		Database:                          *database,
+		ReadOnly:                          *readOnly,
+		Tools:                             tools,
+		Telemetry:                         *telemetry,
+		SchemaSampleSize:                  *schemaSampleSize,
+		TransportMode:                     *transportMode,
+		HTTPPort:                          *httpPort,
+		HTTPHost:                          *httpHost,
+		HTTPAllowedOrigins:                *httpAllowedOrigins,
+		HTTPTLSEnabled:                    *httpTLSEnabled,
+		HTTPTLSCertFile:                   *httpTLSCertFile,
+		HTTPTLSKeyFile:                    *httpTLSKeyFile,
+		HTTPAllowUnauthenticatedPing:      *allowUnauthenticatedPing,
+		HTTPAllowUnauthenticatedToolsList: *allowUnauthenticatedToolsList,
+		AuthHeaderName:                    *authHeaderName,
+		RequestTimeout:                    *requestTimeout,
 	}
 }
 
