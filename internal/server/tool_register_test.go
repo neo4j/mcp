@@ -5,7 +5,6 @@ package server_test
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"testing"
 
@@ -32,16 +31,18 @@ func TestToolRegister(t *testing.T) {
 	// Client handshake required for tool registration.
 	mockDB := db.NewMockService(ctrl)
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{	Keys: []string{"first"}, 
+		{Keys: []string{"first"},
 			Values: []any{int64(1)},
 		},
 	}, nil)
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{	Keys: []string{"apocMetaSchemaAvailable"}, 
+		{Keys: []string{"apocMetaSchemaAvailable"},
 			Values: []any{bool(true)},
 		},
 	}, nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
+		{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}},
+	}, nil)
 	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).AnyTimes()
 	mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 	mockDB.EXPECT().GetQueryType(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -186,7 +187,6 @@ func TestToolRegister(t *testing.T) {
 		assert.Empty(t, listRegisteredTools(t, s))
 	})
 }
-
 
 // listRegisteredTools connects an in-process client to s.MCPServer and returns its advertised tools.
 func listRegisteredTools(t *testing.T, s *server.Neo4jMCPServer) []*mcp.Tool {
