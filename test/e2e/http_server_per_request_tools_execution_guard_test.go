@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpserver "github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -95,27 +94,24 @@ func TestHTTPPerRequestToolsExecutionGuard(t *testing.T) {
 				headers[k] = v
 			}
 
-			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)
-
-			defer httpClient.Close()
-
-			require.NoError(t, httpClient.Start(ctx), "http client failed to start")
-
-			_, err := httpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			session, err := newHTTPClient(t, ctx, baseURL+"/db/neo4j/mcp", headers)
 			require.NoError(t, err, "expected initialize to succeed")
+			defer session.Close()
 
-			callToolResponse, err := httpClient.CallTool(ctx, mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name: tc.toolName,
-					Arguments: map[string]any{
-						"query": "RETURN 1 AS n",
-					},
-				},
+			// get-schema takes no arguments; only cypher tools accept "query".
+			arguments := map[string]any{}
+			if tc.toolName != "get-schema" {
+				arguments["query"] = "RETURN 1 AS n"
+			}
+
+			callToolResponse, err := session.CallTool(ctx, &mcp.CallToolParams{
+				Name:      tc.toolName,
+				Arguments: arguments,
 			})
 			require.NoError(t, err)
 
 			if tc.wantErr != "" {
-				textContent, ok := callToolResponse.Content[0].(mcp.TextContent)
+				textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
 
 				require.True(t, ok)
 				require.Contains(t, textContent.Text, tc.wantErr)
@@ -163,24 +159,17 @@ func TestHTTPPerRequestToolsExecutionGuardInvalidTool(t *testing.T) {
 				mcpserver.URIHeader: cfg.URI,
 			}
 
-			httpClient := newHTTPClient(t, baseURL+"/db/neo4j/mcp", headers)
-
-			defer httpClient.Close()
-
-			require.NoError(t, httpClient.Start(ctx), "http client failed to start")
-
-			_, err := httpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			session, err := newHTTPClient(t, ctx, baseURL+"/db/neo4j/mcp", headers)
 			require.NoError(t, err, "expected initialize to succeed")
+			defer session.Close()
 
-			_, err = httpClient.CallTool(ctx, mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name: tc.toolName,
-					Arguments: map[string]any{
-						"query": "RETURN 1 AS n",
-					},
+			_, err = session.CallTool(ctx, &mcp.CallToolParams{
+				Name: tc.toolName,
+				Arguments: map[string]any{
+					"query": "RETURN 1 AS n",
 				},
 			})
-			require.ErrorContains(t, err, "invalid params: tool")
+			require.ErrorContains(t, err, "unknown tool")
 		})
 	}
 }
