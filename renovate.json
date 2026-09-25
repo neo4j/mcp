@@ -15,6 +15,10 @@
     "minimumReleaseAge": "3 days",
     "packageRules": [
         {
+            "matchUpdateTypes": ["digest", "pinDigest"],
+            "minimumReleaseAge": null
+        },
+        {
             "matchUpdateTypes": ["major"],
             "groupName": null
         },
