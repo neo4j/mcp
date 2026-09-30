@@ -83,7 +83,6 @@ func startOnce(ctx context.Context) {
 		Close(ctx)
 		log.Fatalf("failed to verify connectivity: %v", err)
 	}
-
 }
 
 // Close cleans up shared resources used in integration tests

@@ -19,7 +19,7 @@ import (
 
 // TestStdioRequestTimeoutInitialize verifies that an expired server request
 // timeout is surfaced as a clear error during initialize. STDIO has no per-request
-// timeout header, so only the server maximum (--neo4j-request-timeout) applies.
+// timeout header, so only the server maximum (--request-timeout) applies.
 func TestStdioRequestTimeoutInitialize(t *testing.T) {
 	t.Parallel()
 
@@ -42,12 +42,12 @@ func TestStdioRequestTimeoutInitialize(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			args := []string{
-				"--neo4j-uri", cfg.URI,
-				"--neo4j-username", cfg.Username,
-				"--neo4j-password", cfg.Password,
-				"--neo4j-database", cfg.Database,
-				"--neo4j-telemetry", "false",
-				"--neo4j-request-timeout", tc.timeout,
+				"--uri", cfg.URI,
+				"--username", cfg.Username,
+				"--password", cfg.Password,
+				"--database", cfg.Database,
+				"--telemetry", "false",
+				"--request-timeout", tc.timeout,
 			}
 
 			mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
@@ -98,12 +98,12 @@ func TestStdioRequestTimeoutToolCall(t *testing.T) {
 			cfg := dbs.GetDriverConf()
 
 			args := []string{
-				"--neo4j-uri", cfg.URI,
-				"--neo4j-username", cfg.Username,
-				"--neo4j-password", cfg.Password,
-				"--neo4j-database", cfg.Database,
-				"--neo4j-telemetry", "false",
-				"--neo4j-request-timeout", tc.timeout,
+				"--uri", cfg.URI,
+				"--username", cfg.Username,
+				"--password", cfg.Password,
+				"--database", cfg.Database,
+				"--telemetry", "false",
+				"--request-timeout", tc.timeout,
 			}
 
 			mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
