@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/tools"
 )
 
@@ -35,7 +36,7 @@ func handleListGdsProcedures(ctx context.Context, deps *tools.ToolDependencies) 
 	records, err := deps.DBService.ExecuteReadQuery(ctx, listGdsProceduresQuery, nil)
 	if err != nil {
 		formattedErrorMessage := fmt.Errorf("failed to execute list-gds-procedure query: %v. Ensure that the Graph Data Science (GDS) library is installed and properly configured in your Neo4j database", err)
-		slog.Error("failed to execute list gds procedures query", "error", err)
+		slog.Error("failed to execute list gds procedures query", database.ErrorLogAttrs(err)...)
 		return mcp.NewToolResultError(formattedErrorMessage.Error()), nil
 	}
 

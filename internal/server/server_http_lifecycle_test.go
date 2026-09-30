@@ -21,6 +21,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -36,17 +37,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
-
-// getFreePort finds and returns an available port
-func getFreePort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-	addr := listener.Addr().(*net.TCPAddr)
-	return addr.Port, nil
-}
 
 // TestNeo4jMCPServerHTTPMode tests the HTTP mode lifecycle where initialization is delayed
 // until the first client performs an initialize request via hooks
@@ -65,10 +55,11 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		URI:           "bolt://test-host:7687",
 		Database:      "neo4j",
 		TransportMode: config.TransportModeHTTP,
+		Tools:         config.AvailableTools,
 		HTTPHost:      "127.0.0.1",
 		HTTPPort:      strconv.Itoa(port),
 	}
-	uri := fmt.Sprintf("http://%s:%s/mcp", cfg.HTTPHost, cfg.HTTPPort)
+	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
 	analyticsService := analytics.NewMockService(ctrl)
 	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
@@ -121,13 +112,120 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 		// Signal that server is ready to accept requests
 
-		mcpClient := createStreamableHTTPClient(uri)
+		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
 		assertNoCloseOrStopError(t, s, errChan)
+	})
 
+	t.Run("Server does not re-verify on subsequent MCP requests", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"first"},
+				Values: []any{int64(1)},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"apocMetaSchemaAvailable"},
+				Values: []any{bool(true)},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"gdsVersion"},
+				Values: []any{string("2.22.0")},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
+
+		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		if err != nil {
+			t.Fatalf("error while initialize request: %v", err)
+		}
+
+		_, err = mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+		if err != nil {
+			t.Fatalf("error while list tools request: %v", err)
+		}
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("skips GDS verification when X-Neo4j-MCP-Tools excludes list-gds-procedures", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"first"},
+				Values: []any{int64(1)},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"apocMetaSchemaAvailable"},
+				Values: []any{bool(true)},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(0)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+
+		headers := defaultHeaders()
+		headers[server.ToolsHeader] = "read-cypher, get-schema"
+		mcpClient := createStreamableHTTPClient(uri, headers)
+
+		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		if err != nil {
+			t.Fatalf("error while initialize request: %v", err)
+		}
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("runs GDS verification when X-Neo4j-MCP-Tools includes list-gds-procedures", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"first"},
+				Values: []any{int64(1)},
+			},
+		}, nil)
+		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"apocMetaSchemaAvailable"},
+				Values: []any{bool(true)},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(1).Return([]*neo4j.Record{
+			{
+				Keys:   []string{"gdsVersion"},
+				Values: []any{string("2.22.0")},
+			},
+		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+
+		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+
+		headers := defaultHeaders()
+		headers[server.ToolsHeader] = "read-cypher, list-gds-procedures"
+		mcpClient := createStreamableHTTPClient(uri, headers)
+
+		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		if err != nil {
+			t.Fatalf("error while initialize request: %v", err)
+		}
+
+		assertNoCloseOrStopError(t, s, errChan)
 	})
 
 	t.Run("Server handles database connectivity errors gracefully", func(t *testing.T) {
@@ -141,63 +239,14 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// The hook will handle errors when actually triggered by a client request
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
-		mcpClient := createStreamableHTTPClient(uri)
+		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
+		// initialize should fail, while the server should keep working fine.
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
+		if err == nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		assert.ErrorContains(t, err, "impossible to verify connectivity with the Neo4j instance: connection error")
 		assertNoCloseOrStopError(t, s, errChan)
-
-	})
-
-	t.Run("Server should not perform duplicate verification calls", func(t *testing.T) {
-		// in HTTP mode once the requirements are check are not checked again, since the configuration are shared across users.
-		// the before initialization hook should not be used as authentication mechanism as it cannot return valid errors to the users.
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"first"},
-				Values: []any{
-					int64(1),
-				},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"apocMetaSchemaAvailable"},
-				Values: []any{
-					bool(true),
-				},
-			},
-		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"gdsVersion"},
-				Values: []any{
-					string("2.22.0"),
-				},
-			},
-		}, nil)
-
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
-
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		mcpClient := createStreamableHTTPClient(uri)
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		// create new client to verify that at new requests the verifyRequirements is not preformed again.
-		mcpClient2 := createStreamableHTTPClient(uri)
-		_, err = mcpClient2.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		assertNoCloseOrStopError(t, s, errChan)
-
 	})
 
 	t.Run("server creates successfully with all required components", func(t *testing.T) {
@@ -235,7 +284,7 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// The hook is registered but not executed until a real client request
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
-		mcpClient := createStreamableHTTPClient(uri)
+		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
 		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
@@ -250,69 +299,141 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		assertNoCloseOrStopError(t, s, errChan)
 
 	})
-
-	t.Run("server should not add GDS tools when GDS is not installed", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"first"},
-				Values: []any{
-					int64(1),
-				},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"apocMetaSchemaAvailable"},
-				Values: []any{
-					bool(true),
-				},
-			},
-		}, nil)
-
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
-
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
-
-		// In HTTP mode, NO database operations should happen during Start()
-		// The hook is registered but not executed until a real client request
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		mcpClient := createStreamableHTTPClient(uri)
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		toolNames := make([]string, 0, len(s.MCPServer.ListTools()))
-		for _, tool := range s.MCPServer.ListTools() {
-			toolNames = append(toolNames, tool.Tool.Name)
-		}
-		assert.NotContains(t, toolNames, "list-gds-procedures")
-
-		assertNoCloseOrStopError(t, s, errChan)
-
-	})
 }
 
-func createStreamableHTTPClient(url string) *client.Client {
-	// Basic StreamableHTTP client
-	httpTransport, err := transport.NewStreamableHTTP(url,
-		// Set timeout
-		transport.WithHTTPTimeout(30*time.Second),
-		// Set custom headers
-		transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Basic bmVvNGo6cGFzc3dvcmQ=",
-		}),
-		// With custom HTTP client
-		transport.WithHTTPBasicClient(&http.Client{}),
-	)
+// TestNeo4jMCPServerHTTPModeToolsFilter tests the per-request ToolFilter behaviour
+// driven by the X-Neo4j-MCP-ReadOnly and X-Neo4j-MCP-Tools headers.
+func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	port, err := getFreePort()
 	if err != nil {
-		log.Fatalf("Failed to create StreamableHTTP transport: %v", err)
+		t.Fatalf("Failed to find free port: %v", err)
 	}
-	c := client.NewClient(httpTransport)
-	return c
+
+	cfg := &config.Config{
+		URI:           "bolt://test-host:7687",
+		Database:      "neo4j",
+		TransportMode: config.TransportModeHTTP,
+		Tools:         config.AvailableTools,
+		HTTPHost:      "127.0.0.1",
+		HTTPPort:      strconv.Itoa(port),
+	}
+	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", cfg.HTTPHost, cfg.HTTPPort)
+
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
+	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+
+	mockDB := db.NewMockService(ctrl)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+		AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+		AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+		AnyTimes().Return([]*neo4j.Record{{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}}}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+		AnyTimes().Return(nil, nil)
+
+	tests := []struct {
+		name          string
+		extraHeaders  map[string]string
+		wantErr       bool
+		wantToolNames []string
+	}{
+		{
+			name:          "All tools returned when X-Neo4j-MCP-ReadOnly is false",
+			extraHeaders:  map[string]string{server.ReadOnlyHeader: "false"},
+			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"},
+		},
+		{
+			name:          "All tools returned when X-Neo4j-MCP-ReadOnly is False (mixed case)",
+			extraHeaders:  map[string]string{server.ReadOnlyHeader: "False"},
+			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher", "write-cypher"},
+		},
+		{
+			name:          "Only read-only tools returned when X-Neo4j-MCP-ReadOnly is true",
+			extraHeaders:  map[string]string{server.ReadOnlyHeader: "true"},
+			wantToolNames: []string{"get-schema", "list-gds-procedures", "read-cypher"},
+		},
+		{
+			name:         "Error when X-Neo4j-MCP-ReadOnly contains an invalid value",
+			extraHeaders: map[string]string{server.ReadOnlyHeader: "invalid"},
+			wantErr:      true,
+		},
+		{
+			name:          "Single tool filter via X-Neo4j-MCP-Tools",
+			extraHeaders:  map[string]string{server.ToolsHeader: "read-cypher"},
+			wantToolNames: []string{"read-cypher"},
+		},
+		{
+			name:          "Comma-separated tools via X-Neo4j-MCP-Tools",
+			extraHeaders:  map[string]string{server.ToolsHeader: "read-cypher, write-cypher"},
+			wantToolNames: []string{"read-cypher", "write-cypher"},
+		},
+		{
+			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
+			name:         "Error when X-Neo4j-MCP-Tools contains an invalid tool name",
+			extraHeaders: map[string]string{server.ToolsHeader: "batman-tool"},
+			wantErr:      true,
+		},
+		{
+			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
+			name:         "Error when X-Neo4j-MCP-Tools contains an mixed valid tool names",
+			extraHeaders: map[string]string{server.ToolsHeader: "read-cypher, batman-tool"},
+			wantErr:      true,
+		},
+		{
+			// mcp-go wraps 400 errors: "server returned 4xx for initialize POST, likely a legacy SSE server"
+			name:         "Error when X-Neo4j-MCP-Tools is set as empty \"\" string",
+			extraHeaders: map[string]string{server.ToolsHeader: ""},
+			wantErr:      true,
+		},
+		{
+			name: "X-Neo4j-MCP-Tools and X-Neo4j-MCP-ReadOnly applied as intersection",
+			extraHeaders: map[string]string{
+				server.ToolsHeader:    "read-cypher, write-cypher",
+				server.ReadOnlyHeader: "true",
+			},
+			// write-cypher is not read-only, so it is excluded despite being in the tools list
+			wantToolNames: []string{"read-cypher"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
+
+			headers := defaultHeaders()
+			for k, v := range tc.extraHeaders {
+				headers[k] = v
+			}
+			mcpClient := createStreamableHTTPClient(uri, headers)
+
+			_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+			if tc.wantErr {
+				assert.Error(t, err)
+				assertNoCloseOrStopError(t, s, errChan)
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected initialize to succeed, got: %v", err)
+			}
+
+			listToolsResponse, err := mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+			if err != nil {
+				t.Fatalf("failed to list tools: %v", err)
+			}
+			toolNames := toolNamesFrom(listToolsResponse.Tools)
+			sort.Strings(toolNames)
+			assert.Equal(t, tc.wantToolNames, toolNames)
+
+			assertNoCloseOrStopError(t, s, errChan)
+		})
+	}
 }
 
 func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, analyticsService *analytics.MockService) (*server.Neo4jMCPServer, chan error) {
@@ -341,6 +462,14 @@ func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, 
 	return s, errChan
 }
 
+func toolNamesFrom(tools []mcp.Tool) []string {
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names
+}
+
 func assertNoCloseOrStopError(t *testing.T, s *server.Neo4jMCPServer, errChan chan error) {
 	// Stop the server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -357,4 +486,36 @@ func assertNoCloseOrStopError(t *testing.T, s *server.Neo4jMCPServer, errChan ch
 	default:
 		// No error, which is expected
 	}
+}
+
+// defaultHeaders returns the base request headers used by most test clients.
+func defaultHeaders() map[string]string {
+	return map[string]string{
+		"Authorization":  "Basic bmVvNGo6cGFzc3dvcmQ=",
+		server.URIHeader: "bolt://test-host:7687",
+	}
+}
+
+func createStreamableHTTPClient(url string, headers map[string]string) *client.Client {
+	httpTransport, err := transport.NewStreamableHTTP(url,
+		transport.WithHTTPTimeout(30*time.Second),
+		transport.WithHTTPHeaders(headers),
+		transport.WithHTTPBasicClient(&http.Client{}),
+	)
+	if err != nil {
+		log.Fatalf("Failed to create StreamableHTTP transport: %v", err)
+	}
+	c := client.NewClient(httpTransport)
+	return c
+}
+
+// getFreePort finds and returns an available port
+func getFreePort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+	addr := listener.Addr().(*net.TCPAddr)
+	return addr.Port, nil
 }

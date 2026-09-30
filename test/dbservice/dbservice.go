@@ -70,10 +70,15 @@ func (dbs *dbService) GetDriverConf() *config.Config {
 		return containerrunner.GetDriverConf()
 	}
 
+	transportMode := config.GetTransportModeWithDefault("NEO4J_TRANSPORT_MODE", config.TransportModeStdio)
 	cfg := &config.Config{
-		URI:      config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
-		Username: config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		URI:           config.GetEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
+		Username:      config.GetEnvWithDefault("NEO4J_USERNAME", "neo4j"),
+		Password:      config.GetEnvWithDefault("NEO4J_PASSWORD", "password"),
+		TransportMode: transportMode,
+	}
+	if transportMode == config.TransportModeStdio {
+		cfg.Database = config.GetEnvWithDefault("NEO4J_DATABASE", "neo4j")
 	}
 
 	return cfg

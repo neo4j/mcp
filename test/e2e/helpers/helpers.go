@@ -41,7 +41,7 @@ type E2ETestContext struct {
 }
 
 // NewE2ETestContext creates a new E2E test context with automatic cleanup
-func NewE2ETestContext(t *testing.T, driver *neo4j.DriverWithContext) *E2ETestContext {
+func NewE2ETestContext(t *testing.T, driver *neo4j.Driver) *E2ETestContext {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
