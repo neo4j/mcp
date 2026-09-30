@@ -191,7 +191,20 @@ func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodH
 		}
 
 		result, err := next(ctx, method, req)
-		s.handleToolCallComplete(callReq.Params.Name, callReq.Params.Arguments, result)
+
+		if s.anService != nil && s.anService.IsEnabled() {
+			if toolResult, ok := result.(*mcp.CallToolResult); ok {
+				toolName := callReq.Params.Name
+
+				// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
+				s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
+
+				// Handle GDS events for cypher tools
+				if toolName == "read-cypher" || toolName == "write-cypher" {
+					s.emitGDSEventsIfNeeded(callReq.Params.Arguments)
+				}
+			}
+		}
 
 		return result, err
 	}
@@ -598,27 +611,6 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	case <-s.shutdownChan:
 		// Server was stopped via Stop() method
 		return nil
-	}
-}
-
-// handleToolCallComplete is called after every tool call completes
-func (s *Neo4jMCPServer) handleToolCallComplete(toolName string, rawArgs json.RawMessage, result mcp.Result) {
-	if s.anService == nil || !s.anService.IsEnabled() {
-		return
-	}
-
-	// Type assert result to *mcp.CallToolResult
-	toolResult, ok := result.(*mcp.CallToolResult)
-	if !ok {
-		return
-	}
-
-	// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
-	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
-
-	// Handle GDS events for cypher tools
-	if toolName == "read-cypher" || toolName == "write-cypher" {
-		s.emitGDSEventsIfNeeded(rawArgs)
 	}
 }
 
