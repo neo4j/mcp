@@ -535,7 +535,10 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Create the StreamableHTTPServer - it serves on /mcp path by default
 	mcpServerHTTP := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return s.MCPServer },
-		&mcp.StreamableHTTPOptions{Stateless: true},
+		&mcp.StreamableHTTPOptions{
+			Stateless: true, 
+			JSONResponse: true,
+		},
 	)
 
 	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
