@@ -6,11 +6,10 @@
 package integration
 
 import (
-	"context"
 	"strings"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/test/integration/helpers"
@@ -21,16 +20,20 @@ func TestIssue70(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		handler func(deps *tools.ToolDependencies) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error)
+		name     string
+		callTool func(tc *helpers.TestContext, deps *tools.ToolDependencies, query string, params cypher.Params) *mcp.CallToolResult
 	}{
 		{
-			name:    "read-cypher",
-			handler: cypher.ReadCypherHandler,
+			name: "read-cypher",
+			callTool: func(tc *helpers.TestContext, deps *tools.ToolDependencies, query string, params cypher.Params) *mcp.CallToolResult {
+				return helpers.CallTool(tc, cypher.ReadCypherHandler(deps), cypher.ReadCypherInput{Query: query, Params: params})
+			},
 		},
 		{
-			name:    "write-cypher",
-			handler: cypher.WriteCypherHandler,
+			name: "write-cypher",
+			callTool: func(tc *helpers.TestContext, deps *tools.ToolDependencies, query string, params cypher.Params) *mcp.CallToolResult {
+				return helpers.CallTool(tc, cypher.WriteCypherHandler(deps), cypher.WriteCypherInput{Query: query, Params: params})
+			},
 		},
 	}
 
@@ -55,18 +58,14 @@ func TestIssue70(t *testing.T) {
 				t.Fatalf("failed to seed Company node: %v", err)
 			}
 
-			handler := tt.handler(tc.Deps)
 			handlerQuery := strings.Join(
 				[]string{
 					"MATCH (n:", companyLabel.String(), ")\n",
 					"WHERE n.prop < $param1\n",
 					"RETURN n\n",
 				}, "")
-			res := tc.CallTool(handler, map[string]any{
-				"query": handlerQuery,
-				"params": map[string]any{
-					"param1": 3.5,
-				},
+			res := tt.callTool(tc, tc.Deps, handlerQuery, cypher.Params{
+				"param1": 3.5,
 			})
 
 			var records []map[string]any
@@ -98,16 +97,12 @@ func TestIssue70(t *testing.T) {
 				t.Fatalf("failed to seed Company node: %v", err)
 			}
 
-			handler := tt.handler(tc.Deps)
 			handlerQuery := strings.Join(
 				[]string{
 					"MATCH (n:", companyLabel.String(), ") RETURN n LIMIT $param1",
 				}, "")
-			res := tc.CallTool(handler, map[string]any{
-				"query": handlerQuery,
-				"params": map[string]int{
-					"param1": 1,
-				},
+			res := tt.callTool(tc, tc.Deps, handlerQuery, cypher.Params{
+				"param1": 1,
 			})
 
 			var records []map[string]any

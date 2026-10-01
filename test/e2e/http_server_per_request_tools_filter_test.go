@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	mcpserver "github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/mcp/test/e2e/helpers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -110,19 +109,15 @@ func TestHTTPPerRequestToolsFilter(t *testing.T) {
 				headers[k] = v
 			}
 
-			httpClient := newHTTPClient(t, mcpURL, headers)
-			defer httpClient.Close()
-
-			require.NoError(t, httpClient.Start(ctx), "http client failed to start")
-
-			_, err := httpClient.Initialize(ctx, helpers.BuildInitializeRequest())
+			session, err := newHTTPClient(t, ctx, mcpURL, headers)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err, "expected initialize to succeed")
+			defer session.Close()
 
-			listToolsResponse, err := httpClient.ListTools(ctx, mcp.ListToolsRequest{})
+			listToolsResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 			require.NoError(t, err, "failed to list tools")
 
 			toolNames := make([]string, len(listToolsResponse.Tools))

@@ -18,7 +18,6 @@ package server_test
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -26,9 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	db "github.com/neo4j/mcp/internal/database/mocks"
@@ -112,11 +109,11 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 		// Signal that server is ready to accept requests
 
-		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		defer session.Close()
 		assertNoCloseOrStopError(t, s, errChan)
 	})
 
@@ -144,14 +141,13 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
-
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		defer session.Close()
 
-		_, err = mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
 		if err != nil {
 			t.Fatalf("error while list tools request: %v", err)
 		}
@@ -181,12 +177,11 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		headers := defaultHeaders()
 		headers[server.ToolsHeader] = "read-cypher, get-schema"
-		mcpClient := createStreamableHTTPClient(uri, headers)
-
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		session, err := createStreamableHTTPClient(context.Background(), uri, headers)
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		defer session.Close()
 
 		assertNoCloseOrStopError(t, s, errChan)
 	})
@@ -218,12 +213,11 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		headers := defaultHeaders()
 		headers[server.ToolsHeader] = "read-cypher, list-gds-procedures"
-		mcpClient := createStreamableHTTPClient(uri, headers)
-
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		session, err := createStreamableHTTPClient(context.Background(), uri, headers)
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		defer session.Close()
 
 		assertNoCloseOrStopError(t, s, errChan)
 	})
@@ -234,14 +228,15 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// This is because the client can be misconfigured with invalid credentials
 		// and it should not affect the experience to other clients/users with correct information.
 
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, fmt.Errorf("connection error"))
+		// The go-sdk Connect always tries the server/discover RPC first and on any error, falls back to 
+		// the legacy initialize call - so a failed handshake runs verifyRequirements twice.
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil, fmt.Errorf("connection error"))
 		// In HTTP mode, no database calls happen during Start()
 		// The hook will handle errors when actually triggered by a client request
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
-		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
 		// initialize should fail, while the server should keep working fine.
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		_, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
 		if err == nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
@@ -284,16 +279,17 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		// The hook is registered but not executed until a real client request
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 
-		mcpClient := createStreamableHTTPClient(uri, defaultHeaders())
-		_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
 		if err != nil {
 			t.Fatalf("error while initialize request: %v", err)
 		}
+		defer session.Close()
 
-		toolNames := make([]string, 0, len(s.MCPServer.ListTools()))
-		for _, tool := range s.MCPServer.ListTools() {
-			toolNames = append(toolNames, tool.Tool.Name)
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		if err != nil {
+			t.Fatalf("error while list tools request: %v", err)
 		}
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
 		assert.Contains(t, toolNames, "list-gds-procedures")
 
 		assertNoCloseOrStopError(t, s, errChan)
@@ -411,9 +407,7 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 			for k, v := range tc.extraHeaders {
 				headers[k] = v
 			}
-			mcpClient := createStreamableHTTPClient(uri, headers)
-
-			_, err := mcpClient.Initialize(context.Background(), mcp.InitializeRequest{})
+			session, err := createStreamableHTTPClient(context.Background(), uri, headers)
 			if tc.wantErr {
 				assert.Error(t, err)
 				assertNoCloseOrStopError(t, s, errChan)
@@ -422,8 +416,9 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected initialize to succeed, got: %v", err)
 			}
+			defer session.Close()
 
-			listToolsResponse, err := mcpClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+			listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
 			if err != nil {
 				t.Fatalf("failed to list tools: %v", err)
 			}
@@ -462,7 +457,7 @@ func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, 
 	return s, errChan
 }
 
-func toolNamesFrom(tools []mcp.Tool) []string {
+func toolNamesFrom(tools []*mcp.Tool) []string {
 	names := make([]string, len(tools))
 	for i, tool := range tools {
 		names[i] = tool.Name
@@ -496,17 +491,31 @@ func defaultHeaders() map[string]string {
 	}
 }
 
-func createStreamableHTTPClient(url string, headers map[string]string) *client.Client {
-	httpTransport, err := transport.NewStreamableHTTP(url,
-		transport.WithHTTPTimeout(30*time.Second),
-		transport.WithHTTPHeaders(headers),
-		transport.WithHTTPBasicClient(&http.Client{}),
-	)
-	if err != nil {
-		log.Fatalf("Failed to create StreamableHTTP transport: %v", err)
+// headerInjectingTransport adds a fixed set of headers to every outgoing request.
+type headerInjectingTransport struct {
+	headers map[string]string
+	base    http.RoundTripper
+}
+
+func (t *headerInjectingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+
+	for k, v := range t.headers {
+		req.Header.Set(k, v)
 	}
-	c := client.NewClient(httpTransport)
-	return c
+
+	return t.base.RoundTrip(req)
+}
+
+func createStreamableHTTPClient(ctx context.Context, url string, headers map[string]string) (*mcp.ClientSession, error) {
+	httpClient := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: &headerInjectingTransport{headers: headers, base: http.DefaultTransport},
+	}
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+
+	return mcpClient.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: url, HTTPClient: httpClient}, nil)
 }
 
 // getFreePort finds and returns an available port

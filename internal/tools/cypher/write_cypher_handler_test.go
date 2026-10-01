@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
@@ -38,16 +38,12 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"query":  "MATCH (n:Person {name: $name}) RETURN n",
-					"params": map[string]any{"name": "Alice"},
-				},
-			},
+		input := cypher.WriteCypherInput{
+			Query:  "MATCH (n:Person {name: $name}) RETURN n",
+			Params: cypher.Params{"name": "Alice"},
 		}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -72,47 +68,17 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"query": "MATCH (n) RETURN count(n)",
-				},
-			},
+		input := cypher.WriteCypherInput{
+			Query: "MATCH (n) RETURN count(n)",
 		}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
 		}
 		if result == nil || result.IsError {
 			t.Error("Expected success result")
-		}
-	})
-
-	t.Run("invalid arguments binding", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-
-		deps := &tools.ToolDependencies{
-			DBService:        mockDB,
-			AnalyticsService: analyticsService,
-		}
-
-		handler := cypher.WriteCypherHandler(deps)
-		// Test with invalid argument structure that should cause BindArguments to fail
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: "invalid string instead of map",
-			},
-		}
-
-		result, err := handler(context.Background(), request)
-
-		if err != nil {
-			t.Errorf("Expected no error from handler, got: %v", err)
-		}
-		if result == nil || !result.IsError {
-			t.Error("Expected error result for invalid arguments")
 		}
 	})
 
@@ -127,15 +93,9 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"invalid_field": "value",
-				},
-			},
-		}
+		input := cypher.WriteCypherInput{}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -157,15 +117,11 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"query": "",
-				},
-			},
+		input := cypher.WriteCypherInput{
+			Query: "",
 		}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -183,15 +139,11 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"query": "MATCH (n) RETURN n",
-				},
-			},
+		input := cypher.WriteCypherInput{
+			Query: "MATCH (n) RETURN n",
 		}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -208,7 +160,7 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, cypher.WriteCypherInput{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -230,15 +182,11 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"query": "INVALID CYPHER",
-				},
-			},
+		input := cypher.WriteCypherInput{
+			Query: "INVALID CYPHER",
 		}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -263,15 +211,11 @@ func TestWriteCypherHandler(t *testing.T) {
 		}
 
 		handler := cypher.WriteCypherHandler(deps)
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"query": "MATCH (n) RETURN n",
-				},
-			},
+		input := cypher.WriteCypherInput{
+			Query: "MATCH (n) RETURN n",
 		}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, input)
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
