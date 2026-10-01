@@ -76,6 +76,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		&mcp.ServerOptions{
 			Instructions: "This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database," +
 				"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher.",
+			Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{ListChanged: true}},
 		},
 	)
 
