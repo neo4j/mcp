@@ -1,0 +1,322 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
+package server_test
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
+	"github.com/neo4j/mcp/internal/config"
+	db "github.com/neo4j/mcp/internal/database/mocks"
+	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+)
+
+func TestNeo4jMCPServerStdioModeToolRegister(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	aService := analytics.NewMockService(ctrl)
+	aService.EXPECT().IsEnabled().AnyTimes().Return(true)
+	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	aService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	aService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+	t.Run("verifies expected tools are registered", func(t *testing.T) {
+		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 1)
+
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			Tools:         config.AvailableTools,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		// Expected tools that should be registered
+		// update this number when a tool is added or removed.
+		// Current tools: get-schema, read-cypher, write-cypher, list-gds-procedures
+		expectedTotalToolsCount := 4
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("Start() failed: %v", err)
+		}
+		registeredTools := len(listRegisteredTools(t, s))
+
+		if expectedTotalToolsCount != registeredTools {
+			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
+		}
+	})
+
+	t.Run("should register only readOnly tools when readOnly", func(t *testing.T) {
+		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 1)
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			Tools:         config.AvailableTools,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		// Expected tools that should be registered
+		// update this number when a tool is added or removed.
+		// ReadOnly tools: get-schema, read-cypher, list-gds-procedures
+		expectedTotalToolsCount := 3
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("Start() failed: %v", err)
+		}
+		registeredTools := len(listRegisteredTools(t, s))
+
+		if expectedTotalToolsCount != registeredTools {
+			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
+		}
+	})
+	t.Run("should register also write tools when readOnly is set to false", func(t *testing.T) {
+		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 1)
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			Tools:         config.AvailableTools,
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		// Expected tools that should be registered
+		// update this number when a tool is added or removed.
+		// All tools: get-schema, read-cypher, write-cypher, list-gds-procedures
+		expectedTotalToolsCount := 4
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			t.Fatalf("Start() failed: %v", err)
+		}
+		registeredTools := len(listRegisteredTools(t, s))
+
+		if expectedTotalToolsCount != registeredTools {
+			t.Errorf("Expected %d tools, but test configuration shows %d", expectedTotalToolsCount, registeredTools)
+		}
+	})
+	t.Run("should only register tools that are specified in config", func(t *testing.T) {
+		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 0)
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      false,
+			Tools:         []string{"read-cypher", "get-schema"},
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		// Expected tools that should be registered
+		expectedTools := []string{"get-schema", "read-cypher"}
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			require.NoError(t, err)
+		}
+
+		var toolNames []string
+		for _, tool := range listRegisteredTools(t, s) {
+			toolNames = append(toolNames, tool.Name)
+		}
+		sort.Strings(toolNames)
+
+		assert.Equal(t, expectedTools, toolNames)
+	})
+	t.Run("should not register write tools when readOnly is enabled even if specified in tools config", func(t *testing.T) {
+		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 0)
+		cfg := &config.Config{
+			URI:           "bolt://test-host:7687",
+			Username:      "neo4j",
+			Password:      "password",
+			Database:      "neo4j",
+			ReadOnly:      true,
+			Tools:         []string{"write-cypher"},
+			TransportMode: config.TransportModeStdio,
+		}
+		s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, aService)
+
+		// Start server and register tools
+		err := s.Start()
+		if err != nil {
+			require.NoError(t, err)
+		}
+
+		assert.Empty(t, listRegisteredTools(t, s))
+	})
+}
+
+// TestNeo4jMCPServerStdioModeGDSGating tests that list-gds-procedures is gated on actual GDS availability at
+// tools/list time: omitted when default-enabled, but errors when explicitly requested and GDS is unavailable.
+func TestNeo4jMCPServerStdioModeGDSGating(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+
+	const gdsErrorSubstring = "Graph Data Science (GDS) library does not appear to be installed"
+
+	baseCfg := config.Config{
+		URI:           "bolt://test-host:7687",
+		Username:      "neo4j",
+		Password:      "password",
+		Database:      "neo4j",
+		Tools:         config.AvailableTools,
+		TransportMode: config.TransportModeStdio,
+	}
+
+	t.Run("GDS unavailable and only default-enabled: omitted from tools/list, no error", func(t *testing.T) {
+		withFreshStdin(t)
+
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+		require.NoError(t, s.Start())
+
+		session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+		require.NoError(t, err)
+		defer session.Close()
+
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
+		sort.Strings(toolNames)
+		assert.Equal(t, []string{"get-schema", "read-cypher", "write-cypher"}, toolNames)
+	})
+
+	t.Run("GDS unavailable and explicitly requested via Config.Tools: tools/list fails", func(t *testing.T) {
+		withFreshStdin(t)
+
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		cfg.ToolsExplicitlySet = true // operator explicitly configured Config.Tools to include list-gds-procedures
+		s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+		require.NoError(t, s.Start())
+
+		session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+		require.NoError(t, err)
+		defer session.Close()
+
+		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, gdsErrorSubstring)
+	})
+
+	t.Run("GDS unavailable but tool excluded by Config.Tools: no error, zero GDS probes", func(t *testing.T) {
+		withFreshStdin(t)
+
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		// Zero calls expected: list-gds-procedures isn't in Config.Tools, and neither requestMiddleware or
+		// toolsListMiddleware should ever probe GDS availability.
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(0)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		cfg.Tools = []string{"read-cypher", "write-cypher", "get-schema"}
+		s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+		require.NoError(t, s.Start())
+
+		session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+		require.NoError(t, err)
+		defer session.Close()
+
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
+		sort.Strings(toolNames)
+		assert.Equal(t, []string{"get-schema", "read-cypher", "write-cypher"}, toolNames)
+	})
+}
+
+// listRegisteredTools connects an in-process client to s.MCPServer and returns its advertised tools.
+func listRegisteredTools(t *testing.T, s *server.Neo4jMCPServer) []*mcp.Tool {
+	t.Helper()
+
+	ctx := context.Background()
+	session, err := connectInProcessClient(ctx, t, s.MCPServer)
+	if err != nil {
+		t.Fatalf("failed to connect in-process client: %v", err)
+	}
+	defer session.Close()
+
+	listToolsResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("failed to list tools: %v", err)
+	}
+	return listToolsResponse.Tools
+}
+
+// newToolRegisterMockDB returns a mock DB covering the client handshake, with a specified number of "gds.version()" queries.
+func newToolRegisterMockDB(ctrl *gomock.Controller, gdsQueries int) *db.MockService {
+	mockDB := db.NewMockService(ctrl)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+		{Keys: []string{"first"}, Values: []any{int64(1)}},
+	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).Times(1).Return([]*neo4j.Record{
+		{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}},
+	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(gdsQueries).Return([]*neo4j.Record{
+		{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}},
+	}, nil)
+	mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().GetQueryType(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Times(0)
+	return mockDB
+}

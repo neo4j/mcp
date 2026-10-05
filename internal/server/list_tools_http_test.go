@@ -32,6 +32,7 @@ import (
 	server "github.com/neo4j/mcp/internal/server"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -92,15 +93,6 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 				},
 			},
 		}, nil)
-		gdsVersionQuery := "RETURN gds.version() as gdsVersion"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gdsVersionQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys: []string{"gdsVersion"},
-				Values: []any{
-					string("2.22.0"),
-				},
-			},
-		}, nil)
 
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
@@ -132,13 +124,14 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 				Values: []any{bool(true)},
 			},
 		}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+		// Called during the ListTools() request below, not during the initial handshake.
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(1).Return([]*neo4j.Record{
 			{
 				Keys:   []string{"gdsVersion"},
 				Values: []any{string("2.22.0")},
 			},
 		}, nil)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
 
 		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
 		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
@@ -155,80 +148,13 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 		assertNoCloseOrStopError(t, s, errChan)
 	})
 
-	t.Run("skips GDS verification when X-Neo4j-MCP-Tools excludes list-gds-procedures", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"first"},
-				Values: []any{int64(1)},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"apocMetaSchemaAvailable"},
-				Values: []any{bool(true)},
-			},
-		}, nil)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(0)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
-
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		headers := defaultHeaders()
-		headers[server.ToolsHeader] = "read-cypher, get-schema"
-		session, err := createStreamableHTTPClient(context.Background(), uri, headers)
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		defer session.Close()
-
-		assertNoCloseOrStopError(t, s, errChan)
-	})
-
-	t.Run("runs GDS verification when X-Neo4j-MCP-Tools includes list-gds-procedures", func(t *testing.T) {
-		mockDB := db.NewMockService(ctrl)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"first"},
-				Values: []any{int64(1)},
-			},
-		}, nil)
-		checkApocMetaSchemaQuery := "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable"
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), checkApocMetaSchemaQuery, gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"apocMetaSchemaAvailable"},
-				Values: []any{bool(true)},
-			},
-		}, nil)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(1).Return([]*neo4j.Record{
-			{
-				Keys:   []string{"gdsVersion"},
-				Values: []any{string("2.22.0")},
-			},
-		}, nil)
-		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
-
-		s, errChan := createHTTPServer(t, cfg, mockDB, analyticsService)
-
-		headers := defaultHeaders()
-		headers[server.ToolsHeader] = "read-cypher, list-gds-procedures"
-		session, err := createStreamableHTTPClient(context.Background(), uri, headers)
-		if err != nil {
-			t.Fatalf("error while initialize request: %v", err)
-		}
-		defer session.Close()
-
-		assertNoCloseOrStopError(t, s, errChan)
-	})
-
 	t.Run("Server handles database connectivity errors gracefully", func(t *testing.T) {
 		mockDB := db.NewMockService(ctrl)
 		// in HTTP the serve should keep running even if the connectivity check fails.
 		// This is because the client can be misconfigured with invalid credentials
 		// and it should not affect the experience to other clients/users with correct information.
 
-		// The go-sdk Connect always tries the server/discover RPC first and on any error, falls back to 
+		// The go-sdk Connect always tries the server/discover RPC first and on any error, falls back to
 		// the legacy initialize call - so a failed handshake runs verifyRequirements twice.
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil, fmt.Errorf("connection error"))
 		// In HTTP mode, no database calls happen during Start()
@@ -294,6 +220,184 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 		assertNoCloseOrStopError(t, s, errChan)
 
+	})
+}
+
+// TestNeo4jMCPServerHTTPModeGDSGating tests that list-gds-procedures is gated on actual GDS availability at
+// tools/list time: omitted when default-enabled, but errors when explicitly requested and GDS is unavailable.
+func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	port, err := getFreePort()
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+
+	baseCfg := config.Config{
+		URI:           "bolt://test-host:7687",
+		Database:      "neo4j",
+		TransportMode: config.TransportModeHTTP,
+		Tools:         config.AvailableTools,
+		HTTPHost:      "127.0.0.1",
+		HTTPPort:      strconv.Itoa(port),
+	}
+	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", baseCfg.HTTPHost, baseCfg.HTTPPort)
+
+	analyticsService := analytics.NewMockService(ctrl)
+	analyticsService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	analyticsService.EXPECT().IsEnabled().AnyTimes().Return(true)
+	analyticsService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
+
+	const gdsErrorSubstring = "Graph Data Science (GDS) library does not appear to be installed"
+
+	t.Run("GDS unavailable and only default-enabled: omitted from tools/list, no error", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		s, errChan := createHTTPServer(t, &cfg, mockDB, analyticsService)
+		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
+		require.NoError(t, err)
+		defer session.Close()
+
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
+		sort.Strings(toolNames)
+		assert.Equal(t, []string{"get-schema", "read-cypher", "write-cypher"}, toolNames)
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("GDS unavailable and explicitly requested via Config.Tools: tools/list fails", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		cfg.ToolsExplicitlySet = true // operator explicitly configured Config.Tools to include list-gds-procedures
+		s, errChan := createHTTPServer(t, &cfg, mockDB, analyticsService)
+		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
+		require.NoError(t, err)
+		defer session.Close()
+
+		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, gdsErrorSubstring)
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("GDS unavailable and explicitly requested via X-Neo4j-MCP-Tools header: tools/list fails", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg // ToolsExplicitlySet stays false: the header alone makes this explicit
+		s, errChan := createHTTPServer(t, &cfg, mockDB, analyticsService)
+
+		headers := defaultHeaders()
+		headers[server.ToolsHeader] = "read-cypher, list-gds-procedures"
+		session, err := createStreamableHTTPClient(context.Background(), uri, headers)
+		require.NoError(t, err)
+		defer session.Close()
+
+		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, gdsErrorSubstring)
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("GDS unavailable but tool excluded by X-Neo4j-MCP-Tools header: no error, zero GDS probes", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		// Zero calls expected: list-gds-procedures is excluded by the header, so neither
+		// requestMiddleware nor toolsListMiddleware should ever probe GDS availability.
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(0)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		s, errChan := createHTTPServer(t, &cfg, mockDB, analyticsService)
+
+		headers := defaultHeaders()
+		headers[server.ToolsHeader] = "read-cypher, get-schema"
+		session, err := createStreamableHTTPClient(context.Background(), uri, headers)
+		require.NoError(t, err)
+		defer session.Close()
+
+		listToolsResponse, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		toolNames := toolNamesFrom(listToolsResponse.Tools)
+		sort.Strings(toolNames)
+		assert.Equal(t, []string{"get-schema", "read-cypher"}, toolNames)
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("GDS availability reflects each request's own target, not a cached value", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+		// Ordered responses to show that instance A has GDS and instance B doesn't.
+		gomock.InOrder(
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+				Times(1).Return([]*neo4j.Record{{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}}}, nil),
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+				Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'")),
+		)
+
+		cfg := baseCfg
+		s, errChan := createHTTPServer(t, &cfg, mockDB, analyticsService)
+
+		headersA := defaultHeaders()
+		headersA[server.URIHeader] = "bolt://instance-a:7687"
+		sessionA, err := createStreamableHTTPClient(context.Background(), uri, headersA)
+		require.NoError(t, err)
+		defer sessionA.Close()
+		listToolsA, err := sessionA.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		assert.Contains(t, toolNamesFrom(listToolsA.Tools), "list-gds-procedures", "instance A has GDS available")
+
+		headersB := defaultHeaders()
+		headersB[server.URIHeader] = "bolt://instance-b:7687"
+		sessionB, err := createStreamableHTTPClient(context.Background(), uri, headersB)
+		require.NoError(t, err)
+		defer sessionB.Close()
+		listToolsB, err := sessionB.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.NoError(t, err)
+		assert.NotContains(t, toolNamesFrom(listToolsB.Tools), "list-gds-procedures", "instance B has no GDS, and is not affected by instance A's cached result")
+
+		assertNoCloseOrStopError(t, s, errChan)
 	})
 }
 
