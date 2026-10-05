@@ -12,7 +12,6 @@ import (
 	"time"
 
 	mcpserver "github.com/neo4j/mcp/internal/server"
-	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,32 +43,27 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	// Tenant A — valid URI header but wrong password. The auth middleware
 	// happily forwards the credentials, neo4jDriverMiddleware builds a per-request
 	// driver, and the initialize hook then runs verifyRequirements which fails
-	// because Neo4j rejects the password. The initialize call must propagate
-	// that failure back to the client.
-	wrongClient := newHTTPClient(t, mcpURL, map[string]string{
+	// because Neo4j rejects the password. Connect performs the initialize
+	// handshake internally, so that failure must propagate back as the error.
+	_, err := newHTTPClient(t, ctx, mcpURL, map[string]string{
 		"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":definitely-not-the-password")),
 		mcpserver.URIHeader: cfg.URI,
 	})
-	defer wrongClient.Close()
-
-	require.NoError(t, wrongClient.Start(ctx), "wrong-tenant client failed to start")
-	_, err := wrongClient.Initialize(ctx, helpers.BuildInitializeRequest())
-	require.Error(t, err, "expected initialize with wrong credentials to fail")
+	require.ErrorContains(t, err, "impossible to verify connectivity with the Neo4j instance",
+		"expected initialize with wrong credentials to fail during the Neo4j connectivity check")
 
 	// Tenant B — same server, correct credentials. If the server correctly
 	// isolates per-request state, this initialize must succeed even though the
 	// previous one (from a different tenant) failed.
-	rightClient := newHTTPClient(t, mcpURL, map[string]string{
+	rightSession, err := newHTTPClient(t, ctx, mcpURL, map[string]string{
 		"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
 		mcpserver.URIHeader: cfg.URI,
 	})
-	defer rightClient.Close()
-
-	require.NoError(t, rightClient.Start(ctx), "right-tenant client failed to start")
-	initResp, err := rightClient.Initialize(ctx, helpers.BuildInitializeRequest())
 	require.NoError(t, err, "expected initialize with right credentials to succeed after wrong tenant's failure")
+	defer rightSession.Close()
 
-	assert.Equal(t, "neo4j-mcp", initResp.ServerInfo.Name)
-	assert.NotNil(t, initResp.Capabilities, "server must advertise capabilities after a successful initialize")
-	assert.NotNil(t, initResp.Capabilities.Tools, "server must advertise tools after a successful initialize")
+	initResult := rightSession.InitializeResult()
+	assert.Equal(t, "neo4j-mcp", initResult.ServerInfo.Name)
+	assert.NotNil(t, initResult.Capabilities, "server must advertise capabilities after a successful initialize")
+	assert.NotNil(t, initResult.Capabilities.Tools, "server must advertise tools after a successful initialize")
 }

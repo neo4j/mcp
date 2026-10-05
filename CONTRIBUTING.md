@@ -137,77 +137,73 @@ MCP error handling follows a specific pattern that differs from standard Go erro
 
 ### Recommended MCP Tool Handler error handling pattern:
 
-When implementing MCP tool handlers, use the `mcp.NewToolResultError` helper function for cleaner error handling:
+When implementing MCP tool handlers, use the `tools.NewToolErrorResult`/`tools.NewToolTextResult` helpers
+(defined in `internal/tools/util.go`) for cleaner error handling:
 
 ```go
-func MyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
-    return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-        // Bind and validate arguments
-        var args MyToolInput
-        if err := request.BindArguments(&args); err != nil {
-            return mcp.NewToolResultError("Invalid arguments"), nil
-        }
+func MyToolHandler(deps *ToolDependencies) mcp.ToolHandlerFor[MyToolInput, any] {
+    return func(ctx context.Context, req *mcp.CallToolRequest, args MyToolInput) (*mcp.CallToolResult, any, error) {
+        // args is already parsed and validated against MyToolInput's json/jsonschema
+        // tags by the SDK before the handler runs — no manual binding step needed.
 
         // Business logic validation
         if args.SomeField == "" {
-            return mcp.NewToolResultError("SomeField is required"), nil
+            return tools.NewToolErrorResult("SomeField is required"), nil, nil
         }
 
         // Execute operation
         result, err := someOperation(ctx, args)
         if err != nil {
             // Use MCP error for business/operational errors
-            return mcp.NewToolResultError("Operation failed"), nil
+            return tools.NewToolErrorResult("Operation failed"), nil, nil
         }
 
         // Success case
-        return mcp.NewToolResultText(result), nil
+        return tools.NewToolTextResult(result), nil, nil
     }
 }
 ```
 
-**Note:** Always return `nil` as the second parameter when using `NewToolResultError`, as the error information is embedded within the `CallToolResult` structure.
+**Note:** Always return `nil, nil` as the second and third parameters when using `NewToolErrorResult`/`NewToolTextResult`,
+as the error information is embedded within the `CallToolResult` structure and none of our tools produce structured output.
 
 ## Adding new MCP tools
 
 1. **Define tool specifications** in `internal/tools/`:
 
    ```go
-   func NewMyToolSpec() mcp.Tool {
-       return mcp.NewTool("my-tool",
-           mcp.WithDescription("Tool description"),
-           mcp.WithInputSchema[MyToolInput](),
-           mcp.WithReadOnlyHintAnnotation(true), // This flag will be used filter tools for the read-only mode.
-       )
+   func MyToolSpec() *mcp.Tool {
+       return &mcp.Tool{
+           Name:        "my-tool",
+           Description: "Tool description",
+           Annotations: &mcp.ToolAnnotations{
+               ReadOnlyHint: true, // used to filter tools for read-only mode
+           },
+           // InputSchema left nil — mcp.AddTool infers it from MyToolInput's json/jsonschema tags.
+       }
    }
    ```
 
-   **Note:** WithReadOnlyHintAnnotation marks a tool with a read-only hint is used for filtering.
-   When set to true, the tool will be considered read-only and included when selecting
-   tools for read-only mode. If the annotation is not present or set to false,
-   the tool is treated as a write-capable tool (i.e., not considered read-only).
+   **Note:** `ReadOnlyHint` is a plain `bool` on `ToolAnnotations` (default `false`) used for filtering.
+   When set to `true`, the tool is considered read-only and included when selecting tools for read-only
+   mode; otherwise it's treated as write-capable.
 
 2. **Implement tool handler**:
 
    ```go
-   func NewMyToolHandler(deps *ToolDependencies) mcp.ToolHandler {
-       return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   func MyToolHandler(deps *ToolDependencies) mcp.ToolHandlerFor[MyToolInput, any] {
+       return func(ctx context.Context, req *mcp.CallToolRequest, args MyToolInput) (*mcp.CallToolResult, any, error) {
            // Implementation
        }
    }
    ```
 
-3. **Register in tool_register.go, in the right section (cypher/GDS/etc...)**:
+3. **Register in `internal/server/tools_register.go`, in the right section (cypher/GDS/etc...)**:
 
    ```go
-   {
-   		category: cypherCategory,
-   		definition: server.ServerTool{
-   			Tool:    cypher.GetSchemaSpec(),
-   			Handler: cypher.GetSchemaHandler(deps),
-   		},
-   		readonly: true,
-   },
+   if toolName, ok := registerTool(s, cypher.GetSchemaSpec(), cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize)); ok {
+       registered = append(registered, toolName)
+   }
    ```
 
 4. **Write tests** with mocked dependencies

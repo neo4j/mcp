@@ -24,9 +24,9 @@ func TestReadCypher(t *testing.T) {
 		}
 
 		read := cypher.ReadCypherHandler(tc.Deps)
-		res := tc.CallTool(read, map[string]any{
-			"query":  "MATCH (p:" + personLabel + " {name: $name}) RETURN p",
-			"params": map[string]any{"name": "Alice"},
+		res := helpers.CallTool(tc, read, cypher.ReadCypherInput{
+			Query:  "MATCH (p:" + personLabel.String() + " {name: $name}) RETURN p",
+			Params: cypher.Params{"name": "Alice"},
 		})
 
 		var records []map[string]any
@@ -51,9 +51,9 @@ func TestReadCypher(t *testing.T) {
 		personLabel := tc.GetUniqueLabel("Person")
 
 		read := cypher.ReadCypherHandler(tc.Deps)
-		textError := tc.GetToolError(read, map[string]any{
-			"query":  "CREATE (p:" + personLabel + ") SET p.name = $name RETURN p",
-			"params": map[string]any{"name": "Alice"},
+		textError := helpers.GetToolError(tc, read, cypher.ReadCypherInput{
+			Query:  "CREATE (p:" + personLabel.String() + ") SET p.name = $name RETURN p",
+			Params: cypher.Params{"name": "Alice"},
 		})
 
 		if !strings.Contains(textError, "read-cypher can only run read-only Cypher statements.") {
