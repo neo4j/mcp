@@ -145,7 +145,9 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		listResult, ok := res.(*mcp.ListToolsResult)
 		if !ok {
-			return res, err
+			// should be unreachable: the SDK constructs res from the "tools/list" method info, so it's always a *mcp.ListToolsResult here.
+			slog.Error("internal error: unexpected result type for tools/list", append(logger.AppendRequestInfo(ctx), "result_type", fmt.Sprintf("%T", res))...)
+			return nil, fmt.Errorf("internal error: unexpected result type %T for tools/list", res)
 		}
 
 		readOnly := mcpcontext.GetReadOnly(ctx)
@@ -188,7 +190,9 @@ func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		callReq, ok := req.(*mcp.CallToolRequest)
 		if !ok {
-			return next(ctx, method, req)
+			// should be unreachable: the SDK constructs req from the "tools/call" method info, so it's always a *mcp.CallToolRequest here.
+			slog.Error("internal error: unexpected request type for tools/call", append(logger.AppendRequestInfo(ctx), "req_type", fmt.Sprintf("%T", req))...)
+			return nil, fmt.Errorf("internal error: unexpected request type %T for tools/call", req)
 		}
 
 		result, err := next(ctx, method, req)
@@ -221,7 +225,9 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		callReq, ok := req.(*mcp.CallToolRequest)
 		if !ok {
-			return next(ctx, method, req)
+			// should be unreachable: the SDK constructs req from the "tools/call" method info, so it's always a *mcp.CallToolRequest here.
+			slog.Error("internal error: unexpected request type for tools/call", append(logger.AppendRequestInfo(ctx), "req_type", fmt.Sprintf("%T", req))...)
+			return nil, fmt.Errorf("internal error: unexpected request type %T for tools/call", req)
 		}
 
 		toolName := callReq.Params.Name
