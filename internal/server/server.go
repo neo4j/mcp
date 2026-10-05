@@ -197,18 +197,23 @@ func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		result, err := next(ctx, method, req)
 
-		if s.anService != nil && s.anService.IsEnabled() {
-			if toolResult, ok := result.(*mcp.CallToolResult); ok {
-				toolName := callReq.Params.Name
+		if s.anService == nil || !s.anService.IsEnabled() {
+			return result, err
+		}
 
-				// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
-				s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
+		toolResult, ok := result.(*mcp.CallToolResult)
+		if !ok {
+			return result, err
+		}
 
-				// Handle GDS events for cypher tools
-				if toolName == "read-cypher" || toolName == "write-cypher" {
-					s.emitGDSEventsIfNeeded(callReq.Params.Arguments)
-				}
-			}
+		toolName := callReq.Params.Name
+
+		// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
+		s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
+
+		// Handle GDS events for cypher tools
+		if toolName == "read-cypher" || toolName == "write-cypher" {
+			s.emitGDSEventsIfNeeded(callReq.Params.Arguments)
 		}
 
 		return result, err
