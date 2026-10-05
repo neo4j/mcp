@@ -36,6 +36,7 @@ const (
 	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 	httpWriteTimeoutGrace       = 5 * time.Second   // Buffer added to WriteTimeout so timeout error responses can be written
 	httpShutdownGrace           = 5 * time.Second   // Buffer added to shutdown timeout so active requests can complete
+	queryTimeout      			= 5 * time.Second   // Per-query fail-fast timeout for individual Neo4j queries
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -161,11 +162,7 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 		included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
 		omitGDSTool := false
 		if included && !explicit {
-			timeout := mcpcontext.GetRequestTimeout(ctx)
-			if timeout <= 0 {
-				timeout = effectiveRequestTimeout(s.config)
-			}
-			gdsCtx, cancel := context.WithTimeout(ctx, timeout)
+			gdsCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 			omitGDSTool = !s.checkGDSAvailable(gdsCtx)
 			cancel()
 		}
@@ -423,11 +420,7 @@ func (s *Neo4jMCPServer) checkGDSRequirementForToolsList(ctx context.Context) er
 		return nil
 	}
 
-	timeout := mcpcontext.GetRequestTimeout(ctx)
-	if timeout <= 0 {
-		timeout = effectiveRequestTimeout(s.config)
-	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	if s.checkGDSAvailable(ctx) {
