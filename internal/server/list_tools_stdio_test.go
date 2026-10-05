@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"testing"
 
@@ -28,27 +29,9 @@ func TestNeo4jMCPServerStdioModeToolRegister(t *testing.T) {
 	aService.EXPECT().EmitEvent(gomock.Any()).AnyTimes()
 	aService.EXPECT().NewStartupEvent(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	aService.EXPECT().NewConnectionInitializedEvent(gomock.Any()).AnyTimes()
-	// Client handshake required for tool registration.
-	mockDB := db.NewMockService(ctrl)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"first"},
-			Values: []any{int64(1)},
-		},
-	}, nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"apocMetaSchemaAvailable"},
-			Values: []any{bool(true)},
-		},
-	}, nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).AnyTimes().Return([]*neo4j.Record{
-		{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}},
-	}, nil)
-	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).AnyTimes()
-	mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	mockDB.EXPECT().GetQueryType(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Times(0)
 	t.Run("verifies expected tools are registered", func(t *testing.T) {
 		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 1)
 
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
@@ -79,6 +62,7 @@ func TestNeo4jMCPServerStdioModeToolRegister(t *testing.T) {
 
 	t.Run("should register only readOnly tools when readOnly", func(t *testing.T) {
 		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 1)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -108,6 +92,7 @@ func TestNeo4jMCPServerStdioModeToolRegister(t *testing.T) {
 	})
 	t.Run("should register also write tools when readOnly is set to false", func(t *testing.T) {
 		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 1)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -137,6 +122,7 @@ func TestNeo4jMCPServerStdioModeToolRegister(t *testing.T) {
 	})
 	t.Run("should only register tools that are specified in config", func(t *testing.T) {
 		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 0)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -167,6 +153,7 @@ func TestNeo4jMCPServerStdioModeToolRegister(t *testing.T) {
 	})
 	t.Run("should not register write tools when readOnly is enabled even if specified in tools config", func(t *testing.T) {
 		withFreshStdin(t)
+		mockDB := newToolRegisterMockDB(ctrl, 0)
 		cfg := &config.Config{
 			URI:           "bolt://test-host:7687",
 			Username:      "neo4j",
@@ -313,4 +300,23 @@ func listRegisteredTools(t *testing.T, s *server.Neo4jMCPServer) []*mcp.Tool {
 		t.Fatalf("failed to list tools: %v", err)
 	}
 	return listToolsResponse.Tools
+}
+
+// newToolRegisterMockDB returns a mock DB covering the client handshake, with a specified number of "gds.version()" queries.
+func newToolRegisterMockDB(ctrl *gomock.Controller, gdsQueries int) *db.MockService {
+	mockDB := db.NewMockService(ctrl)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).Times(1).Return([]*neo4j.Record{
+		{Keys: []string{"first"}, Values: []any{int64(1)}},
+	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).Times(1).Return([]*neo4j.Record{
+		{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}},
+	}, nil)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).Times(1)
+	mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(gdsQueries).Return([]*neo4j.Record{
+		{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}},
+	}, nil)
+	mockDB.EXPECT().ExecuteWriteQuery(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().GetQueryType(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).Times(0)
+	return mockDB
 }
