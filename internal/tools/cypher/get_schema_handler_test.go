@@ -9,7 +9,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
@@ -66,7 +66,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 
 		handler := cypher.GetSchemaHandler(deps, 100)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -88,7 +88,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 
 		handler := cypher.GetSchemaHandler(deps, 100)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -105,7 +105,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 
 		handler := cypher.GetSchemaHandler(deps, 100)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -127,7 +127,7 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 
 		handler := cypher.GetSchemaHandler(deps, 100)
-		result, err := handler(context.Background(), mcp.CallToolRequest{})
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -143,7 +143,7 @@ func TestGetSchemaHandler(t *testing.T) {
 			return
 		}
 
-		textContent := result.Content[0].(mcp.TextContent)
+		textContent := result.Content[0].(*mcp.TextContent)
 		if textContent.Text != "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned." {
 			t.Error("Expected result content to be present for empty database case")
 		}
@@ -512,7 +512,7 @@ func TestGetSchemaProcessing(t *testing.T) {
 			}
 
 			handler := cypher.GetSchemaHandler(deps, 100)
-			result, err := handler(context.Background(), mcp.CallToolRequest{})
+			result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 			if err != nil {
 				t.Fatalf("Expected no error, got: %v", err)
@@ -525,7 +525,7 @@ func TestGetSchemaProcessing(t *testing.T) {
 				t.Fatal("Expected success result")
 			}
 
-			textContent, ok := result.Content[0].(mcp.TextContent)
+			textContent, ok := result.Content[0].(*mcp.TextContent)
 			if !ok {
 				t.Fatal("Expected result content to be TextContent")
 			}

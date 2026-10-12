@@ -7,13 +7,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestBindArgumentsWithReadCypherInput(t *testing.T) {
+func TestReadCypherInputUnmarshaling(t *testing.T) {
 	tests := []struct {
 		name       string
 		arguments  map[string]any
@@ -206,28 +205,22 @@ func TestBindArgumentsWithReadCypherInput(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Arguments: tt.arguments,
-				},
-			}
-
 			var args cypher.ReadCypherInput
-			err := request.BindArguments(&args)
+			err := unmarshalArguments(t, tt.arguments, &args)
 
 			if tt.wantErr {
 				assert.Error(t, err, "expected error but got none")
 				return
 			}
 
-			require.NoError(t, err, "bindArguments should not error")
+			require.NoError(t, err, "unmarshaling should not error")
 			assert.Equal(t, tt.wantQuery, args.Query, "query mismatch")
 			assert.Equal(t, tt.wantParams, args.Params, "params mismatch")
 		})
 	}
 }
 
-func TestBindArgumentsWithWriteCypherInput(t *testing.T) {
+func TestWriteCypherInputUnmarshaling(t *testing.T) {
 	tests := []struct {
 		name       string
 		arguments  map[string]any
@@ -256,60 +249,36 @@ func TestBindArgumentsWithWriteCypherInput(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Arguments: tt.arguments,
-				},
-			}
-
 			var args cypher.WriteCypherInput
-			err := request.BindArguments(&args)
+			err := unmarshalArguments(t, tt.arguments, &args)
 
-			require.NoError(t, err, "bindArguments should not error")
+			require.NoError(t, err, "unmarshaling should not error")
 			assert.Equal(t, tt.wantQuery, args.Query, "query mismatch")
 			assert.Equal(t, tt.wantParams, args.Params, "params mismatch")
 		})
 	}
 }
 
-func TestBindArgumentsErrorHandling(t *testing.T) {
+func TestReadCypherInputUnmarshalingErrors(t *testing.T) {
 	t.Run("invalid arguments type - string instead of map", func(t *testing.T) {
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: "invalid string instead of map",
-			},
-		}
-
 		var args cypher.ReadCypherInput
-		err := request.BindArguments(&args)
+		err := unmarshalArguments(t, "invalid string instead of map", &args)
 
 		assert.Error(t, err, "should error on invalid argument type")
 	})
 
 	t.Run("invalid arguments type - array instead of map", func(t *testing.T) {
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: []any{"invalid", "array"},
-			},
-		}
-
 		var args cypher.ReadCypherInput
-		err := request.BindArguments(&args)
+		err := unmarshalArguments(t, []any{"invalid", "array"}, &args)
 
 		assert.Error(t, err, "should error on invalid argument type")
 	})
 
 	t.Run("missing query field should have empty query", func(t *testing.T) {
-		request := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Arguments: map[string]any{
-					"params": map[string]any{"id": 1},
-				},
-			},
-		}
-
 		var args cypher.ReadCypherInput
-		err := request.BindArguments(&args)
+		err := unmarshalArguments(t, map[string]any{
+			"params": map[string]any{"id": 1},
+		}, &args)
 
 		require.NoError(t, err)
 		assert.Equal(t, "", args.Query, "query should be empty when not provided")
@@ -453,17 +422,11 @@ func TestConvertNumbers(t *testing.T) {
 // TestLimitScenario tests the specific scenario from issue #70
 func TestLimitScenario(t *testing.T) {
 	// This is the exact scenario that was failing before the fix
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Arguments: map[string]any{
-				"query":  "MATCH(n) RETURN n LIMIT $limit",
-				"params": map[string]any{"limit": 1},
-			},
-		},
-	}
-
 	var args cypher.ReadCypherInput
-	err := request.BindArguments(&args)
+	err := unmarshalArguments(t, map[string]any{
+		"query":  "MATCH(n) RETURN n LIMIT $limit",
+		"params": map[string]any{"limit": 1},
+	}, &args)
 
 	require.NoError(t, err)
 	assert.Equal(t, "MATCH(n) RETURN n LIMIT $limit", args.Query)
@@ -476,4 +439,12 @@ func TestLimitScenario(t *testing.T) {
 	intVal, ok := limitValue.(int64)
 	assert.True(t, ok, "limit should be int64, not %T", limitValue)
 	assert.Equal(t, int64(1), intVal)
+}
+
+// unmarshalArguments mirrors how go-sdk decodes a tool's raw JSON arguments into its typed input struct.
+func unmarshalArguments(t *testing.T, arguments any, target any) error {
+	t.Helper()
+	data, err := json.Marshal(arguments)
+	require.NoError(t, err, "failed to marshal test arguments")
+	return json.Unmarshal(data, target)
 }

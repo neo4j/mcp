@@ -11,7 +11,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,15 +41,11 @@ func TestHealthzE2E(t *testing.T) {
 	})
 
 	t.Run("POST /mcp ping without credentials returns 401", func(t *testing.T) {
-		mcpClient, err := client.NewStreamableHttpClient(baseURL + "/mcp")
-		require.NoError(t, err, "failed to create streamable HTTP client")
-		defer mcpClient.Close()
+		mcpClient := helpers.NewTestClient()
 
-		require.NoError(t, mcpClient.Start(context.Background()))
-
-		// Ping sends a JSON-RPC ping to /mcp. pathValidationMiddleware rejects it
+		// Connect sends the MCP handshake to /mcp. pathValidationMiddleware rejects it
 		// (path does not match /db/{name}/mcp) before any MCP protocol handling occurs.
-		err = mcpClient.Ping(context.Background())
+		_, err := mcpClient.Connect(context.Background(), &mcp.StreamableClientTransport{Endpoint: baseURL + "/mcp"}, nil)
 		assert.Error(t, err, "expected rejection when no credentials are provided")
 	})
 }

@@ -4,18 +4,29 @@
 package cypher
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/neo4j/mcp/internal/tools"
 )
 
-func GetSchemaSpec() mcp.Tool {
-	return mcp.NewTool("get-schema",
-		mcp.WithDescription(`
+func GetSchemaSpec() *mcp.Tool {
+	return &mcp.Tool{
+		Name: "get-schema",
+		Description: `
 		Retrieve the schema information from the Neo4j database, including node labels, relationship types, and property keys.
-		If the database contains no data, no schema information is returned.`),
-		mcp.WithTitleAnnotation("Get Neo4j Schema"),
-		mcp.WithReadOnlyHintAnnotation(true),
-		mcp.WithIdempotentHintAnnotation(true),
-		mcp.WithDestructiveHintAnnotation(false),
-		mcp.WithOpenWorldHintAnnotation(true),
-	)
+		If the database contains no data, no schema information is returned.`,
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Get Neo4j Schema",
+			ReadOnlyHint:    true,
+			DestructiveHint: tools.BoolPtr(false),
+			IdempotentHint:  true,
+			OpenWorldHint:   tools.BoolPtr(true),
+		},
+		// Set explicitly rather than left nil otherwise "properties" is omitted entirely 
+		// which breaks OpenAI API compatibility (see issue #157).
+		InputSchema: &jsonschema.Schema{
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{},
+		},
+	}
 }

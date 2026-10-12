@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
@@ -38,7 +38,7 @@ func mockNeo4jMCPServer(t *testing.T) *Neo4jMCPServer {
 	mockDBService := db_mocks.NewMockService(ctrl)
 	mockAnalyticsService := analytics_mocks.NewMockService(ctrl)
 
-	mcpServer := server.NewMCPServer("test-server", "1.0.0")
+	mcpServer := mcp.NewServer(&mcp.Implementation{Name: "test-server", Version: "1.0.0"}, nil)
 
 	return &Neo4jMCPServer{
 		MCPServer: mcpServer,
