@@ -36,7 +36,6 @@ const (
 	serverHTTPIdleTimeout       = 120 * time.Second // PERFORMANCE: Maximum time to keep idle keep-alive connections open (improves connection reuse)
 	httpWriteTimeoutGrace       = 5 * time.Second   // Buffer added to WriteTimeout so timeout error responses can be written
 	httpShutdownGrace           = 5 * time.Second   // Buffer added to shutdown timeout so active requests can complete
-	queryTimeout      			= 5 * time.Second   // Per-query fail-fast timeout for individual Neo4j queries
 )
 
 // Neo4jMCPServer represents the MCP server instance
@@ -84,6 +83,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	neo4jServer.MCPServer = mcpServer
 
 	mcpServer.AddReceivingMiddleware(
+		neo4jServer.requestTimeoutMiddleware,
 		neo4jServer.requestMiddleware,
 		neo4jServer.toolsListMiddleware,
 		neo4jServer.analyticsMiddleware,
@@ -91,6 +91,21 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return neo4jServer
+}
+
+// requestTimeoutMiddleware applies the request timeout to the context passed to the rest of the chain.
+func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		timeout := mcpcontext.GetRequestTimeout(ctx)
+		if timeout <= 0 {
+			timeout = effectiveRequestTimeout(s.config)
+			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		return next(ctx, method, req)
+	}
 }
 
 // requestMiddleware logs every incoming request and verifies Neo4j requirements during the
@@ -111,21 +126,13 @@ func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHan
 			return next(ctx, method, req)
 		}
 
-		timeout := mcpcontext.GetRequestTimeout(ctx)
-		if timeout <= 0 {
-			timeout = effectiveRequestTimeout(s.config)
-			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
-		}
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-
 		slog.Info("Handshake request: verifying requirements...", "mcp_method", method)
 		if err := s.verifyRequirements(ctx); err != nil {
 			if isRequestDeadlineExceeded(ctx, err) {
 				slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
 					"mcp_method", method,
 					"phase", "initialize",
-					"request_timeout_ms", timeout.Milliseconds())...)
+					"request_timeout_ms", mcpcontext.GetRequestTimeout(ctx).Milliseconds())...)
 				return nil, errors.New(formatRequestTimeoutError(ctx))
 			}
 			slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
@@ -165,9 +172,7 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 		included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
 		omitGDSTool := false
 		if included && !explicit {
-			gdsCtx, cancel := context.WithTimeout(ctx, queryTimeout)
-			omitGDSTool = !s.checkGDSAvailable(gdsCtx)
-			cancel()
+			omitGDSTool = !s.checkGDSAvailable(ctx)
 		}
 		if omitGDSTool {
 			slog.Info("list-gds-procedures omitted from tools/list", append(logger.AppendRequestInfo(ctx), "reason", "gds_unavailable")...)
@@ -261,14 +266,6 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		toolName := callReq.Params.Name
 
-		timeout := mcpcontext.GetRequestTimeout(ctx)
-		if timeout <= 0 {
-			timeout = effectiveRequestTimeout(s.config)
-			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
-		}
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-
 		// Guards are checked read-only first, then the configured tools list.
 		// When a request violates both, the read-only error takes precedence.
 		readOnly := mcpcontext.GetReadOnly(ctx)
@@ -301,7 +298,7 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 				"mcp_method", "tools/call",
 				"tool", toolName,
 				"phase", "tool_execution",
-				"request_timeout_ms", timeout.Milliseconds())...)
+				"request_timeout_ms", mcpcontext.GetRequestTimeout(ctx).Milliseconds())...)
 			return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
 		}
 
@@ -444,9 +441,6 @@ func (s *Neo4jMCPServer) checkGDSRequirementForToolsList(ctx context.Context) er
 	if !included || !explicit {
 		return nil
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
 
 	if s.checkGDSAvailable(ctx) {
 		return nil
