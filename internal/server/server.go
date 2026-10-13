@@ -405,7 +405,6 @@ func (s *Neo4jMCPServer) checkGDSAvailable(ctx context.Context) bool {
 	// Call gds.version procedure to determine if GDS is installed
 	records, err := s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
-		// GDS is optional, so we log a warning and continue, assuming it's not installed.
 		slog.Info("Impossible to verify GDS installation.", "error", err)
 		return false
 	}
