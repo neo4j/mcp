@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/stretchr/testify/assert"
@@ -75,5 +76,112 @@ func TestIsRequestDeadlineExceeded(t *testing.T) {
 
 		require.Equal(t, context.DeadlineExceeded, nested.Err())
 		assert.False(t, isRequestDeadlineExceeded(ctx, nil))
+	})
+}
+
+func TestRequestTimeoutMiddleware(t *testing.T) {
+	const shortTimeout = 20 * time.Millisecond
+
+	newServer := func(timeout time.Duration) *Neo4jMCPServer {
+		return &Neo4jMCPServer{config: &config.Config{RequestTimeout: timeout}}
+	}
+
+	run := func(s *Neo4jMCPServer, ctx context.Context, next mcp.MethodHandler) (mcp.Result, error) {
+		return s.requestTimeoutMiddleware(next)(ctx, "tools/list", nil)
+	}
+
+	t.Run("applies the configured timeout to the context passed to next", func(t *testing.T) {
+		var gotCtx context.Context
+		_, err := run(newServer(time.Minute), context.Background(), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			gotCtx = ctx
+			return nil, nil
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, time.Minute, mcpcontext.GetRequestTimeout(gotCtx))
+		deadline, ok := gotCtx.Deadline()
+		require.True(t, ok, "next should receive a context with a deadline")
+		assert.WithinDuration(t, time.Now().Add(time.Minute), deadline, 5*time.Second)
+	})
+
+	t.Run("falls back to the default when the config has no timeout", func(t *testing.T) {
+		var gotCtx context.Context
+		_, err := run(newServer(0), context.Background(), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			gotCtx = ctx
+			return nil, nil
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, config.DefaultRequestTimeout, mcpcontext.GetRequestTimeout(gotCtx))
+	})
+
+	t.Run("keeps the per-request timeout already on the context", func(t *testing.T) {
+		ctx := mcpcontext.WithRequestTimeout(context.Background(), 45*time.Second)
+
+		var gotCtx context.Context
+		_, err := run(newServer(time.Minute), ctx, func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			gotCtx = ctx
+			return nil, nil
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, 45*time.Second, mcpcontext.GetRequestTimeout(gotCtx))
+		deadline, ok := gotCtx.Deadline()
+		require.True(t, ok)
+		assert.WithinDuration(t, time.Now().Add(45*time.Second), deadline, 5*time.Second)
+	})
+
+	t.Run("returns a timeout error when next exceeds the deadline", func(t *testing.T) {
+		res, err := run(newServer(shortTimeout), context.Background(), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		})
+
+		assert.Nil(t, res)
+		require.Error(t, err)
+		assert.EqualError(t, err, "request timed out after 20ms")
+	})
+
+	t.Run("returns a timeout error when next wraps the deadline error", func(t *testing.T) {
+		_, err := run(newServer(shortTimeout), context.Background(), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			<-ctx.Done()
+			return nil, errors.Join(errors.New("query failed"), ctx.Err())
+		})
+
+		assert.EqualError(t, err, "request timed out after 20ms")
+	})
+
+	t.Run("passes through non-timeout errors unchanged", func(t *testing.T) {
+		sentinel := errors.New("boom")
+
+		res, err := run(newServer(time.Minute), context.Background(), func(context.Context, string, mcp.Request) (mcp.Result, error) {
+			return nil, sentinel
+		})
+
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, sentinel)
+	})
+
+	t.Run("passes through the result on success", func(t *testing.T) {
+		want := &mcp.ListToolsResult{}
+
+		res, err := run(newServer(time.Minute), context.Background(), func(context.Context, string, mcp.Request) (mcp.Result, error) {
+			return want, nil
+		})
+
+		require.NoError(t, err)
+		assert.Same(t, want, res)
+	})
+
+	t.Run("does not turn a successful result into a timeout when the deadline passes during next", func(t *testing.T) {
+		want := &mcp.ListToolsResult{}
+
+		res, err := run(newServer(shortTimeout), context.Background(), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			<-ctx.Done()
+			return want, nil
+		})
+
+		require.NoError(t, err)
+		assert.Same(t, want, res)
 	})
 }
