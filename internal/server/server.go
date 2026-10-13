@@ -92,7 +92,8 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	return neo4jServer
 }
 
-// requestTimeoutMiddleware applies the request timeout to the context passed to the rest of the chain.
+// requestTimeoutMiddleware applies the request timeout to the context passed to the rest of the chain
+// and turns a deadline failure from it into a "request timed out" error.
 func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		timeout := mcpcontext.GetRequestTimeout(ctx)
@@ -103,7 +104,14 @@ func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.Me
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 
-		return next(ctx, method, req)
+		res, err := next(ctx, method, req)
+		if err != nil && isRequestDeadlineExceeded(ctx, err) {
+			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+				"mcp_method", method,
+				"request_timeout_ms", timeout.Milliseconds())...)
+			return nil, errors.New(formatRequestTimeoutError(ctx))
+		}
+		return res, err
 	}
 }
 
@@ -127,14 +135,9 @@ func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHan
 
 		slog.Info("Handshake request: verifying requirements...", "mcp_method", method)
 		if err := s.verifyRequirements(ctx); err != nil {
-			if isRequestDeadlineExceeded(ctx, err) {
-				slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
-					"mcp_method", method,
-					"phase", "initialize",
-					"request_timeout_ms", mcpcontext.GetRequestTimeout(ctx).Milliseconds())...)
-				return nil, errors.New(formatRequestTimeoutError(ctx))
+			if !isRequestDeadlineExceeded(ctx, err) {
+				slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
 			}
-			slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
 			return nil, err
 		}
 		slog.Info("initialize requirements verified", logger.AppendRequestInfo(ctx)...)
