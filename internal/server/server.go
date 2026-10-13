@@ -116,18 +116,11 @@ func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.Me
 }
 
 // requestMiddleware logs every incoming request and verifies Neo4j requirements during the
-// handshake. "initialize" and "server/discover" run the full verifyRequirements check and "tools/list"
-// runs the GDS-availability gate; other methods pass through unchanged.
+// handshake. "initialize" and "server/discover" run the full verifyRequirements check; other methods
+// pass through unchanged.
 func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		slog.Info("request started", append(logger.AppendRequestInfo(ctx), "mcp_method", method)...)
-
-		if method == "tools/list" {
-			if err := s.checkGDSRequirementForToolsList(ctx); err != nil {
-				return nil, err
-			}
-			return next(ctx, method, req)
-		}
 
 		if method != "initialize" && method != "server/discover" {
 			return next(ctx, method, req)
@@ -148,11 +141,21 @@ func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHan
 }
 
 // toolsListMiddleware filters advertised tools depending on the X-Neo4j-MCP-Tools and
-// X-Neo4j-MCP-ReadOnly HTTP headers.
+// X-Neo4j-MCP-ReadOnly HTTP headers, and checks whether GDS is available for list-gds-procedures.
 func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		if method != "tools/list" {
 			return next(ctx, method, req)
+		}
+
+		included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
+		omitGDSTool := false
+		if included && !s.checkGDSAvailable(ctx) {
+			if explicit {
+				return nil, fmt.Errorf("list-gds-procedures was explicitly requested, but the Graph Data Science (GDS) library does not appear to be installed and properly configured in your Neo4j database")
+			}
+			omitGDSTool = true
+			slog.Info("list-gds-procedures omitted from tools/list", append(logger.AppendRequestInfo(ctx), "reason", "gds_unavailable")...)
 		}
 
 		res, err := next(ctx, method, req)
@@ -167,16 +170,6 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		readOnly := mcpcontext.GetReadOnly(ctx)
 		requestedTools := mcpcontext.GetTools(ctx)
-
-		// list-gds-procedures is only included here when it's enabled via the default tool set (not explicitly requested).
-		included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
-		omitGDSTool := false
-		if included && !explicit {
-			omitGDSTool = !s.checkGDSAvailable(ctx)
-		}
-		if omitGDSTool {
-			slog.Info("list-gds-procedures omitted from tools/list", append(logger.AppendRequestInfo(ctx), "reason", "gds_unavailable")...)
-		}
 
 		// early return when no per-request filters are defined
 		if readOnly == nil && requestedTools == nil && !omitGDSTool {
@@ -409,21 +402,6 @@ func (s *Neo4jMCPServer) isToolEnabledAndSet(ctx context.Context, toolName strin
 	included = slices.Contains(s.config.Tools, toolName)
 	explicit = included && s.config.ToolsExplicitlySet
 	return included, explicit
-}
-
-// checkGDSRequirementForToolsList fails a tools/list request outright only when list-gds-procedures is
-// explicitly requested but the GDS is unavailable on the Neo4j instance targeted by ctx.
-func (s *Neo4jMCPServer) checkGDSRequirementForToolsList(ctx context.Context) error {
-	included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
-	if !included || !explicit {
-		return nil
-	}
-
-	if s.checkGDSAvailable(ctx) {
-		return nil
-	}
-
-	return fmt.Errorf("list-gds-procedures was explicitly requested, but the Graph Data Science (GDS) library does not appear to be installed and properly configured in your Neo4j database")
 }
 
 // emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
