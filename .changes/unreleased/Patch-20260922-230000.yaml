@@ -1,0 +1,3 @@
+kind: Patch
+body: The `get-schema` tool no longer returns Neo4j Bloom's internal labels and relationship types (`_Bloom_Perspective_`, `_Bloom_Scene_`, `_Bloom_HAS_SCENE_`), which store Bloom metadata rather than the user's data model.
+time: 2026-09-22T23:00:00-06:00

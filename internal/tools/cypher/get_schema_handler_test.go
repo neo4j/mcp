@@ -149,6 +149,44 @@ func TestGetSchemaHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("Only Bloom metadata in database is treated as empty", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().
+			ExecuteReadQuery(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return([]*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"_Bloom_Perspective_",
+						map[string]any{
+							"type":       "node",
+							"properties": map[string]any{"name": map[string]any{"type": "STRING"}},
+						},
+					},
+				},
+			}, nil)
+
+		deps := &tools.ToolDependencies{
+			DBService:        mockDB,
+			AnalyticsService: analyticsService,
+		}
+
+		handler := cypher.GetSchemaHandler(deps, 100)
+		result, err := handler(context.Background(), mcp.CallToolRequest{})
+
+		if err != nil {
+			t.Errorf("Expected no error from handler, got: %v", err)
+		}
+		if result == nil || result.IsError {
+			t.Fatal("Expected success result")
+		}
+
+		textContent := result.Content[0].(mcp.TextContent)
+		if textContent.Text != "The get-schema tool executed successfully; however, since the Neo4j instance contains no data, no schema information was returned." {
+			t.Errorf("Expected empty-database message, got: %s", textContent.Text)
+		}
+	})
+
 }
 
 func TestGetSchemaProcessing(t *testing.T) {
@@ -359,6 +397,72 @@ func TestGetSchemaProcessing(t *testing.T) {
 							"type":          "node",
 							"properties":    map[string]any{"name": map[string]any{"type": "STRING"}},
 							"relationships": nil,
+						},
+					},
+				},
+			},
+			expectedJSON: `[
+				{
+					"key": "Genre",
+					"value": {
+						"properties": {"name": "STRING"},
+						"type": "node"
+					}
+				}
+			]`,
+		},
+		{
+			name:        "schema excludes Bloom internal labels and relationship types",
+			expectedErr: false,
+			mockRecords: []*neo4j.Record{
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"Genre",
+						map[string]any{
+							"type":          "node",
+							"properties":    map[string]any{"name": map[string]any{"type": "STRING"}},
+							"relationships": nil,
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"_Bloom_Perspective_",
+						map[string]any{
+							"type":       "node",
+							"properties": map[string]any{"name": map[string]any{"type": "STRING"}},
+							"relationships": map[string]any{
+								"_Bloom_HAS_SCENE_": map[string]any{
+									"direction": "out", "labels": []any{"_Bloom_Scene_"}, "properties": map[string]any{},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"_Bloom_Scene_",
+						map[string]any{
+							"type":       "node",
+							"properties": map[string]any{"name": map[string]any{"type": "STRING"}},
+							"relationships": map[string]any{
+								"_Bloom_HAS_SCENE_": map[string]any{
+									"direction": "in", "labels": []any{"_Bloom_Perspective_"}, "properties": map[string]any{},
+								},
+							},
+						},
+					},
+				},
+				{
+					Keys: []string{"key", "value"},
+					Values: []any{
+						"_Bloom_HAS_SCENE_",
+						map[string]any{
+							"type":       "relationship",
+							"properties": map[string]any{},
 						},
 					},
 				},
