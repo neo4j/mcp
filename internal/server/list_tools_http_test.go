@@ -336,8 +336,7 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
-		// Zero calls expected: list-gds-procedures is excluded by the header, so neither
-		// requestMiddleware nor toolsListMiddleware should ever probe GDS availability.
+		// Zero calls expected: list-gds-procedures is excluded by the header so toolsListMiddleware should never probe GDS availability.
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).Times(0)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 			AnyTimes().Return(nil, nil)
