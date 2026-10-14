@@ -18,7 +18,6 @@ body: |
   | Environment variable | `NEO4J_MCP_TRANSPORT` | `NEO4J_MCP_TRANSPORT_MODE` |
   | Environment variable | `NEO4J_HTTP_AUTH_HEADER_NAME` | `NEO4J_MCP_HTTP_AUTH_HEADER_NAME` |
   | Environment variable | `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING` | `NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING` |
-  | Environment variable | `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST` | `NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST` |
   | CLI flag | `--neo4j-uri` | `--uri` |
   | CLI flag | `--neo4j-username` | `--username` |
   | CLI flag | `--neo4j-password` | `--password` |
@@ -36,6 +35,5 @@ body: |
   | CLI flag | `--neo4j-http-tls-key-file` | `--http-tls-key-file` |
   | CLI flag | `--neo4j-http-auth-header-name` | `--http-auth-header-name` |
   | CLI flag | `--neo4j-http-allow-unauthenticated-ping` | `--http-allow-unauthenticated-ping` |
-  | CLI flag | `--neo4j-http-allow-unauthenticated-tools-list` | `--http-allow-unauthenticated-tools-list` |
   | CLI flag | `--neo4j-request-timeout` | `--request-timeout` |
 time: 2026-08-24T17:45:00+01:00

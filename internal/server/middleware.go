@@ -40,9 +40,6 @@ func (s *Neo4jMCPServer) chainMiddleware(allowedOrigins []string, next http.Hand
 	if s.config.AllowUnauthenticatedPing {
 		unauthMethods = append(unauthMethods, "ping")
 	}
-	if s.config.AllowUnauthenticatedToolsList {
-		unauthMethods = append(unauthMethods, "tools/list")
-	}
 
 	if s.uriResolver != nil && s.driverRegistry != nil {
 		handler = neo4jDriverMiddleware(s.uriResolver, s.driverRegistry)(handler)
@@ -166,7 +163,7 @@ func uriRejectionReason(err error) string {
 // Tries Bearer token first (from Authorization: Bearer header), then falls back to Basic Auth.
 // Credentials are extracted and stored in the request context for tools to create
 // per-request Neo4j driver connections, enabling multi-tenant scenarios.
-// unauthenticatedMethods is an optional list of JSON-RPC method names (e.g. "ping", "tools/list")
+// unauthenticatedMethods is an optional list of JSON-RPC method names (e.g. "ping")
 // that are permitted without credentials.
 // Returns 401 Unauthorized if credentials are missing or malformed.
 func authMiddleware(headerName string, unauthenticatedMethods []string) func(http.Handler) http.Handler {

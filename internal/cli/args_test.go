@@ -234,12 +234,6 @@ func TestHandleArgs(t *testing.T) {
 			expectedExitCode: -1,
 		},
 		{
-			name:             "http unauthenticated tools list",
-			args:             []string{testProgramName, "--http-allow-unauthenticated-tools-list", "true"},
-			version:          testVersion,
-			expectedExitCode: -1,
-		},
-		{
 			name:             "tools flag with one tool name",
 			args:             []string{testProgramName, "--tools", "get-schema"},
 			version:          testVersion,
