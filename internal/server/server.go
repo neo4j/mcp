@@ -50,7 +50,7 @@ type Neo4jMCPServer struct {
 	anService       analytics.Service
 	uriResolver     URIResolver
 	driverRegistry  database.DriverRegistry
-	toolsByName map[string]*mcp.Tool
+	toolsByName     map[string]*mcp.Tool
 }
 
 // NewNeo4jMCPServer creates a new MCP server instance
@@ -94,7 +94,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 
 // requestMiddleware logs every incoming request and verifies Neo4j requirements during the
 // handshake. Only "initialize" and "server/discover" are checked; other methods pass through
-// unchanged. 
+// unchanged.
 func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		slog.Info("request started", append(logger.AppendRequestInfo(ctx), "mcp_method", method)...)
@@ -244,20 +244,18 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 		}
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-
+		tool, ok := s.toolsByName[toolName]
+		if !ok {
+			// Should be unreachable if the mcp client relies on tool/list response
+			// only possible in case of malicious clients or cached tool/list responses.
+			// delegate the SDK unknown tool response.
+			return next(ctx, method, req)
+		}
 		// Guards are checked read-only first, then the configured tools list.
 		// When a request violates both, the read-only error takes precedence.
 		readOnly := mcpcontext.GetReadOnly(ctx)
 		if readOnly != nil && *readOnly {
-			tool, ok := s.toolsByName[toolName]
-			if !ok {
-				// Should be unreachable: the SDK rejects unknown tool names before
-				// the middleware runs (see TestHTTPPerRequestToolsExecutionGuardInvalidTool).
-				slog.Error("internal error: tool not found", append(logger.AppendRequestInfo(ctx), "tool", toolName)...)
-				return nil, fmt.Errorf("internal error: tool %q not found", toolName)
-			}
-
-			if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+			if tool != nil && tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 				slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
 					"tool", toolName, "reason", "read_only")...)
 				return tools.NewToolErrorResult(fmt.Sprintf("'%s' is not permitted in read-only mode", toolName)), nil
@@ -548,7 +546,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	mcpServerHTTP := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return s.MCPServer },
 		&mcp.StreamableHTTPOptions{
-			Stateless: true, 
+			Stateless:    true,
 			JSONResponse: true,
 		},
 	)
@@ -657,4 +655,3 @@ func (s *Neo4jMCPServer) emitGDSEventsIfNeeded(rawArgs json.RawMessage) {
 		s.anService.EmitEvent(s.anService.NewGDSProjDropEvent())
 	}
 }
-
