@@ -5,7 +5,7 @@ package server_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sort"
 	"testing"
 
@@ -207,7 +207,7 @@ func TestNeo4jMCPServerStdioModeGDSGating(t *testing.T) {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
-			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+			AnyTimes().Return(nil, errGDSNotInstalled)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 			AnyTimes().Return(nil, nil)
 
@@ -235,7 +235,7 @@ func TestNeo4jMCPServerStdioModeGDSGating(t *testing.T) {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
-			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+			AnyTimes().Return(nil, errGDSNotInstalled)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 			AnyTimes().Return(nil, nil)
 
@@ -252,6 +252,47 @@ func TestNeo4jMCPServerStdioModeGDSGating(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorContains(t, err, gdsErrorSubstring)
 	})
+
+	for _, tc := range []struct {
+		name     string
+		explicit bool
+	}{
+		{	name: "default-enabled",
+			explicit: false,
+		},
+		{	name: "explicitly requested via Config.Tools",
+			explicit: true,
+		},
+	} {
+		t.Run("GDS check fails for a connectivity reason and is "+tc.name, func(t *testing.T) {
+			withFreshStdin(t)
+
+			mockDB := db.NewMockService(ctrl)
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+				AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+				AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+				Times(1).Return(nil, &neo4j.ConnectivityError{Inner: errors.New("connection refused")})
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+				AnyTimes().Return(nil, nil)
+
+			cfg := baseCfg
+			cfg.ToolsExplicitlySet = tc.explicit
+			s := server.NewNeo4jMCPServer("test-version", &cfg, mockDB, analyticsService)
+			require.NoError(t, s.Start())
+
+			session, err := connectInProcessClient(context.Background(), t, s.MCPServer)
+			require.NoError(t, err)
+			defer session.Close()
+
+			_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
+			require.Error(t, err)
+			assert.ErrorContains(t, err, "failed to verify Graph Data Science (GDS) availability")
+			assert.ErrorContains(t, err, "connection refused")
+			assert.NotContains(t, err.Error(), gdsErrorSubstring)
+		})
+	}
 
 	t.Run("GDS unavailable but tool excluded by Config.Tools: no error, zero GDS probes", func(t *testing.T) {
 		withFreshStdin(t)
@@ -299,6 +340,12 @@ func listRegisteredTools(t *testing.T, s *server.Neo4jMCPServer) []*mcp.Tool {
 		t.Fatalf("failed to list tools: %v", err)
 	}
 	return listToolsResponse.Tools
+}
+
+// errGDSNotInstalled is what Neo4j returns for RETURN gds.version() when GDS is not installed.
+var errGDSNotInstalled = &neo4j.Neo4jError{
+	Code: "Neo.ClientError.Statement.SyntaxError",
+	Msg:  "Unknown function 'gds.version'",
 }
 
 // newToolRegisterMockDB returns a mock DB covering the client handshake, with a specified number of "gds.version()" queries.
