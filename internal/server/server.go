@@ -151,12 +151,19 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
 		omitGDSTool := false
-		if included && !s.checkGDSAvailable(ctx) {
-			if explicit {
-				return nil, fmt.Errorf("list-gds-procedures was explicitly requested, but the Graph Data Science (GDS) library does not appear to be installed and properly configured in your Neo4j database")
+		if included {
+			available, err := s.checkGDSAvailable(ctx)
+			if err != nil {
+				slog.Error("failed to verify GDS availability", append(logger.AppendRequestInfo(ctx), "error", err)...)
+				return nil, fmt.Errorf("failed to verify Graph Data Science (GDS) availability for list-gds-procedures: %w", err)
 			}
-			omitGDSTool = true
-			slog.Info("list-gds-procedures omitted from tools/list", append(logger.AppendRequestInfo(ctx), "reason", "gds_unavailable")...)
+			if !available {
+				if explicit {
+					return nil, fmt.Errorf("list-gds-procedures was explicitly requested, but the Graph Data Science (GDS) library does not appear to be installed and properly configured in your Neo4j database")
+				}
+				omitGDSTool = true
+				slog.Info("list-gds-procedures omitted from tools/list", append(logger.AppendRequestInfo(ctx), "reason", "gds_unavailable")...)
+			}
 		}
 
 		res, err := next(ctx, method, req)
@@ -397,18 +404,41 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 }
 
 // checkGDSAvailable reports whether GDS is available on the Neo4j instance targeted by ctx.
-func (s *Neo4jMCPServer) checkGDSAvailable(ctx context.Context) bool {
+func (s *Neo4jMCPServer) checkGDSAvailable(ctx context.Context) (bool, error) {
 	// Call gds.version procedure to determine if GDS is installed
 	records, err := s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
 	if err != nil {
+		if isConnectivityOrAuthError(err) {
+			return false, err
+		}
 		slog.Info("Impossible to verify GDS installation.", "error", err)
-		return false
+		return false, nil
 	}
 	if len(records) == 1 && len(records[0].Values) == 1 {
 		if _, ok := records[0].Values[0].(string); ok {
 			slog.Info("GDS capability verified")
-			return true
+			return true, nil
 		}
+	}
+	return false, nil
+}
+
+// isConnectivityOrAuthError checks whether an error is related to database connectivity, authentication issues, or timeouts.
+func isConnectivityOrAuthError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	var connectivityErr *neo4j.ConnectivityError
+	var invalidAuthErr *neo4j.InvalidAuthenticationError
+	var tokenExpiredErr *neo4j.TokenExpiredError
+	if errors.As(err, &connectivityErr) || errors.As(err, &invalidAuthErr) || errors.As(err, &tokenExpiredErr) {
+		return true
+	}
+
+	var neo4jErr *neo4j.Neo4jError
+	if errors.As(err, &neo4jErr) {
+		return neo4jErr.HasSecurityCode() || neo4jErr.IsRetriable()
 	}
 	return false
 }

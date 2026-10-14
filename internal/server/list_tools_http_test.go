@@ -17,6 +17,7 @@ package server_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -259,7 +260,7 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
-			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+			AnyTimes().Return(nil, errGDSNotInstalled)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 			AnyTimes().Return(nil, nil)
 
@@ -285,7 +286,7 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
-			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+			AnyTimes().Return(nil, errGDSNotInstalled)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 			AnyTimes().Return(nil, nil)
 
@@ -310,7 +311,7 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
 			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
-			AnyTimes().Return(nil, fmt.Errorf("Unknown function 'gds.version'"))
+			AnyTimes().Return(nil, errGDSNotInstalled)
 		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
 			AnyTimes().Return(nil, nil)
 
@@ -326,6 +327,31 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
 		require.Error(t, err)
 		assert.ErrorContains(t, err, gdsErrorSubstring)
+
+		assertNoCloseOrStopError(t, s, errChan)
+	})
+
+	t.Run("GDS check fails for a connectivity reason and is default-enabled", func(t *testing.T) {
+		mockDB := db.NewMockService(ctrl)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN 1 as first", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"first"}, Values: []any{int64(1)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "SHOW PROCEDURES YIELD name WHERE name = 'apoc.meta.schema' RETURN count(name) > 0 AS apocMetaSchemaAvailable", gomock.Any()).
+			AnyTimes().Return([]*neo4j.Record{{Keys: []string{"apocMetaSchemaAvailable"}, Values: []any{bool(true)}}}, nil)
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
+			Times(1).Return(nil, &neo4j.ConnectivityError{Inner: errors.New("connection refused")})
+		mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "CALL dbms.components()", gomock.Any()).
+			AnyTimes().Return(nil, nil)
+
+		cfg := baseCfg
+		s, errChan := createHTTPServer(t, &cfg, mockDB, analyticsService)
+		session, err := createStreamableHTTPClient(context.Background(), uri, defaultHeaders())
+		require.NoError(t, err)
+		defer session.Close()
+
+		_, err = session.ListTools(context.Background(), &mcp.ListToolsParams{})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "failed to verify Graph Data Science (GDS) availability")
+		assert.NotContains(t, err.Error(), gdsErrorSubstring)
 
 		assertNoCloseOrStopError(t, s, errChan)
 	})
@@ -372,7 +398,7 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
 				Times(1).Return([]*neo4j.Record{{Keys: []string{"gdsVersion"}, Values: []any{string("2.22.0")}}}, nil),
 			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), "RETURN gds.version() as gdsVersion", gomock.Any()).
-				Times(1).Return(nil, fmt.Errorf("Unknown function 'gds.version'")),
+				Times(1).Return(nil, errGDSNotInstalled),
 		)
 
 		cfg := baseCfg
