@@ -39,27 +39,26 @@ var AvailableTools = []string{"read-cypher", "write-cypher", "list-gds-procedure
 
 // Config holds the application configuration
 type Config struct {
-	URI                           string
-	Username                      string
-	Password                      string // #nosec G117
-	Database                      string
-	ReadOnly                      bool // If true, disables write tools
-	Tools                         []string
-	Telemetry                     bool // If false, disables telemetry
-	LogLevel                      string
-	LogFormat                     string
-	SchemaSampleSize              int32
-	TransportMode                 TransportMode // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort                      string        // HTTP server port (default: "443" with TLS, "80" without TLS)
-	HTTPHost                      string        // HTTP server host (default: "127.0.0.1")
-	HTTPAllowedOrigins            string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
-	HTTPTLSEnabled                bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
-	HTTPTLSCertFile               string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
-	HTTPTLSKeyFile                string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
-	AuthHeaderName                string        // HTTP header name to read auth credentials from (default: "Authorization")
-	AllowUnauthenticatedPing      bool          // If true, allows unauthenticated ping health checks in HTTP mode
-	AllowUnauthenticatedToolsList bool          // If true, allows unauthenticated tools list in HTTP mode
-	RequestTimeout                time.Duration // Maximum duration for a single MCP request (default: 3m)
+	URI                      string
+	Username                 string
+	Password                 string // #nosec G117
+	Database                 string
+	ReadOnly                 bool // If true, disables write tools
+	Tools                    []string
+	Telemetry                bool // If false, disables telemetry
+	LogLevel                 string
+	LogFormat                string
+	SchemaSampleSize         int32
+	TransportMode            TransportMode // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort                 string        // HTTP server port (default: "443" with TLS, "80" without TLS)
+	HTTPHost                 string        // HTTP server host (default: "127.0.0.1")
+	HTTPAllowedOrigins       string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPTLSEnabled           bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
+	HTTPTLSCertFile          string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
+	HTTPTLSKeyFile           string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
+	AuthHeaderName           string        // HTTP header name to read auth credentials from (default: "Authorization")
+	AllowUnauthenticatedPing bool          // If true, allows unauthenticated ping health checks in HTTP mode
+	RequestTimeout           time.Duration // Maximum duration for a single MCP request (default: 3m)
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -143,24 +142,23 @@ func (c *Config) Validate() error {
 
 // CLIOverrides holds optional configuration values from CLI flags
 type CLIOverrides struct {
-	URI                           string
-	Username                      string
-	Password                      string // #nosec G117
-	Database                      string
-	ReadOnly                      string
-	Tools                         *string
-	Telemetry                     string
-	TransportMode                 string
-	Port                          string
-	Host                          string
-	AllowedOrigins                string
-	TLSEnabled                    string
-	TLSCertFile                   string
-	TLSKeyFile                    string
-	AuthHeaderName                string
-	AllowUnauthenticatedPing      string
-	AllowUnauthenticatedToolsList string
-	RequestTimeout                string
+	URI                      string
+	Username                 string
+	Password                 string // #nosec G117
+	Database                 string
+	ReadOnly                 string
+	Tools                    *string
+	Telemetry                string
+	TransportMode            string
+	Port                     string
+	Host                     string
+	AllowedOrigins           string
+	TLSEnabled               string
+	TLSCertFile              string
+	TLSKeyFile               string
+	AuthHeaderName           string
+	AllowUnauthenticatedPing string
+	RequestTimeout           string
 }
 
 // LoadConfig loads configuration from environment variables, applies CLI overrides, and validates.
@@ -183,25 +181,24 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 	}
 
 	cfg := &Config{
-		URI:                           GetEnv("NEO4J_MCP_URI"),
-		Username:                      GetEnv("NEO4J_MCP_USERNAME"),
-		Password:                      GetEnv("NEO4J_MCP_PASSWORD"),
-		Database:                      GetEnv("NEO4J_MCP_DATABASE"),
-		ReadOnly:                      ParseBool(GetEnv("NEO4J_MCP_READ_ONLY"), false),
-		Telemetry:                     ParseBool(GetEnv("NEO4J_MCP_TELEMETRY"), true),
-		LogLevel:                      logLevel,
-		LogFormat:                     logFormat,
-		SchemaSampleSize:              ParseInt32(GetEnv("NEO4J_MCP_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
-		TransportMode:                 GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT_MODE", TransportModeStdio),
-		HTTPPort:                      GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
-		HTTPHost:                      GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
-		HTTPAllowedOrigins:            GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
-		HTTPTLSEnabled:                ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
-		HTTPTLSCertFile:               GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
-		HTTPTLSKeyFile:                GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
-		AuthHeaderName:                GetEnvWithDefault("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "Authorization"),
-		AllowUnauthenticatedPing:      ParseBool(GetEnv("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
-		AllowUnauthenticatedToolsList: ParseBool(GetEnv("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST"), false),
+		URI:                      GetEnv("NEO4J_MCP_URI"),
+		Username:                 GetEnv("NEO4J_MCP_USERNAME"),
+		Password:                 GetEnv("NEO4J_MCP_PASSWORD"),
+		Database:                 GetEnv("NEO4J_MCP_DATABASE"),
+		ReadOnly:                 ParseBool(GetEnv("NEO4J_MCP_READ_ONLY"), false),
+		Telemetry:                ParseBool(GetEnv("NEO4J_MCP_TELEMETRY"), true),
+		LogLevel:                 logLevel,
+		LogFormat:                logFormat,
+		SchemaSampleSize:         ParseInt32(GetEnv("NEO4J_MCP_SCHEMA_SAMPLE_SIZE"), DefaultSchemaSampleSize),
+		TransportMode:            GetTransportModeWithDefault("NEO4J_MCP_TRANSPORT_MODE", TransportModeStdio),
+		HTTPPort:                 GetEnv("NEO4J_MCP_HTTP_PORT"), // Default set after TLS determination
+		HTTPHost:                 GetEnvWithDefault("NEO4J_MCP_HTTP_HOST", "127.0.0.1"),
+		HTTPAllowedOrigins:       GetEnv("NEO4J_MCP_HTTP_ALLOWED_ORIGINS"),
+		HTTPTLSEnabled:           ParseBool(GetEnv("NEO4J_MCP_HTTP_TLS_ENABLED"), false),
+		HTTPTLSCertFile:          GetEnv("NEO4J_MCP_HTTP_TLS_CERT_FILE"),
+		HTTPTLSKeyFile:           GetEnv("NEO4J_MCP_HTTP_TLS_KEY_FILE"),
+		AuthHeaderName:           GetEnvWithDefault("NEO4J_MCP_HTTP_AUTH_HEADER_NAME", "Authorization"),
+		AllowUnauthenticatedPing: ParseBool(GetEnv("NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING"), false),
 	}
 
 	requestTimeout, err := ParseDuration(GetEnv("NEO4J_MCP_REQUEST_TIMEOUT"), DefaultRequestTimeout)
@@ -266,9 +263,6 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.AllowUnauthenticatedPing != "" {
 			cfg.AllowUnauthenticatedPing = ParseBool(cliOverrides.AllowUnauthenticatedPing, false)
-		}
-		if cliOverrides.AllowUnauthenticatedToolsList != "" {
-			cfg.AllowUnauthenticatedToolsList = ParseBool(cliOverrides.AllowUnauthenticatedToolsList, false)
 		}
 		if cliOverrides.RequestTimeout != "" {
 			requestTimeout, err := ParseDuration(cliOverrides.RequestTimeout, DefaultRequestTimeout)
