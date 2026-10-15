@@ -12,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/neo4j/mcp/internal/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,6 +89,13 @@ func TestRequestTimeoutMiddleware(t *testing.T) {
 
 	run := func(s *Neo4jMCPServer, ctx context.Context, next mcp.MethodHandler) (mcp.Result, error) {
 		return s.requestTimeoutMiddleware(next)(ctx, "tools/list", nil)
+	}
+
+	callToolRequest := func(name string) mcp.Request {
+		return &mcp.CallToolRequest{Params: &mcp.CallToolParamsRaw{Name: name}}
+	}
+	runToolCall := func(s *Neo4jMCPServer, next mcp.MethodHandler) (mcp.Result, error) {
+		return s.requestTimeoutMiddleware(next)(context.Background(), "tools/call", callToolRequest("read-cypher"))
 	}
 
 	t.Run("applies the configured timeout to the context passed to next", func(t *testing.T) {
@@ -183,5 +191,54 @@ func TestRequestTimeoutMiddleware(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Same(t, want, res)
+	})
+
+	t.Run("tools/call returns a tool error result when next returns the deadline error", func(t *testing.T) {
+		res, err := runToolCall(newServer(shortTimeout), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		})
+
+		require.NoError(t, err)
+		toolResult, ok := res.(*mcp.CallToolResult)
+		require.True(t, ok)
+		assert.True(t, toolResult.IsError)
+		require.Len(t, toolResult.Content, 1)
+		assert.Equal(t, "request timed out after 20ms", toolResult.Content[0].(*mcp.TextContent).Text)
+	})
+
+	t.Run("tools/call returns a tool error result when the deadline passes and next returns an error result", func(t *testing.T) {
+		// Tool handlers report failures as error results with a nil error.
+		res, err := runToolCall(newServer(shortTimeout), func(ctx context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+			<-ctx.Done()
+			return tools.NewToolErrorResult("query failed: context deadline exceeded"), nil
+		})
+
+		require.NoError(t, err)
+		toolResult, ok := res.(*mcp.CallToolResult)
+		require.True(t, ok)
+		assert.True(t, toolResult.IsError)
+		assert.Equal(t, "request timed out after 20ms", toolResult.Content[0].(*mcp.TextContent).Text)
+	})
+
+	t.Run("tools/call passes through the result when the deadline is not reached", func(t *testing.T) {
+		want := tools.NewToolErrorResult("some tool failure")
+
+		res, err := runToolCall(newServer(time.Minute), func(context.Context, string, mcp.Request) (mcp.Result, error) {
+			return want, nil
+		})
+
+		require.NoError(t, err)
+		assert.Same(t, want, res)
+	})
+
+	t.Run("tools/call passes through non-timeout errors unchanged", func(t *testing.T) {
+		sentinel := errors.New("boom")
+
+		_, err := runToolCall(newServer(time.Minute), func(context.Context, string, mcp.Request) (mcp.Result, error) {
+			return nil, sentinel
+		})
+
+		assert.ErrorIs(t, err, sentinel)
 	})
 }

@@ -94,7 +94,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 }
 
 // requestTimeoutMiddleware applies the request timeout to the context passed to the rest of the chain
-// and turns a deadline failure from it into a "request timed out" error.
+// and reports a deadline failure if exceeded.
 func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		timeout := mcpcontext.GetRequestTimeout(ctx)
@@ -106,6 +106,19 @@ func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.Me
 		defer cancel()
 
 		res, err := next(ctx, method, req)
+
+		if callReq, ok := req.(*mcp.CallToolRequest); ok && method == "tools/call" {
+			if isRequestDeadlineExceeded(ctx, err) {
+				slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+					"mcp_method", method,
+					"tool", callReq.Params.Name,
+					"phase", "tool_execution",
+					"request_timeout_ms", timeout.Milliseconds())...)
+				return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
+			}
+			return res, err
+		}
+
 		if err != nil && isRequestDeadlineExceeded(ctx, err) {
 			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
 				"mcp_method", method,
@@ -129,9 +142,7 @@ func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHan
 
 		slog.Info("Handshake request: verifying requirements...", "mcp_method", method)
 		if err := s.verifyRequirements(ctx); err != nil {
-			if !isRequestDeadlineExceeded(ctx, err) {
-				slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
-			}
+			slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
 			return nil, err
 		}
 		slog.Info("initialize requirements verified", logger.AppendRequestInfo(ctx)...)
@@ -252,8 +263,7 @@ func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodH
 	}
 }
 
-// toolsCallMiddleware enforces execution-time read-only/tool-list guards and applies the
-// per-request timeout.
+// toolsCallMiddleware enforces execution-time read-only/tool-list guards.
 func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		if method != "tools/call" {
@@ -295,17 +305,7 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 			return tools.NewToolErrorResult(fmt.Sprintf("'%s' is not in the list of configured tools", toolName)), nil
 		}
 
-		result, err := next(ctx, method, req)
-		if isRequestDeadlineExceeded(ctx, err) {
-			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
-				"mcp_method", "tools/call",
-				"tool", toolName,
-				"phase", "tool_execution",
-				"request_timeout_ms", mcpcontext.GetRequestTimeout(ctx).Milliseconds())...)
-			return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
-		}
-
-		return result, err
+		return next(ctx, method, req)
 	}
 }
 
