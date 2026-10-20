@@ -83,6 +83,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	neo4jServer.MCPServer = mcpServer
 
 	mcpServer.AddReceivingMiddleware(
+		neo4jServer.requestTimeoutMiddleware,
 		neo4jServer.requestMiddleware,
 		neo4jServer.toolsListMiddleware,
 		neo4jServer.analyticsMiddleware,
@@ -90,6 +91,42 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	)
 
 	return neo4jServer
+}
+
+// requestTimeoutMiddleware applies the request timeout to the context passed to the rest of the chain
+// and reports a deadline failure if exceeded.
+func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		timeout := mcpcontext.GetRequestTimeout(ctx)
+		if timeout <= 0 {
+			timeout = effectiveRequestTimeout(s.config)
+			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		res, err := next(ctx, method, req)
+
+		if callReq, ok := req.(*mcp.CallToolRequest); ok && method == "tools/call" {
+			if isRequestDeadlineExceeded(ctx, err) {
+				slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+					"mcp_method", method,
+					"tool", callReq.Params.Name,
+					"phase", "tool_execution",
+					"request_timeout_ms", timeout.Milliseconds())...)
+				return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
+			}
+			return res, err
+		}
+
+		if err != nil && isRequestDeadlineExceeded(ctx, err) {
+			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
+				"mcp_method", method,
+				"request_timeout_ms", timeout.Milliseconds())...)
+			return nil, errors.New(formatRequestTimeoutError(ctx))
+		}
+		return res, err
+	}
 }
 
 // requestMiddleware logs every incoming request and verifies Neo4j requirements during the
@@ -103,23 +140,8 @@ func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHan
 			return next(ctx, method, req)
 		}
 
-		timeout := mcpcontext.GetRequestTimeout(ctx)
-		if timeout <= 0 {
-			timeout = effectiveRequestTimeout(s.config)
-			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
-		}
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-
 		slog.Info("Handshake request: verifying requirements...", "mcp_method", method)
 		if err := s.verifyRequirements(ctx); err != nil {
-			if isRequestDeadlineExceeded(ctx, err) {
-				slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
-					"mcp_method", method,
-					"phase", "initialize",
-					"request_timeout_ms", timeout.Milliseconds())...)
-				return nil, errors.New(formatRequestTimeoutError(ctx))
-			}
 			slog.Error("initialize requirements check failed", append(logger.AppendRequestInfo(ctx), "error", err)...)
 			return nil, err
 		}
@@ -131,11 +153,28 @@ func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHan
 }
 
 // toolsListMiddleware filters advertised tools depending on the X-Neo4j-MCP-Tools and
-// X-Neo4j-MCP-ReadOnly HTTP headers.
+// X-Neo4j-MCP-ReadOnly HTTP headers, and checks whether GDS is available for list-gds-procedures.
 func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		if method != "tools/list" {
 			return next(ctx, method, req)
+		}
+
+		included, explicit := s.isToolEnabledAndSet(ctx, "list-gds-procedures")
+		omitGDSTool := false
+		if included {
+			available, err := s.checkGDSAvailable(ctx)
+			if err != nil {
+				slog.Error("failed to verify GDS availability", append(logger.AppendRequestInfo(ctx), "error", err)...)
+				return nil, fmt.Errorf("failed to verify Graph Data Science (GDS) availability for list-gds-procedures: %w", err)
+			}
+			if !available {
+				if explicit {
+					return nil, fmt.Errorf("list-gds-procedures was explicitly requested, but the Graph Data Science (GDS) library does not appear to be installed and properly configured in your Neo4j database")
+				}
+				omitGDSTool = true
+				slog.Info("list-gds-procedures omitted from tools/list", append(logger.AppendRequestInfo(ctx), "reason", "gds_unavailable")...)
+			}
 		}
 
 		res, err := next(ctx, method, req)
@@ -152,8 +191,9 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		readOnly := mcpcontext.GetReadOnly(ctx)
 		requestedTools := mcpcontext.GetTools(ctx)
+
 		// early return when no per-request filters are defined
-		if readOnly == nil && requestedTools == nil {
+		if readOnly == nil && requestedTools == nil && !omitGDSTool {
 			return listResult, nil
 		}
 
@@ -163,6 +203,9 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 				continue
 			}
 			if requestedTools != nil && !slices.Contains(*requestedTools, tool.Name) {
+				continue
+			}
+			if omitGDSTool && tool.Name == "list-gds-procedures" {
 				continue
 			}
 			filteredTools = append(filteredTools, tool)
@@ -220,8 +263,7 @@ func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodH
 	}
 }
 
-// toolsCallMiddleware enforces execution-time read-only/tool-list guards and applies the
-// per-request timeout.
+// toolsCallMiddleware enforces execution-time read-only/tool-list guards.
 func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		if method != "tools/call" {
@@ -237,25 +279,19 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		toolName := callReq.Params.Name
 
-		timeout := mcpcontext.GetRequestTimeout(ctx)
-		if timeout <= 0 {
-			timeout = effectiveRequestTimeout(s.config)
-			ctx = mcpcontext.WithRequestTimeout(ctx, timeout)
-		}
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		tool, ok := s.toolsByName[toolName]
-		if !ok {
-			// Should be unreachable if the mcp client relies on tool/list response
-			// only possible in case of malicious clients or cached tool/list responses.
-			// delegate the SDK unknown tool response.
-			return next(ctx, method, req)
-		}
 		// Guards are checked read-only first, then the configured tools list.
 		// When a request violates both, the read-only error takes precedence.
 		readOnly := mcpcontext.GetReadOnly(ctx)
 		if readOnly != nil && *readOnly {
-			if tool != nil && tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+			tool, ok := s.toolsByName[toolName]
+			if !ok {
+				// Should be unreachable: the SDK rejects unknown tool names before
+				// the middleware runs (see TestHTTPPerRequestToolsExecutionGuardInvalidTool).
+				slog.Error("internal error: tool not found", append(logger.AppendRequestInfo(ctx), "tool", toolName)...)
+				return nil, fmt.Errorf("internal error: tool %q not found", toolName)
+			}
+
+			if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
 				slog.Warn("tool execution blocked", append(logger.AppendRequestInfo(ctx),
 					"tool", toolName, "reason", "read_only")...)
 				return tools.NewToolErrorResult(fmt.Sprintf("'%s' is not permitted in read-only mode", toolName)), nil
@@ -269,17 +305,7 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 			return tools.NewToolErrorResult(fmt.Sprintf("'%s' is not in the list of configured tools", toolName)), nil
 		}
 
-		result, err := next(ctx, method, req)
-		if isRequestDeadlineExceeded(ctx, err) {
-			slog.Warn("request timed out", append(logger.AppendRequestInfo(ctx),
-				"mcp_method", "tools/call",
-				"tool", toolName,
-				"phase", "tool_execution",
-				"request_timeout_ms", timeout.Milliseconds())...)
-			return tools.NewToolErrorResult(formatRequestTimeoutError(ctx)), nil
-		}
-
-		return result, err
+		return next(ctx, method, req)
 	}
 }
 
@@ -373,36 +399,64 @@ func (s *Neo4jMCPServer) verifyRequirements(ctx context.Context) error {
 	if !ok || !apocMetaSchemaAvailable {
 		return fmt.Errorf("please ensure the APOC plugin is installed and includes the 'meta' component")
 	}
-	if !s.isToolEnabled(ctx, "list-gds-procedures") {
-		return nil
-	}
-
-	// Call gds.version procedure to determine if GDS is installed
-	records, err = s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
-	if err != nil {
-		// GDS is optional, so we log a warning and continue, assuming it's not installed.
-		slog.Info("Impossible to verify GDS installation.", "error", err)
-		return nil
-	}
-	if len(records) == 1 && len(records[0].Values) == 1 {
-		_, ok := records[0].Values[0].(string)
-		if ok {
-			slog.Info("GDS capability verified")
-		}
-	}
 
 	return nil
 }
 
-// isToolEnabled reports whether a tool is enabled for the current request.
-// Per-request HTTP headers take precedence over server configuration.
-// When per-request header is present GetTools returns nil. while
-// s.config.Tools will always have all the tools available at startup.
-func (s *Neo4jMCPServer) isToolEnabled(ctx context.Context, toolName string) bool {
-	if tools := mcpcontext.GetTools(ctx); tools != nil {
-		return slices.Contains(*tools, toolName)
+// checkGDSAvailable reports whether GDS is available on the Neo4j instance targeted by ctx.
+func (s *Neo4jMCPServer) checkGDSAvailable(ctx context.Context) (bool, error) {
+	// Call gds.version procedure to determine if GDS is installed
+	records, err := s.dbService.ExecuteReadQuery(ctx, "RETURN gds.version() as gdsVersion", nil)
+	if err != nil {
+		if isConnectivityOrAuthError(err) {
+			return false, err
+		}
+		slog.Info("Impossible to verify GDS installation.", "error", err)
+		return false, nil
 	}
-	return slices.Contains(s.config.Tools, toolName)
+	if len(records) == 1 && len(records[0].Values) == 1 {
+		if _, ok := records[0].Values[0].(string); ok {
+			slog.Info("GDS capability verified")
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// isConnectivityOrAuthError checks whether an error is related to database connectivity, authentication issues, or timeouts.
+func isConnectivityOrAuthError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	var connectivityErr *neo4j.ConnectivityError
+	var invalidAuthErr *neo4j.InvalidAuthenticationError
+	var tokenExpiredErr *neo4j.TokenExpiredError
+	if errors.As(err, &connectivityErr) || errors.As(err, &invalidAuthErr) || errors.As(err, &tokenExpiredErr) {
+		return true
+	}
+
+	var neo4jErr *neo4j.Neo4jError
+	if errors.As(err, &neo4jErr) {
+		return neo4jErr.HasSecurityCode() || neo4jErr.IsRetriable()
+	}
+	return false
+}
+
+// isToolEnabledAndSet reports a tool is enabled for the current request, and
+// whether that inclusion counts as "explicitly requested" rather than "enabled by default".
+func (s *Neo4jMCPServer) isToolEnabledAndSet(ctx context.Context, toolName string) (included, explicit bool) {
+	// Check if tool is explicitly asked for via X-Neo4j-MCP-Tools header.
+	if requestedTools := mcpcontext.GetTools(ctx); requestedTools != nil {
+		included = slices.Contains(*requestedTools, toolName)
+		explicit = included
+		return included, explicit
+	}
+
+	// Check server configuration to see if tool explicitly set.
+	included = slices.Contains(s.config.Tools, toolName)
+	explicit = included && s.config.ToolsExplicitlySet
+	return included, explicit
 }
 
 // emitServerStartupEvent emits the server startup event immediately with available info (no DB query)
