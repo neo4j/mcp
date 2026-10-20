@@ -1,0 +1,41 @@
+kind: Major
+body: |
+  Removed deprecated environment-variable aliases and CLI flags. Environment variables are now scoped with the `NEO4J_MCP_` prefix, while CLI flags use concise, unscoped names. 
+  Use the following replacements:
+
+  | Type | Removed | Replacement |
+  | --- | --- | --- |
+  | Environment variable | `NEO4J_URI` | `NEO4J_MCP_URI` |
+  | Environment variable | `NEO4J_USERNAME` | `NEO4J_MCP_USERNAME` |
+  | Environment variable | `NEO4J_PASSWORD` | `NEO4J_MCP_PASSWORD` |
+  | Environment variable | `NEO4J_DATABASE` | `NEO4J_MCP_DATABASE` |
+  | Environment variable | `NEO4J_READ_ONLY` | `NEO4J_MCP_READ_ONLY` |
+  | Environment variable | `NEO4J_TELEMETRY` | `NEO4J_MCP_TELEMETRY` |
+  | Environment variable | `NEO4J_LOG_LEVEL` | `NEO4J_MCP_LOG_LEVEL` |
+  | Environment variable | `NEO4J_LOG_FORMAT` | `NEO4J_MCP_LOG_FORMAT` |
+  | Environment variable | `NEO4J_SCHEMA_SAMPLE_SIZE` | `NEO4J_MCP_SCHEMA_SAMPLE_SIZE` |
+  | Environment variable | `NEO4J_TRANSPORT_MODE` | `NEO4J_MCP_TRANSPORT_MODE` |
+  | Environment variable | `NEO4J_MCP_TRANSPORT` | `NEO4J_MCP_TRANSPORT_MODE` |
+  | Environment variable | `NEO4J_HTTP_AUTH_HEADER_NAME` | `NEO4J_MCP_HTTP_AUTH_HEADER_NAME` |
+  | Environment variable | `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_PING` | `NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING` |
+  | Environment variable | `NEO4J_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST` | `NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST` |
+  | CLI flag | `--neo4j-uri` | `--uri` |
+  | CLI flag | `--neo4j-username` | `--username` |
+  | CLI flag | `--neo4j-password` | `--password` |
+  | CLI flag | `--neo4j-database` | `--database` |
+  | CLI flag | `--neo4j-read-only` | `--read-only` |
+  | CLI flag | `--neo4j-tools` | `--tools` |
+  | CLI flag | `--neo4j-telemetry` | `--telemetry` |
+  | CLI flag | `--neo4j-schema-sample-size` | `--schema-sample-size` |
+  | CLI flag | `--neo4j-transport-mode` | `--transport-mode` |
+  | CLI flag | `--neo4j-http-port` | `--http-port` |
+  | CLI flag | `--neo4j-http-host` | `--http-host` |
+  | CLI flag | `--neo4j-http-allowed-origins` | `--http-allowed-origins` |
+  | CLI flag | `--neo4j-http-tls-enabled` | `--http-tls-enabled` |
+  | CLI flag | `--neo4j-http-tls-cert-file` | `--http-tls-cert-file` |
+  | CLI flag | `--neo4j-http-tls-key-file` | `--http-tls-key-file` |
+  | CLI flag | `--neo4j-http-auth-header-name` | `--http-auth-header-name` |
+  | CLI flag | `--neo4j-http-allow-unauthenticated-ping` | `--http-allow-unauthenticated-ping` |
+  | CLI flag | `--neo4j-http-allow-unauthenticated-tools-list` | `--http-allow-unauthenticated-tools-list` |
+  | CLI flag | `--neo4j-request-timeout` | `--request-timeout` |
+time: 2026-08-24T17:45:00+01:00

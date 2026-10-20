@@ -130,8 +130,8 @@ func (s *Neo4jMCPServer) requestTimeoutMiddleware(next mcp.MethodHandler) mcp.Me
 }
 
 // requestMiddleware logs every incoming request and verifies Neo4j requirements during the
-// handshake. "initialize" and "server/discover" run the full verifyRequirements check; other methods
-// pass through unchanged.
+// handshake. Only "initialize" and "server/discover" are checked; other methods pass through
+// unchanged.
 func (s *Neo4jMCPServer) requestMiddleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		slog.Info("request started", append(logger.AppendRequestInfo(ctx), "mcp_method", method)...)
@@ -600,7 +600,7 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	mcpServerHTTP := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return s.MCPServer },
 		&mcp.StreamableHTTPOptions{
-			Stateless: true, 
+			Stateless:    true,
 			JSONResponse: true,
 		},
 	)

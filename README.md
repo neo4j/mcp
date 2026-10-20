@@ -23,18 +23,18 @@ By implementing the Model Context Protocol (MCP), it acts as a bridge between an
 
 v2 makes HTTP mode multi-tenant: the target database and Neo4j URI now come from each request, so one server can serve multiple instances.
 
-**STDIO mode** — `NEO4J_DATABASE` no longer defaults to `"neo4j"` and must be set explicitly. Otherwise the server fails to start with:
+**STDIO mode** — `NEO4J_MCP_DATABASE` no longer defaults to `"neo4j"` and must be set explicitly. Otherwise the server fails to start with:
 
-> `Neo4j database is required for STDIO mode (set NEO4J_DATABASE or use --neo4j-database flag)`
+> `Neo4j database is required for STDIO mode (set NEO4J_MCP_DATABASE or use --database flag)`
 
 **HTTP mode** — server config moves to per-request headers and URL path.
 
 Server environment:
 
 ```diff
-- NEO4J_URI=bolt://host:7687
-- NEO4J_DATABASE=neo4j
-  NEO4J_TRANSPORT_MODE=http
+- NEO4J_MCP_URI=bolt://host:7687
+- NEO4J_MCP_DATABASE=neo4j
+  NEO4J_MCP_TRANSPORT_MODE=http
 ```
 
 Request:
@@ -48,9 +48,9 @@ Request:
 
 ### Breaking changes in HTTP mode to be aware of when migrating:
 
-- If `NEO4J_DATABASE` is still set in HTTP mode, the server refuses to start with `NEO4J_DATABASE … should not be set for HTTP transport mode; database is selected per-request via URL path`.
-- Similarly, setting `NEO4J_USERNAME` or `NEO4J_PASSWORD` in HTTP mode causes startup failure, since credentials must be provided via Basic Auth on each request.
-- `NEO4J_URI` must also be empty at startup in HTTP mode, since the target Neo4j instance is determined per-request via the `X-Neo4j-MCP-URI` header. Setting `NEO4J_URI` in HTTP mode results in startup failure with `Neo4j URI should not be set for HTTP transport mode; URI is provided per-request via X-Neo4j-MCP-URI header`.
+- If `NEO4J_MCP_DATABASE` is still set in HTTP mode, the server refuses to start with `NEO4J_MCP_DATABASE … should not be set for HTTP transport mode; database is selected per-request via URL path`.
+- Similarly, setting `NEO4J_MCP_USERNAME` or `NEO4J_MCP_PASSWORD` in HTTP mode causes startup failure, since credentials must be provided via Basic Auth on each request.
+- `NEO4J_MCP_URI` must also be empty at startup in HTTP mode, since the target Neo4j instance is determined per-request via the `X-Neo4j-MCP-URI` header. Setting `NEO4J_MCP_URI` in HTTP mode results in startup failure with `Neo4j URI should not be set for HTTP transport mode; URI is provided per-request via X-Neo4j-MCP-URI header`.
 
 ## Installation
 
