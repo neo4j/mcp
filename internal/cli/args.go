@@ -39,7 +39,6 @@ Options:
   --http-tls-key-file <PATH>          Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE)
   --http-auth-header-name <HEADER>    Name of the HTTP header to read auth credentials from (overrides NEO4J_MCP_HTTP_AUTH_HEADER_NAME)
   --http-allow-unauthenticated-ping <BOOLEAN> Allow unauthenticated ping (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING)
-  --http-allow-unauthenticated-tools-list <BOOLEAN> Allow unauthenticated tools/list (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST)
   --request-timeout <DURATION>       Maximum duration for a single MCP request, up to 30m. Also caps the per-request X-Neo4j-MCP-Request-Timeout header in HTTP mode (overrides environment variable NEO4J_MCP_REQUEST_TIMEOUT)
 
 Required Environment Variables (STDIO mode):
@@ -64,7 +63,6 @@ Optional Environment Variables:
   NEO4J_MCP_HTTP_TLS_KEY_FILE Path to TLS private key file (required when TLS is enabled)
   NEO4J_MCP_HTTP_AUTH_HEADER_NAME Name of the HTTP header to read auth credentials from (default: Authorization)
   NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING Allow unauthenticated ping health checks (default: false)
-  NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST Allow unauthenticated tool listing (default: false)
   NEO4J_MCP_REQUEST_TIMEOUT Maximum duration for a single MCP request (default: 3m, maximum: 30m)
 
 Examples:
@@ -79,25 +77,24 @@ For more information, visit: https://github.com/neo4j/mcp
 
 // Args holds configuration values parsed from command-line flags
 type Args struct {
-	URI                               string
-	Username                          string
-	Password                          string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
-	Database                          string
-	ReadOnly                          string
-	Tools                             *string // allows explicit empty string arguments to be differentiated from unset arguments
-	Telemetry                         string
-	SchemaSampleSize                  string
-	TransportMode                     string
-	HTTPPort                          string
-	HTTPHost                          string
-	HTTPAllowedOrigins                string
-	HTTPTLSEnabled                    string
-	HTTPTLSCertFile                   string
-	HTTPTLSKeyFile                    string
-	AuthHeaderName                    string
-	HTTPAllowUnauthenticatedPing      string
-	HTTPAllowUnauthenticatedToolsList string
-	RequestTimeout                    string
+	URI                          string
+	Username                     string
+	Password                     string // #nosec G117 -- Password is only used during startup to create auth token, not logged or exposed
+	Database                     string
+	ReadOnly                     string
+	Tools                        *string // allows explicit empty string arguments to be differentiated from unset arguments
+	Telemetry                    string
+	SchemaSampleSize             string
+	TransportMode                string
+	HTTPPort                     string
+	HTTPHost                     string
+	HTTPAllowedOrigins           string
+	HTTPTLSEnabled               string
+	HTTPTLSCertFile              string
+	HTTPTLSKeyFile               string
+	AuthHeaderName               string
+	HTTPAllowUnauthenticatedPing string
+	RequestTimeout               string
 }
 
 // this is a list of known configuration flags to be skipped in HandleArgs
@@ -120,7 +117,6 @@ var argsSlice = []string{
 	"--http-tls-key-file",
 	"--http-auth-header-name",
 	"--http-allow-unauthenticated-ping",
-	"--http-allow-unauthenticated-tools-list",
 	"--request-timeout",
 }
 
@@ -151,30 +147,28 @@ func ParseConfigFlags() *Args {
 	httpTLSKeyFile := flag.String("http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
 	authHeaderName := flag.String("http-auth-header-name", "", "Name of the HTTP header to read auth credentials from (overrides NEO4J_MCP_HTTP_AUTH_HEADER_NAME env var)")
 	allowUnauthenticatedPing := flag.String("http-allow-unauthenticated-ping", "", "Allow unauthenticated ping: true or false (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_PING env var)")
-	allowUnauthenticatedToolsList := flag.String("http-allow-unauthenticated-tools-list", "", "Allow unauthenticated tools/list: true or false (overrides NEO4J_MCP_HTTP_ALLOW_UNAUTHENTICATED_TOOLS_LIST env var)")
 	requestTimeout := flag.String("request-timeout", "", "Maximum duration for a single MCP request, up to 30m (overrides NEO4J_MCP_REQUEST_TIMEOUT env var)")
 	flag.Parse()
 
 	return &Args{
-		URI:                               *uri,
-		Username:                          *username,
-		Password:                          *password,
-		Database:                          *database,
-		ReadOnly:                          *readOnly,
-		Tools:                             tools,
-		Telemetry:                         *telemetry,
-		SchemaSampleSize:                  *schemaSampleSize,
-		TransportMode:                     *transportMode,
-		HTTPPort:                          *httpPort,
-		HTTPHost:                          *httpHost,
-		HTTPAllowedOrigins:                *httpAllowedOrigins,
-		HTTPTLSEnabled:                    *httpTLSEnabled,
-		HTTPTLSCertFile:                   *httpTLSCertFile,
-		HTTPTLSKeyFile:                    *httpTLSKeyFile,
-		HTTPAllowUnauthenticatedPing:      *allowUnauthenticatedPing,
-		HTTPAllowUnauthenticatedToolsList: *allowUnauthenticatedToolsList,
-		AuthHeaderName:                    *authHeaderName,
-		RequestTimeout:                    *requestTimeout,
+		URI:                          *uri,
+		Username:                     *username,
+		Password:                     *password,
+		Database:                     *database,
+		ReadOnly:                     *readOnly,
+		Tools:                        tools,
+		Telemetry:                    *telemetry,
+		SchemaSampleSize:             *schemaSampleSize,
+		TransportMode:                *transportMode,
+		HTTPPort:                     *httpPort,
+		HTTPHost:                     *httpHost,
+		HTTPAllowedOrigins:           *httpAllowedOrigins,
+		HTTPTLSEnabled:               *httpTLSEnabled,
+		HTTPTLSCertFile:              *httpTLSCertFile,
+		HTTPTLSKeyFile:               *httpTLSKeyFile,
+		HTTPAllowUnauthenticatedPing: *allowUnauthenticatedPing,
+		AuthHeaderName:               *authHeaderName,
+		RequestTimeout:               *requestTimeout,
 	}
 }
 
