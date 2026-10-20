@@ -76,6 +76,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 		&mcp.ServerOptions{
 			Instructions: "This is the Neo4j official MCP server and can provide tool calling to interact with your Neo4j database," +
 				"by inferring the schema with tools like get-schema and executing arbitrary Cypher queries with read-cypher.",
+			Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}},
 		},
 	)
 
@@ -183,7 +184,9 @@ func (s *Neo4jMCPServer) toolsListMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		listResult, ok := res.(*mcp.ListToolsResult)
 		if !ok {
-			return res, err
+			// should be unreachable: the SDK constructs res from the "tools/list" method info, so it's always a *mcp.ListToolsResult here.
+			slog.Error("internal error: unexpected result type for tools/list", append(logger.AppendRequestInfo(ctx), "result_type", fmt.Sprintf("%T", res))...)
+			return nil, fmt.Errorf("internal error: unexpected result type %T for tools/list", res)
 		}
 
 		readOnly := mcpcontext.GetReadOnly(ctx)
@@ -230,11 +233,31 @@ func (s *Neo4jMCPServer) analyticsMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		callReq, ok := req.(*mcp.CallToolRequest)
 		if !ok {
-			return next(ctx, method, req)
+			// should be unreachable: the SDK constructs req from the "tools/call" method info, so it's always a *mcp.CallToolRequest here.
+			slog.Error("internal error: unexpected request type for tools/call", append(logger.AppendRequestInfo(ctx), "req_type", fmt.Sprintf("%T", req))...)
+			return nil, fmt.Errorf("internal error: unexpected request type %T for tools/call", req)
 		}
 
 		result, err := next(ctx, method, req)
-		s.handleToolCallComplete(callReq.Params.Name, callReq.Params.Arguments, result)
+
+		if s.anService == nil || !s.anService.IsEnabled() {
+			return result, err
+		}
+
+		toolResult, ok := result.(*mcp.CallToolResult)
+		if !ok {
+			return result, err
+		}
+
+		toolName := callReq.Params.Name
+
+		// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
+		s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
+
+		// Handle GDS events for cypher tools
+		if toolName == "read-cypher" || toolName == "write-cypher" {
+			s.emitGDSEventsIfNeeded(callReq.Params.Arguments)
+		}
 
 		return result, err
 	}
@@ -249,7 +272,9 @@ func (s *Neo4jMCPServer) toolsCallMiddleware(next mcp.MethodHandler) mcp.MethodH
 
 		callReq, ok := req.(*mcp.CallToolRequest)
 		if !ok {
-			return next(ctx, method, req)
+			// should be unreachable: the SDK constructs req from the "tools/call" method info, so it's always a *mcp.CallToolRequest here.
+			slog.Error("internal error: unexpected request type for tools/call", append(logger.AppendRequestInfo(ctx), "req_type", fmt.Sprintf("%T", req))...)
+			return nil, fmt.Errorf("internal error: unexpected request type %T for tools/call", req)
 		}
 
 		toolName := callReq.Params.Name
@@ -574,7 +599,10 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	// Create the StreamableHTTPServer - it serves on /mcp path by default
 	mcpServerHTTP := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return s.MCPServer },
-		&mcp.StreamableHTTPOptions{Stateless: true},
+		&mcp.StreamableHTTPOptions{
+			Stateless: true, 
+			JSONResponse: true,
+		},
 	)
 
 	allowedOrigins := parseAllowedOrigins(s.config.HTTPAllowedOrigins)
@@ -650,27 +678,6 @@ func (s *Neo4jMCPServer) StartHTTPServer() error {
 	case <-s.shutdownChan:
 		// Server was stopped via Stop() method
 		return nil
-	}
-}
-
-// handleToolCallComplete is called after every tool call completes
-func (s *Neo4jMCPServer) handleToolCallComplete(toolName string, rawArgs json.RawMessage, result mcp.Result) {
-	if s.anService == nil || !s.anService.IsEnabled() {
-		return
-	}
-
-	// Type assert result to *mcp.CallToolResult
-	toolResult, ok := result.(*mcp.CallToolResult)
-	if !ok {
-		return
-	}
-
-	// Emit tool event (connection info sent separately in CONNECTION_INITIALIZED event)
-	s.anService.EmitEvent(s.anService.NewToolEvent(toolName, !toolResult.IsError))
-
-	// Handle GDS events for cypher tools
-	if toolName == "read-cypher" || toolName == "write-cypher" {
-		s.emitGDSEventsIfNeeded(rawArgs)
 	}
 }
 

@@ -6,7 +6,9 @@
 package e2e
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"os/exec"
 	"testing"
 
@@ -44,11 +46,62 @@ func TestServerInitializationE2E(t *testing.T) {
 		assert.Equal(t, "neo4j-mcp", initializeResult.ServerInfo.Name)
 		assert.NotEmpty(t, initializeResult.ServerInfo.Version)
 
+		assert.Equal(t, "2026-07-28", initializeResult.ProtocolVersion,
+			"client should have negotiated via server/discover (SEP-2575), not the legacy initialize handshake")
+
 		// Verify capabilities
 		assert.NotNil(t, initializeResult.Capabilities)
 		assert.NotNil(t, initializeResult.Capabilities.Tools)
 
 		t.Log("Server initialized successfully with expected name and capabilities")
+	})
+
+	t.Run("successful initialization with legacy initialize handshake", func(t *testing.T) {
+		t.Parallel()
+
+		args := []string{
+			"--uri", cfg.URI,
+			"--username", cfg.Username,
+			"--password", cfg.Password,
+			"--database", cfg.Database,
+		}
+
+		cmd := exec.Command(server, args...)
+		stdin, err := cmd.StdinPipe()
+		require.NoError(t, err)
+		stdout, err := cmd.StdoutPipe()
+		require.NoError(t, err)
+		require.NoError(t, cmd.Start())
+		t.Cleanup(func() {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		})
+
+		// Send a literal "initialize" JSON-RPC request over stdio instead, the way a pre-2026-07-28 client would.
+		const legacyProtocolVersion = "2025-06-18"
+		request := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"` + legacyProtocolVersion + `","capabilities":{},"clientInfo":{"name":"legacy-test-client","version":"1.0.0"}}}` + "\n"
+		_, err = stdin.Write([]byte(request))
+		require.NoError(t, err, "failed to write raw initialize request")
+
+		line, err := bufio.NewReader(stdout).ReadString('\n')
+		require.NoError(t, err, "failed to read raw initialize response")
+
+		var response struct {
+			Result struct {
+				ProtocolVersion string `json:"protocolVersion"`
+				ServerInfo      struct {
+					Name string `json:"name"`
+				} `json:"serverInfo"`
+			} `json:"result"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(line), &response), "response was not valid JSON: %s", line)
+		require.Nil(t, response.Error, "initialize returned a JSON-RPC error: %+v", response.Error)
+
+		assert.Equal(t, legacyProtocolVersion, response.Result.ProtocolVersion, "server should echo back the legacy client's requested protocol version rather than the server/discover negotiated version")
+		assert.Equal(t, "neo4j-mcp", response.Result.ServerInfo.Name)
 	})
 
 	t.Run("initialization with read-only mode enabled", func(t *testing.T) {

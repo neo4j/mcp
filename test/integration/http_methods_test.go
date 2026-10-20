@@ -195,9 +195,10 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			client := httpmethods.NewRawHttpClient(tc.headers, tc.method, baseURL, tc.path, tc.username, tc.password)
+			client := httpmethods.NewRawHttpClient(tc.headers, baseURL, tc.path, tc.username, tc.password)
 
-			resp, respBody, err := client.Ping(context.Background())
+			resp, respBody, err := client.SendHttpRequest(context.Background(), tc.method, pingBody)
+
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)
@@ -263,7 +264,7 @@ func TestHTTPMode_URIHeader(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := httpmethods.NewRawHttpClient(tc.headers, http.MethodPost, baseURL, path, tc.username, tc.password)
+			client := httpmethods.NewRawHttpClient(tc.headers, baseURL, path, tc.username, tc.password)
 
 			resp, respBody, err := client.Ping(context.Background())
 			require.NoError(t, err)

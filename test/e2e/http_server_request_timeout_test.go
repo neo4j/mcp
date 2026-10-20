@@ -75,7 +75,7 @@ func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			client := httpmethods.NewRawHttpClient(headers, http.MethodPost, baseURL, "/db/neo4j/mcp", nil, nil)
+			client := httpmethods.NewRawHttpClient(headers, baseURL, "/db/neo4j/mcp", nil, nil)
 
 			resp, respBody, err := client.Initialize(ctx)
 			require.NoError(t, err)
