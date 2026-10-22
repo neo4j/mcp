@@ -22,7 +22,7 @@ func GetSchemaSpec() *mcp.Tool {
 			IdempotentHint:  true,
 			OpenWorldHint:   tools.BoolPtr(true),
 		},
-		// Set explicitly rather than left nil otherwise "properties" is omitted entirely 
+		// Set explicitly rather than left nil otherwise "properties" is omitted entirely
 		// which breaks OpenAI API compatibility (see issue #157).
 		InputSchema: &jsonschema.Schema{
 			Type:       "object",

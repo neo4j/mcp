@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -40,6 +41,9 @@ func ParseAllowedURIs(raw string) (AllowedURIs, error) {
 }
 
 func parseAllowedURI(entry string) (AllowedURI, error) {
+	if u, err := url.Parse(entry); err == nil && u.Scheme != "" && u.Host != "" {
+		return AllowedURI{}, fmt.Errorf("scheme %q is not supported, use %q instead", u.Scheme, u.Host)
+	}
 	if strings.ContainsAny(entry, "/@?#%") {
 		return AllowedURI{}, fmt.Errorf("expected host[:port] without scheme, path or userinfo")
 	}

@@ -68,7 +68,7 @@ func TestGetDriver(t *testing.T) {
 	driver, err := neo4j.NewDriver("bolt://localhost:7687", neo4j.NoAuth())
 	require.NoError(t, err)
 	defer func() { _ = driver.Close(context.Background()) }()
-	
+
 	ctxDriver, err := neo4j.NewDriver("bolt://localhost:7687", neo4j.NoAuth())
 	require.NoError(t, err)
 	defer func() { _ = ctxDriver.Close(context.Background()) }()

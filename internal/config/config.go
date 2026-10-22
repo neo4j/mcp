@@ -39,28 +39,28 @@ var AvailableTools = []string{"read-cypher", "write-cypher", "list-gds-procedure
 
 // Config holds the application configuration
 type Config struct {
-	URI                           string
-	Username                      string
-	Password                      string // #nosec G117
-	Database                      string
-	ReadOnly                      bool // If true, disables write tools
-	Tools                         []string
-	ToolsExplicitlySet            bool // True when Tools is set via NEO4J_MCP_TOOLS or the --tools CLI flag.
-	Telemetry                     bool // If false, disables telemetry
-	LogLevel                      string
-	LogFormat                     string
-	SchemaSampleSize              int32
-	TransportMode                 TransportMode // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort                      string        // HTTP server port (default: "443" with TLS, "80" without TLS)
-	HTTPHost                      string        // HTTP server host (default: "127.0.0.1")
-	HTTPAllowedOrigins            string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
-	HTTPAllowedURIs               AllowedURIs   // Neo4j hosts the X-Neo4j-MCP-URI header may target (required in HTTP mode)
-	HTTPTLSEnabled                bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
-	HTTPTLSCertFile               string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
-	HTTPTLSKeyFile                string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
-	AuthHeaderName                string        // HTTP header name to read auth credentials from (default: "Authorization")
-	AllowUnauthenticatedPing      bool          // If true, allows unauthenticated ping health checks in HTTP mode
-	RequestTimeout                time.Duration // Maximum duration for a single MCP request (default: 3m)
+	URI                      string
+	Username                 string
+	Password                 string // #nosec G117
+	Database                 string
+	ReadOnly                 bool // If true, disables write tools
+	Tools                    []string
+	ToolsExplicitlySet       bool // True when Tools is set via NEO4J_MCP_TOOLS or the --tools CLI flag.
+	Telemetry                bool // If false, disables telemetry
+	LogLevel                 string
+	LogFormat                string
+	SchemaSampleSize         int32
+	TransportMode            TransportMode // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort                 string        // HTTP server port (default: "443" with TLS, "80" without TLS)
+	HTTPHost                 string        // HTTP server host (default: "127.0.0.1")
+	HTTPAllowedOrigins       string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPAllowedURIs          AllowedURIs   // Neo4j hosts the X-Neo4j-MCP-URI header may target (required in HTTP mode)
+	HTTPTLSEnabled           bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
+	HTTPTLSCertFile          string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
+	HTTPTLSKeyFile           string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
+	AuthHeaderName           string        // HTTP header name to read auth credentials from (default: "Authorization")
+	AllowUnauthenticatedPing bool          // If true, allows unauthenticated ping health checks in HTTP mode
+	RequestTimeout           time.Duration // Maximum duration for a single MCP request (default: 3m)
 }
 
 // Validate validates the configuration and returns an error if invalid
