@@ -1042,9 +1042,10 @@ func TestLoadConfig_HTTPAllowedURIs(t *testing.T) {
 			want:         AllowedURIs{{host: "cli.example.com", port: "7473"}},
 		},
 		{
-			name:       "STDIO mode ignores NEO4J_MCP_HTTP_ALLOWED_URIS",
+			name:       "Malformed NEO4J_MCP_HTTP_ALLOWED_URIS should raise error regardless of transport mode (STDIO)",
 			transport:  "stdio",
 			allowedEnv: "bolt://db.example.com",
+			wantErr:    `invalid NEO4J_MCP_HTTP_ALLOWED_URIS: invalid entry "bolt://db.example.com"`,
 		},
 	}
 

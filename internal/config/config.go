@@ -284,11 +284,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 	}
 
-	if cfg.TransportMode == TransportModeHTTP {
-		cfg.HTTPAllowedURIs, err = ParseAllowedURIs(allowedURIs)
-		if err != nil {
-			return nil, fmt.Errorf("invalid NEO4J_MCP_HTTP_ALLOWED_URIS: %w", err)
-		}
+	cfg.HTTPAllowedURIs, err = ParseAllowedURIs(allowedURIs)
+	if err != nil {
+		return nil, fmt.Errorf("invalid NEO4J_MCP_HTTP_ALLOWED_URIS: %w", err)
 	}
 
 	// Set default HTTP port based on TLS configuration if not explicitly provided
