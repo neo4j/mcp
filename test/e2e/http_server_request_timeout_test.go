@@ -1,0 +1,209 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
+//go:build e2e
+
+package e2e
+
+import (
+	"context"
+	"encoding/base64"
+	"errors"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpserver "github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/mcp/test/httpmethods"
+
+	"github.com/stretchr/testify/require"
+)
+
+// TestHTTPRequestTimeoutHeaderValidation validate the timeout header validation.
+func TestHTTPRequestTimeoutHeaderValidation(t *testing.T) {
+	t.Parallel()
+
+	baseURL := startHTTPModeServer(t, "--request-timeout", "5s")
+
+	tests := []struct {
+		name     string
+		timeout  string
+		wantStatus int
+		wantBody string
+	}{
+		{
+			name:     "When X-Neo4j-MCP-Request-Timeout exceeds the server maximum, the request should be rejected",
+			timeout:  "10s",
+			wantStatus: http.StatusBadRequest,
+			wantBody: "exceeds server maximum",
+		},
+		{
+			name:     "When X-Neo4j-MCP-Request-Timeout is not a valid duration, the request should be rejected",
+			timeout:  "not-a-duration",
+			wantStatus: http.StatusBadRequest,
+			wantBody: "must be a valid duration",
+		},
+		{
+			name:     "When X-Neo4j-MCP-Request-Timeout is not positive, the request should be rejected",
+			timeout:  "0s",
+			wantStatus: http.StatusBadRequest,
+			wantBody: "must be a positive duration",
+		},
+		{
+			name:     "When X-Neo4j-MCP-Request-Timeout is negative, the request should be rejected",
+			timeout:  "-1s",
+			wantStatus: http.StatusBadRequest,
+			wantBody: "must be a positive duration",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := dbs.GetDriverConf()
+
+			headers := map[string]string{
+				"Authorization":         "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader:     cfg.URI,
+				mcpserver.TimeoutHeader: tc.timeout,
+				"Content-Type":          "application/json",
+				"Accept":                "application/json, text/event-stream",
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			client := httpmethods.NewRawHttpClient(headers, baseURL, "/db/neo4j/mcp", nil, nil)
+
+			resp, respBody, err := client.Initialize(ctx)
+			require.NoError(t, err)
+
+			respErr := errors.New(respBody)
+
+			require.Equal(t, tc.wantStatus, resp.StatusCode)
+			require.ErrorContains(t, respErr, tc.wantBody)
+		})
+	}
+}
+
+// TestHTTPRequestTimeoutInitialize verifies that an expired request timeout is
+// surfaced as a clear error during the non tool call such initialize
+func TestHTTPRequestTimeoutInitialize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		serverArgs []string
+		timeout    string
+		wantErr    string
+	}{
+		{
+			name:    "When the header timeout expires, initialize should fail with the timeout error",
+			timeout: "1ms",
+			wantErr: "request timed out after 1ms",
+		},
+		{
+			name:       "When the server maximum timeout expires, initialize should fail with the timeout error",
+			serverArgs: []string{"--request-timeout", "1ms"},
+			wantErr:    "request timed out after 1ms",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			baseURL := startHTTPModeServer(t, tc.serverArgs...)
+			cfg := dbs.GetDriverConf()
+
+			headers := map[string]string{
+				"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader: cfg.URI,
+			}
+			if tc.timeout != "" {
+				headers[mcpserver.TimeoutHeader] = tc.timeout
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+
+			_, err := newHTTPClient(t, ctx, baseURL+"/db/neo4j/mcp", headers)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// TestHTTPRequestTimeoutToolCall verifies that a tool call exceeding the request
+// timeout budget is cancelled and reported as a tool error, while a call within
+// budget succeeds.
+func TestHTTPRequestTimeoutToolCall(t *testing.T) {
+	t.Parallel()
+
+	baseURL := startHTTPModeServer(t)
+
+	tests := []struct {
+		name      string
+		timeout   string
+		query     string
+		wantError bool
+		wantMsg   string
+	}{
+		{
+			name:      "When the tool call exceeds the request timeout, a timeout tool error should be returned",
+			timeout:   "5s",
+			query:     "CALL apoc.util.sleep(6000) RETURN 1 AS n",
+			wantError: true,
+			wantMsg:   "request timed out after 5s",
+		},
+		{
+			name:      "When the tool call completes within the request timeout, it should succeed",
+			timeout:   "5s",
+			query:     "RETURN 1 AS n",
+			wantError: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := dbs.GetDriverConf()
+
+			headers := map[string]string{
+				"Authorization":         "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":"+cfg.Password)),
+				mcpserver.URIHeader:     cfg.URI,
+				mcpserver.TimeoutHeader: tc.timeout,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			session, err := newHTTPClient(t, ctx, baseURL+"/db/neo4j/mcp", headers)
+			require.NoError(t, err, "expected initialize to succeed within the %s budget", tc.timeout)
+			defer session.Close()
+
+			callToolResponse, err := session.CallTool(ctx, &mcp.CallToolParams{
+				Name: "read-cypher",
+				Arguments: map[string]any{
+					"query": tc.query,
+				},
+			})
+			require.NoError(t, err)
+
+			if tc.wantError {
+				require.True(t, callToolResponse.IsError, "expected a tool error, got: %+v", callToolResponse)
+
+				textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
+				require.True(t, ok)
+				require.Contains(t, textContent.Text, tc.wantMsg)
+				return
+			}
+
+			require.False(t, callToolResponse.IsError,
+				"expected tool call to succeed, got: %+v", callToolResponse)
+		})
+	}
+}

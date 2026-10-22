@@ -8,11 +8,9 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +18,7 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
+	"github.com/neo4j/mcp/test/httpmethods"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -112,7 +111,8 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	noErr := func(t *testing.T, err error) { require.NoError(t, err) }
 
-	const methodNotAllowedMsg = "Method Not Allowed: only POST is supported on /mcp"
+	dbPath := "/db/neo4j/mcp"
+	const methodNotAllowedMsg = "Method Not Allowed: only POST and OPTIONS is supported on /db/{databaseName}/mcp"
 	const pingBody = `{"jsonrpc":"2.0","method":"ping","id":1}`
 
 	tests := []struct {
@@ -120,67 +120,72 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 		method       string
 		path         string
 		body         string
-		setupReq     func(*http.Request)
+		headers      map[string]string
+		username     *string
+		password     *string
 		wantStatus   int
 		wantBody     string
 		wantAllowHdr string
 		assertErr    func(t *testing.T, err error)
 	}{
 		{
-			name:   "POST /mcp with valid credentials returns 200",
+			name:   "POST /db/{db}/mcp with valid credentials returns 200",
 			method: http.MethodPost,
-			path:   "/mcp",
+			path:   dbPath,
 			body:   pingBody,
-			setupReq: func(req *http.Request) {
-				req.SetBasicAuth(testCFG.Username, testCFG.Password)
-				req.Header.Set("Content-Type", "application/json")
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				"Accept":         "application/json, text/event-stream",
+				server.URIHeader: testCFG.URI,
 			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
 			wantStatus: http.StatusOK,
 			assertErr:  noErr,
 		},
 		{
 			// CORS middleware intercepts OPTIONS before auth runs (AllowedOrigins: "*"
 			// is set on the test server). Preflight returns 204 No Content per spec.
-			name:   "OPTIONS /mcp returns 204 CORS preflight",
+			name:   "OPTIONS /db/{db}/mcp returns 204 CORS preflight",
 			method: http.MethodOptions,
-			path:   "/mcp",
-			setupReq: func(req *http.Request) {
-				req.Header.Set("Origin", "http://example.com")
+			path:   dbPath,
+			headers: map[string]string{
+				"Origin": "http://example.com",
 			},
 			wantStatus: http.StatusNoContent,
 			assertErr:  noErr,
 		},
 		{
-			name:         "GET /mcp is rejected",
+			name:         "GET /db/{db}/mcp is rejected",
 			method:       http.MethodGet,
-			path:         "/mcp",
+			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "PATCH /mcp is rejected",
+			name:         "PATCH /db/{db}/mcp is rejected",
 			method:       http.MethodPatch,
-			path:         "/mcp",
+			path:         dbPath,
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "GET /mcp/ (trailing slash) is rejected",
+			name:         "GET /db/{db}/mcp/ (trailing slash) is rejected",
 			method:       http.MethodGet,
-			path:         "/mcp/",
+			path:         dbPath + "/",
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
 			assertErr:    noErr,
 		},
 		{
-			name:         "PATCH /mcp/ (trailing slash) is rejected",
+			name:         "PATCH /db/{db}/mcp/ (trailing slash) is rejected",
 			method:       http.MethodPatch,
-			path:         "/mcp/",
+			path:         dbPath + "/",
 			wantStatus:   http.StatusMethodNotAllowed,
 			wantBody:     methodNotAllowedMsg,
 			wantAllowHdr: "POST, OPTIONS",
@@ -190,36 +195,83 @@ func TestHTTPMethodRestrictions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var bodyReader io.Reader
-			if tc.body != "" {
-				bodyReader = strings.NewReader(tc.body)
-			}
+			client := httpmethods.NewRawHttpClient(tc.headers, baseURL, tc.path, tc.username, tc.password)
 
-			req, err := http.NewRequestWithContext(context.Background(), tc.method, baseURL+tc.path, bodyReader)
+			resp, respBody, err := client.SendHttpRequest(context.Background(), tc.method, pingBody)
+
 			require.NoError(t, err)
-
-			if tc.setupReq != nil {
-				tc.setupReq(req)
-			}
-
-			resp, err := http.DefaultClient.Do(req)
-			tc.assertErr(t, err)
-			if err != nil {
-				return
-			}
-			defer resp.Body.Close()
 
 			assert.Equal(t, tc.wantStatus, resp.StatusCode)
 
 			if tc.wantBody != "" {
-				body, err := io.ReadAll(resp.Body)
-				require.NoError(t, err)
-				assert.Equal(t, tc.wantBody, strings.TrimSpace(string(body)))
+				assert.Equal(t, tc.wantBody, respBody)
 			}
 
 			if tc.wantAllowHdr != "" {
 				assert.Equal(t, tc.wantAllowHdr, resp.Header.Get("Allow"))
 			}
+		})
+	}
+}
+
+func TestHTTPMode_URIHeader(t *testing.T) {
+	t.Parallel()
+
+	_, baseURL := startHTTPServer(t)
+	testCFG := dbs.GetDriverConf()
+	path := "/db/neo4j/mcp"
+
+	tests := []struct {
+		name       string
+		headers    map[string]string
+		username   *string
+		password   *string
+		wantStatus int
+	}{
+		{
+			name: "valid X-Neo4j-MCP-URI returns 200",
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				"Accept":         "application/json, text/event-stream",
+				server.URIHeader: testCFG.URI,
+			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "missing X-Neo4j-MCP-URI returns 400",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "invalid URI scheme in X-Neo4j-MCP-URI returns 400",
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				server.URIHeader: "http://localhost:7687",
+			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := httpmethods.NewRawHttpClient(tc.headers, baseURL, path, tc.username, tc.password)
+
+			resp, respBody, err := client.Ping(context.Background())
+			require.NoError(t, err)
+
+			t.Logf("response status=%d body=%s", resp.StatusCode, respBody)
+
+			assert.Equal(t, tc.wantStatus, resp.StatusCode)
 		})
 	}
 }
