@@ -14,14 +14,14 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "stable"
       - run: go install go.uber.org/mock/mockgen@latest
 
       - name: Get the latest version
         id: latest
-        uses: miniscruff/changie-action@11bcad388e7973948cbcecb10863baf024d5f607 # v3
+        uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3
         with:
           version: latest
           args: latest
@@ -32,9 +32,11 @@ jobs:
           echo RELEASE_NOTES_PATH=.changes/${{ steps.latest.outputs.output }}.md >> $GITHUB_ENV
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: latest
+          # Pinned to v2.18.0: v2.18.1 breaks tag parsing (goreleaser/goreleaser#7122).
+          # TODO: revert to "latest" once a stable release with the fix (v2.19.0+) is out.
+          version: v2.18.0
           args: --clean --release-notes=${{ env.RELEASE_NOTES_PATH }} --skip=validate --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.TEAM_GRAPHQL_PERSONAL_ACCESS_TOKEN }}
