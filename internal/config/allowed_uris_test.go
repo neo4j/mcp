@@ -4,6 +4,8 @@
 package config
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,6 +20,7 @@ func TestParseAllowedURIs(t *testing.T) {
 		{raw: "db.example.com", want: AllowedURIs{{host: "db.example.com", port: "7687"}}},
 		{raw: "db.example.com:7687", want: AllowedURIs{{host: "db.example.com", port: "7687"}}},
 		{raw: "DB.Example.com:7473", want: AllowedURIs{{host: "db.example.com", port: "7473"}}},
+		{raw: "db_example.com", want: AllowedURIs{{host: "db_example.com", port: "7687"}}},
 		{raw: "10.0.0.5", want: AllowedURIs{{host: "10.0.0.5", port: "7687"}}},
 		{raw: "10.0.0.5:7687", want: AllowedURIs{{host: "10.0.0.5", port: "7687"}}},
 		{raw: "[fd00::1]:7687", want: AllowedURIs{{host: "fd00::1", port: "7687"}}},
@@ -38,41 +41,149 @@ func TestParseAllowedURIs(t *testing.T) {
 }
 
 func TestParseAllowedURIs_Invalid(t *testing.T) {
-	for _, raw := range []string{
-		"bolt://db.example.com",
-		"db.example.com/path",
-		"user@db.example.com",
-		"10.0.0.0/8",
-		"*",
-		"*.com",
-		"db.*.com",
-		"d*.example.com",
-		"db.example.com:0",
-		"db.example.com:abc",
-		"db.example.com:",
-		"-db.example.com",
-		"[fd00::1",
-	} {
-		t.Run(raw, func(t *testing.T) {
-			_, err := ParseAllowedURIs(raw)
-			assert.ErrorContains(t, err, "invalid entry")
-		})
-	}
-}
+	const (
+		formatErr   = "expected host[:port] without scheme, path or userinfo"
+		portErr     = "port must be a number between 1 and 65535"
+		hostErr     = "host must be a hostname, an IP address or a leading wildcard"
+		wildcardErr = `wildcard must be a leading "*." followed by at least two labels`
+	)
+	longLabel := strings.Repeat("a", 64) + ".example.com"
 
-func TestParseAllowedURIs_InvalidWithSuggestion(t *testing.T) {
 	tests := []struct {
-		raw  string
-		want string
+		raw    string
+		entry  string
+		reason string
 	}{
-		{raw: "bolt://db.example.com", want: `scheme "bolt" is not supported, use "db.example.com" instead`},
-		{raw: "neo4j+s://user@abc.databases.neo4j.io:7687/", want: `scheme "neo4j+s" is not supported, use "abc.databases.neo4j.io:7687" instead`},
-		{raw: "bolt://[fd00::1]:7687", want: `scheme "bolt" is not supported, use "[fd00::1]:7687" instead`},
+		{
+			raw:    "bolt://db.example.com",
+			entry:  "bolt://db.example.com",
+			reason: `scheme "bolt" is not supported, use "db.example.com" instead`,
+		},
+		{
+			raw:    "bolt:db.example.com",
+			entry:  "bolt:db.example.com",
+			reason: portErr,
+		},
+		{
+			raw:    "db.example.com/path",
+			entry:  "db.example.com/path",
+			reason: formatErr,
+		},
+		{
+			raw:    "user@db.example.com",
+			entry:  "user@db.example.com",
+			reason: formatErr,
+		},
+		{
+			raw:    "10.0.0.0/8",
+			entry:  "10.0.0.0/8",
+			reason: formatErr,
+		},
+		{
+			raw:    "db.example.com?x=1",
+			entry:  "db.example.com?x=1",
+			reason: formatErr,
+		},
+		{
+			raw:    "db.example.com#frag",
+			entry:  "db.example.com#frag",
+			reason: formatErr,
+		},
+		{
+			raw:    "fe80::1%eth0",
+			entry:  "fe80::1%eth0",
+			reason: formatErr,
+		},
+		{
+			raw:    "db.example.com:0",
+			entry:  "db.example.com:0",
+			reason: portErr,
+		},
+		{
+			raw:    "db.example.com:65536",
+			entry:  "db.example.com:65536",
+			reason: portErr,
+		},
+		{
+			raw:    "db.example.com:abc",
+			entry:  "db.example.com:abc",
+			reason: portErr,
+		},
+		{
+			raw:    "db.example.com:",
+			entry:  "db.example.com:",
+			reason: portErr,
+		},
+		{
+			raw:    ":7687",
+			entry:  ":7687",
+			reason: hostErr,
+		},
+		{
+			raw:    "db.example.com:7687:7687",
+			entry:  "db.example.com:7687:7687",
+			reason: hostErr,
+		},
+		{
+			raw:    "-db.example.com",
+			entry:  "-db.example.com",
+			reason: hostErr,
+		},
+		{
+			raw:    "db-.example.com",
+			entry:  "db-.example.com",
+			reason: hostErr,
+		},
+		{
+			raw:    "db.example.com.",
+			entry:  "db.example.com.",
+			reason: hostErr,
+		},
+		{
+			raw:    longLabel,
+			entry:  longLabel,
+			reason: hostErr,
+		},
+		{
+			raw:    "[fd00::1",
+			entry:  "[fd00::1",
+			reason: hostErr,
+		},
+		{
+			raw:    "*",
+			entry:  "*",
+			reason: hostErr,
+		},
+		{
+			raw:    "db.*.com",
+			entry:  "db.*.com",
+			reason: hostErr,
+		},
+		{
+			raw:    "d*.example.com",
+			entry:  "d*.example.com",
+			reason: hostErr,
+		},
+		{
+			raw:    "*.com",
+			entry:  "*.com",
+			reason: wildcardErr,
+		},
+		{
+			raw:    "*.*.example.com",
+			entry:  "*.*.example.com",
+			reason: wildcardErr,
+		},
+		{
+			raw:    "a.com, b.com, c.com:abc",
+			entry:  "c.com:abc",
+			reason: portErr,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.raw, func(t *testing.T) {
 			_, err := ParseAllowedURIs(tt.raw)
-			assert.ErrorContains(t, err, tt.want)
+			assert.EqualError(t, err, fmt.Sprintf("invalid entry %q: %s", tt.entry, tt.reason))
 		})
 	}
 }
@@ -85,6 +196,13 @@ func TestAllowedURIs_Allows(t *testing.T) {
 		port    string
 		want    bool
 	}{
+		{
+			name:    "single-label host",
+			allowed: "localhost",
+			host:    "localhost",
+			port:    "",
+			want:    true,
+		},
 		{
 			name:    "exact host and port",
 			allowed: "db.example.com",
