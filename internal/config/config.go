@@ -54,6 +54,7 @@ type Config struct {
 	HTTPPort                      string        // HTTP server port (default: "443" with TLS, "80" without TLS)
 	HTTPHost                      string        // HTTP server host (default: "127.0.0.1")
 	HTTPAllowedOrigins            string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPAllowedURIs               AllowedURIs   // Neo4j hosts the X-Neo4j-MCP-URI header may target (required in HTTP mode)
 	HTTPTLSEnabled                bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
 	HTTPTLSCertFile               string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
 	HTTPTLSKeyFile                string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
@@ -107,6 +108,9 @@ func (c *Config) Validate() error {
 		if c.Database != "" {
 			return fmt.Errorf("NEO4J_MCP_DATABASE environment variable or --database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
 		}
+		if len(c.HTTPAllowedURIs) == 0 {
+			return fmt.Errorf("NEO4J_MCP_HTTP_ALLOWED_URIS environment variable or --http-allowed-uris flag is required for HTTP transport mode; set it to a comma-separated list of host[:port] entries the server may connect to (e.g., *.databases.neo4j.io)")
+		}
 	}
 
 	// For HTTP mode with TLS enabled, require certificate and key files
@@ -154,6 +158,7 @@ type CLIOverrides struct {
 	Port                     string
 	Host                     string
 	AllowedOrigins           string
+	AllowedURIs              string
 	TLSEnabled               string
 	TLSCertFile              string
 	TLSKeyFile               string
@@ -180,6 +185,8 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_MCP_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
 		logFormat = "text"
 	}
+
+	allowedURIs := GetEnv("NEO4J_MCP_HTTP_ALLOWED_URIS")
 
 	cfg := &Config{
 		URI:                      GetEnv("NEO4J_MCP_URI"),
@@ -250,6 +257,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		if cliOverrides.AllowedOrigins != "" {
 			cfg.HTTPAllowedOrigins = cliOverrides.AllowedOrigins
 		}
+		if cliOverrides.AllowedURIs != "" {
+			allowedURIs = cliOverrides.AllowedURIs
+		}
 		if cliOverrides.TLSEnabled != "" {
 			cfg.HTTPTLSEnabled = ParseBool(cliOverrides.TLSEnabled, false)
 		}
@@ -271,6 +281,13 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 				return nil, fmt.Errorf("invalid --request-timeout: %w", err)
 			}
 			cfg.RequestTimeout = requestTimeout
+		}
+	}
+
+	if cfg.TransportMode == TransportModeHTTP {
+		cfg.HTTPAllowedURIs, err = ParseAllowedURIs(allowedURIs)
+		if err != nil {
+			return nil, fmt.Errorf("invalid NEO4J_MCP_HTTP_ALLOWED_URIS: %w", err)
 		}
 	}
 

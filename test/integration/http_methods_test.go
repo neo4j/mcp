@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -38,6 +39,11 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close()
 
+	boltURI, err := url.Parse(testCFG.URI)
+	require.NoError(t, err)
+	allowedURIs, err := config.ParseAllowedURIs(boltURI.Host)
+	require.NoError(t, err)
+
 	cfg := &config.Config{
 		URI:                testCFG.URI,
 		Database:           testCFG.Database,
@@ -45,6 +51,7 @@ func startHTTPServer(t *testing.T) (*server.Neo4jMCPServer, string) {
 		HTTPHost:           "127.0.0.1",
 		HTTPPort:           strconv.Itoa(port),
 		HTTPAllowedOrigins: "*",
+		HTTPAllowedURIs:    allowedURIs,
 	}
 
 	ctrl := gomock.NewController(t)
@@ -243,6 +250,16 @@ func TestHTTPMode_URIHeader(t *testing.T) {
 			name: "missing X-Neo4j-MCP-URI returns 400",
 			headers: map[string]string{
 				"Content-Type": "application/json",
+			},
+			username:   &testCFG.Username,
+			password:   &testCFG.Password,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "X-Neo4j-MCP-URI not in allowed URIs returns 400",
+			headers: map[string]string{
+				"Content-Type":   "application/json",
+				server.URIHeader: "bolt://not-allowed.example.com:7687",
 			},
 			username:   &testCFG.Username,
 			password:   &testCFG.Password,

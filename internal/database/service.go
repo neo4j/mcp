@@ -107,6 +107,14 @@ func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
 	return nil
 }
 
+// callerError replaces connectivity errors with ErrConnectionFailed in HTTP mode, so network details are only logged.
+func (s *Neo4jService) callerError(err error) error {
+	if s.transportMode == config.TransportModeHTTP && IsConnectivityError(err) {
+		return ErrConnectionFailed
+	}
+	return err
+}
+
 // ExecuteReadQuery executes a read-only Cypher query and returns raw records
 func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, params map[string]any) ([]*neo4j.Record, error) {
 	driver, err := s.getDriver(ctx)
@@ -124,7 +132,7 @@ func (s *Neo4jService) ExecuteReadQuery(ctx context.Context, cypher string, para
 		wrappedErr := fmt.Errorf("failed to execute read query: %w", err)
 		slog.Error("Error in ExecuteReadQuery", ErrorLogAttrs(wrappedErr)...)
 
-		return nil, wrappedErr
+		return nil, fmt.Errorf("failed to execute read query: %w", s.callerError(err))
 	}
 
 	return res.Records, nil
@@ -146,7 +154,7 @@ func (s *Neo4jService) ExecuteWriteQuery(ctx context.Context, cypher string, par
 	if err != nil {
 		wrappedErr := fmt.Errorf("failed to execute write query: %w", err)
 		slog.Error("Error in ExecuteWriteQuery", ErrorLogAttrs(wrappedErr)...)
-		return nil, wrappedErr
+		return nil, fmt.Errorf("failed to execute write query: %w", s.callerError(err))
 	}
 
 	return res.Records, nil
@@ -173,7 +181,7 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 	if err != nil {
 		wrappedErr := fmt.Errorf("error during GetQueryType: %w", err)
 		slog.Error("Error during GetQueryType", ErrorLogAttrs(wrappedErr)...)
-		return neo4j.QueryTypeUnknown, wrappedErr
+		return neo4j.QueryTypeUnknown, fmt.Errorf("error during GetQueryType: %w", s.callerError(err))
 	}
 
 	if res.Summary == nil {

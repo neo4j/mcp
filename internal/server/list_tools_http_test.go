@@ -51,12 +51,13 @@ func TestNeo4jMCPServerHTTPMode(t *testing.T) {
 
 	// Base configuration for HTTP mode
 	cfg := &config.Config{
-		URI:           "bolt://test-host:7687",
-		Database:      "neo4j",
-		TransportMode: config.TransportModeHTTP,
-		Tools:         config.AvailableTools,
-		HTTPHost:      "127.0.0.1",
-		HTTPPort:      strconv.Itoa(port),
+		URI:             "bolt://test-host:7687",
+		Database:        "neo4j",
+		TransportMode:   config.TransportModeHTTP,
+		Tools:           config.AvailableTools,
+		HTTPHost:        "127.0.0.1",
+		HTTPPort:        strconv.Itoa(port),
+		HTTPAllowedURIs: testAllowedURIs(t),
 	}
 	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
@@ -236,12 +237,13 @@ func TestNeo4jMCPServerHTTPModeGDSGating(t *testing.T) {
 	}
 
 	baseCfg := config.Config{
-		URI:           "bolt://test-host:7687",
-		Database:      "neo4j",
-		TransportMode: config.TransportModeHTTP,
-		Tools:         config.AvailableTools,
-		HTTPHost:      "127.0.0.1",
-		HTTPPort:      strconv.Itoa(port),
+		URI:             "bolt://test-host:7687",
+		Database:        "neo4j",
+		TransportMode:   config.TransportModeHTTP,
+		Tools:           config.AvailableTools,
+		HTTPHost:        "127.0.0.1",
+		HTTPPort:        strconv.Itoa(port),
+		HTTPAllowedURIs: testAllowedURIs(t),
 	}
 	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", baseCfg.HTTPHost, baseCfg.HTTPPort)
 
@@ -438,12 +440,13 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 	}
 
 	cfg := &config.Config{
-		URI:           "bolt://test-host:7687",
-		Database:      "neo4j",
-		TransportMode: config.TransportModeHTTP,
-		Tools:         config.AvailableTools,
-		HTTPHost:      "127.0.0.1",
-		HTTPPort:      strconv.Itoa(port),
+		URI:             "bolt://test-host:7687",
+		Database:        "neo4j",
+		TransportMode:   config.TransportModeHTTP,
+		Tools:           config.AvailableTools,
+		HTTPHost:        "127.0.0.1",
+		HTTPPort:        strconv.Itoa(port),
+		HTTPAllowedURIs: testAllowedURIs(t),
 	}
 	uri := fmt.Sprintf("http://%s:%s/db/neo4j/mcp", cfg.HTTPHost, cfg.HTTPPort)
 
@@ -610,6 +613,13 @@ func assertNoCloseOrStopError(t *testing.T, s *server.Neo4jMCPServer, errChan ch
 	default:
 		// No error, which is expected
 	}
+}
+
+func testAllowedURIs(t *testing.T) config.AllowedURIs {
+	t.Helper()
+	allowed, err := config.ParseAllowedURIs("test-host,instance-a,instance-b")
+	require.NoError(t, err)
+	return allowed
 }
 
 // defaultHeaders returns the base request headers used by most test clients.

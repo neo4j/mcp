@@ -34,6 +34,7 @@ Options:
   --http-port <PORT>                  HTTP server port (overrides NEO4J_MCP_HTTP_PORT)
   --http-host <HOST>                  HTTP server host (overrides NEO4J_MCP_HTTP_HOST)
   --http-allowed-origins <ORIGINS>    Comma-separated list of allowed CORS origins (overrides NEO4J_MCP_HTTP_ALLOWED_ORIGINS)
+  --http-allowed-uris <URIS>          Comma-separated list of host[:port] entries the X-Neo4j-MCP-URI header may target (overrides NEO4J_MCP_HTTP_ALLOWED_URIS)
   --http-tls-enabled <BOOLEAN>        Enable TLS/HTTPS for HTTP server: true or false (overrides NEO4J_MCP_HTTP_TLS_ENABLED)
   --http-tls-cert-file <PATH>         Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE)
   --http-tls-key-file <PATH>          Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE)
@@ -58,6 +59,7 @@ Optional Environment Variables:
   NEO4J_MCP_HTTP_PORT HTTP server port (default: 443 with TLS, 80 without TLS)
   NEO4J_MCP_HTTP_HOST HTTP server host (default: 127.0.0.1)
   NEO4J_MCP_HTTP_ALLOWED_ORIGINS Comma-separated list of allowed CORS origins (optional)
+  NEO4J_MCP_HTTP_ALLOWED_URIS Comma-separated list of host[:port] entries the X-Neo4j-MCP-URI header may target, e.g. *.databases.neo4j.io (required in HTTP mode)
   NEO4J_MCP_HTTP_TLS_ENABLED Enable TLS/HTTPS for HTTP server (default: false)
   NEO4J_MCP_HTTP_TLS_CERT_FILE Path to TLS certificate file (required when TLS is enabled)
   NEO4J_MCP_HTTP_TLS_KEY_FILE Path to TLS private key file (required when TLS is enabled)
@@ -89,6 +91,7 @@ type Args struct {
 	HTTPPort                     string
 	HTTPHost                     string
 	HTTPAllowedOrigins           string
+	HTTPAllowedURIs              string
 	HTTPTLSEnabled               string
 	HTTPTLSCertFile              string
 	HTTPTLSKeyFile               string
@@ -112,6 +115,7 @@ var argsSlice = []string{
 	"--http-port",
 	"--http-host",
 	"--http-allowed-origins",
+	"--http-allowed-uris",
 	"--http-tls-enabled",
 	"--http-tls-cert-file",
 	"--http-tls-key-file",
@@ -142,6 +146,7 @@ func ParseConfigFlags() *Args {
 	httpPort := flag.String("http-port", "", "HTTP server port (overrides NEO4J_MCP_HTTP_PORT env var)")
 	httpHost := flag.String("http-host", "", "HTTP server host (overrides NEO4J_MCP_HTTP_HOST env var)")
 	httpAllowedOrigins := flag.String("http-allowed-origins", "", "Comma-separated list of allowed CORS origins (overrides NEO4J_MCP_HTTP_ALLOWED_ORIGINS env var)")
+	httpAllowedURIs := flag.String("http-allowed-uris", "", "Comma-separated list of host[:port] entries the X-Neo4j-MCP-URI header may target (overrides NEO4J_MCP_HTTP_ALLOWED_URIS env var)")
 	httpTLSEnabled := flag.String("http-tls-enabled", "", "Enable TLS/HTTPS for HTTP server: true or false (overrides NEO4J_MCP_HTTP_TLS_ENABLED env var)")
 	httpTLSCertFile := flag.String("http-tls-cert-file", "", "Path to TLS certificate file (overrides NEO4J_MCP_HTTP_TLS_CERT_FILE env var)")
 	httpTLSKeyFile := flag.String("http-tls-key-file", "", "Path to TLS private key file (overrides NEO4J_MCP_HTTP_TLS_KEY_FILE env var)")
@@ -163,6 +168,7 @@ func ParseConfigFlags() *Args {
 		HTTPPort:                     *httpPort,
 		HTTPHost:                     *httpHost,
 		HTTPAllowedOrigins:           *httpAllowedOrigins,
+		HTTPAllowedURIs:              *httpAllowedURIs,
 		HTTPTLSEnabled:               *httpTLSEnabled,
 		HTTPTLSCertFile:              *httpTLSCertFile,
 		HTTPTLSKeyFile:               *httpTLSKeyFile,

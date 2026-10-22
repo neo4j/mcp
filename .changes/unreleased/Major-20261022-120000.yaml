@@ -1,0 +1,9 @@
+kind: Major
+body: |
+  HTTP mode now requires `NEO4J_MCP_HTTP_ALLOWED_URIS` (or `--http-allowed-uris`), a comma-separated list of `host[:port]` entries that the `X-Neo4j-MCP-URI` header may target. The server fails to start in HTTP mode when it is unset.
+  - Entries are scheme-agnostic and the port defaults to 7687, e.g. `db.example.com`, `db.example.com:7473`, `10.0.0.5`, `[fd00::1]:7687`.
+  - A leading wildcard matches any subdomain depth but not the apex, e.g. `*.databases.neo4j.io`.
+  - Matching is case-insensitive. A header URI without a port is treated as port 7687.
+  - Requests whose URI is not allowed are rejected with `400 Bad Request` before any connection attempt.
+  - In HTTP mode, connection failures to Neo4j now return a generic `unable to connect to the Neo4j instance` error; the driver error is only logged.
+time: 2026-10-22T12:00:00+01:00

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -38,6 +39,9 @@ func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 
+	boltURI, err := url.Parse(dbs.GetDriverConf().URI)
+	require.NoError(t, err, "could not parse the test database URI")
+
 	// In HTTP mode the config validation rejects NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, and
 	// NEO4J_MCP_DATABASE — the URI, credentials, and database are supplied per-request via the
 	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
@@ -47,6 +51,7 @@ func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 		"--http-host", "127.0.0.1",
 		"--http-port", fmt.Sprintf("%d", port),
 		"--telemetry", "false",
+		"--http-allowed-uris", boltURI.Host,
 	}, extraArgs...)
 	cmd := exec.Command(server, args...) // #nosec G204 -- server is a binary path built by the test harness, not user input
 	cmd.Env = stripEnv(os.Environ(), "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "NEO4J_DATABASE", "NEO4J_MCP_URI", "NEO4J_MCP_USERNAME", "NEO4J_MCP_PASSWORD", "NEO4J_MCP_DATABASE")

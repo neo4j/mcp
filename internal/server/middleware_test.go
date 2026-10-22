@@ -21,6 +21,7 @@ import (
 	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -869,6 +870,22 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	}
 }
 
+func TestNeo4jDriverMiddleware_URINotAllowed(t *testing.T) {
+	allowed, err := config.ParseAllowedURIs("db.example.com")
+	require.NoError(t, err)
+	registry := &stubDriverRegistry{}
+	handler := neo4jDriverMiddleware(&HeaderURIResolver{allowed: allowed}, registry)(mockHandler())
+	req := httptest.NewRequest(http.MethodPost, "/db/neo4j/mcp", nil)
+	req.Header.Set(URIHeader, "bolt://10.0.0.5:22")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "Bad Request: the Neo4j URI is not allowed by this MCP server. If the URI is correct, contact the MCP server administrator.\n", rec.Body.String())
+	assert.False(t, registry.called, "no driver should be created for a URI that is not allowed")
+}
+
 func TestReadOnlyMiddleware(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -1217,6 +1234,10 @@ func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.ur
 type stubDriverRegistry struct {
 	driver neo4j.Driver
 	err    error
+	called bool
 }
 
-func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) { return s.driver, s.err }
+func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) {
+	s.called = true
+	return s.driver, s.err
+}

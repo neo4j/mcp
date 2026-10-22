@@ -45,6 +45,7 @@ func main() {
 		Port:                     cliArgs.HTTPPort,
 		Host:                     cliArgs.HTTPHost,
 		AllowedOrigins:           cliArgs.HTTPAllowedOrigins,
+		AllowedURIs:              cliArgs.HTTPAllowedURIs,
 		TLSEnabled:               cliArgs.HTTPTLSEnabled,
 		TLSCertFile:              cliArgs.HTTPTLSCertFile,
 		TLSKeyFile:               cliArgs.HTTPTLSKeyFile,
