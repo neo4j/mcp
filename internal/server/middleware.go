@@ -112,9 +112,12 @@ func observabilityMiddleware() func(http.Handler) http.Handler {
 func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistry) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if raw := r.Header.Get(URIHeader); raw != "" {
+				r = r.WithContext(mcpcontext.WithNeo4jTarget(r.Context(), logger.SafeBoltTarget(raw)))
+			}
+
 			uri, err := resolver.Resolve(r)
 			if errors.Is(err, errURINotAllowed) {
-				r = r.WithContext(mcpcontext.WithNeo4jTarget(r.Context(), logger.SafeBoltTarget(r.Header.Get(URIHeader))))
 				rejectRequest(w, r, http.StatusBadRequest, "uri_not_allowed", "Bad Request: the Neo4j URI is not allowed by this MCP server. If the URI is correct, contact the MCP server administrator.")
 				return
 			}
@@ -143,7 +146,6 @@ func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistr
 			}()
 
 			ctx := mcpcontext.WithDriver(r.Context(), driver)
-			ctx = mcpcontext.WithNeo4jTarget(ctx, targetInfo.Target)
 			if targetInfo.DBID != "" {
 				ctx = mcpcontext.WithDBID(ctx, targetInfo.DBID)
 			}
