@@ -20,6 +20,7 @@ func TestParseAllowedURIs(t *testing.T) {
 		{raw: "db.example.com", want: AllowedURIs{{host: "db.example.com", port: "7687"}}},
 		{raw: "db.example.com:7687", want: AllowedURIs{{host: "db.example.com", port: "7687"}}},
 		{raw: "DB.Example.com:7473", want: AllowedURIs{{host: "db.example.com", port: "7473"}}},
+		{raw: "db.example.com:07687", want: AllowedURIs{{host: "db.example.com", port: "7687"}}},
 		{raw: "db_example.com", want: AllowedURIs{{host: "db_example.com", port: "7687"}}},
 		{raw: "10.0.0.5", want: AllowedURIs{{host: "10.0.0.5", port: "7687"}}},
 		{raw: "10.0.0.5:7687", want: AllowedURIs{{host: "10.0.0.5", port: "7687"}}},
