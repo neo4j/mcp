@@ -16,10 +16,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics_mocks "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
-	"github.com/neo4j/mcp/internal/database"
 	db_mocks "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/mcpcontext"
-	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -843,25 +841,29 @@ func TestDBNameMiddleware(t *testing.T) {
 
 func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 	tests := []struct {
-		name     string
-		resolver URIResolver
-		registry database.DriverRegistry
+		name          string
+		resolver      URIResolver
+		setupRegistry func(registry *db_mocks.MockDriverRegistry)
 	}{
 		{
-			name:     "resolver error returns 400",
-			resolver: &stubURIResolver{err: fmt.Errorf("missing required header %s", URIHeader)},
-			registry: &stubDriverRegistry{},
+			name:          "resolver error returns 400",
+			resolver:      &stubURIResolver{err: fmt.Errorf("missing required header %s", URIHeader)},
+			setupRegistry: func(_ *db_mocks.MockDriverRegistry) {},
 		},
 		{
 			name:     "registry error returns 400",
 			resolver: &stubURIResolver{uri: "bolt://localhost:7687"},
-			registry: &stubDriverRegistry{err: errors.New("failed to create Neo4j driver")},
+			setupRegistry: func(registry *db_mocks.MockDriverRegistry) {
+				registry.EXPECT().GetDriver("bolt://localhost:7687").Return(nil, errors.New("failed to create Neo4j driver"))
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := neo4jDriverMiddleware(tt.resolver, tt.registry)(mockHandler())
+			registry := db_mocks.NewMockDriverRegistry(gomock.NewController(t))
+			tt.setupRegistry(registry)
+			handler := neo4jDriverMiddleware(tt.resolver, registry)(mockHandler())
 			req := httptest.NewRequest(http.MethodPost, "/db/neo4j/mcp", nil)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
@@ -873,7 +875,7 @@ func TestNeo4jDriverMiddleware_ErrorPaths(t *testing.T) {
 func TestNeo4jDriverMiddleware_URINotAllowed(t *testing.T) {
 	allowed, err := config.ParseAllowedURIs("db.example.com")
 	require.NoError(t, err)
-	registry := &stubDriverRegistry{}
+	registry := db_mocks.NewMockDriverRegistry(gomock.NewController(t))
 	handler := neo4jDriverMiddleware(&HeaderURIResolver{allowed: allowed}, registry)(mockHandler())
 	req := httptest.NewRequest(http.MethodPost, "/db/neo4j/mcp", nil)
 	req.Header.Set(URIHeader, "bolt://10.0.0.5:22")
@@ -883,7 +885,6 @@ func TestNeo4jDriverMiddleware_URINotAllowed(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Equal(t, "Bad Request: the Neo4j URI is not allowed by this MCP server. If the URI is correct, contact the MCP server administrator.\n", rec.Body.String())
-	assert.False(t, registry.called, "no driver should be created for a URI that is not allowed")
 }
 
 func TestReadOnlyMiddleware(t *testing.T) {
@@ -1230,14 +1231,3 @@ type stubURIResolver struct {
 }
 
 func (s *stubURIResolver) Resolve(_ *http.Request) (string, error) { return s.uri, s.err }
-
-type stubDriverRegistry struct {
-	driver neo4j.Driver
-	err    error
-	called bool
-}
-
-func (s *stubDriverRegistry) GetDriver(_ string) (neo4j.Driver, error) {
-	s.called = true
-	return s.driver, s.err
-}
