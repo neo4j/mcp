@@ -11,6 +11,13 @@ jobs:
     permissions:
       contents: write # Write permissions are needed to push to the release branch
     steps:
+      - name: Patch eMudhra CA compromise (CVE-2026-111943)
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --only-upgrade -y ca-certificates
+          sudo update-ca-certificates --fresh
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Set up Go
