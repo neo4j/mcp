@@ -109,7 +109,7 @@ func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
 
 // redactConnectivityError replaces connectivity errors with ErrConnectionFailed in HTTP mode so network details are only logged.
 func (s *Neo4jService) redactConnectivityError(err error) error {
-	if s.transportMode == config.TransportModeHTTP && IsConnectivityError(err) {
+	if s.transportMode == config.TransportModeHTTP && isConnectionFailure(err) {
 		return ErrConnectionFailed
 	}
 	return err

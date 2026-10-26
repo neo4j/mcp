@@ -13,15 +13,15 @@ import (
 // ErrConnectionFailed replaces driver connectivity errors in HTTP mode so that network details are not returned to the caller.
 var ErrConnectionFailed = errors.New("unable to connect to the Neo4j instance")
 
-// IsConnectivityError reports whether err is a driver connectivity error, including one reported after retries.
-func IsConnectivityError(err error) bool {
+// isConnectionFailure reports whether err is a driver connectivity error, including one reported after retries.
+func isConnectionFailure(err error) bool {
 	var connectivityErr *neo4j.ConnectivityError
 	if errors.As(err, &connectivityErr) {
 		return true
 	}
 	// TransactionExecutionLimit does not implement Unwrap, so the retried errors are checked explicitly.
 	var limitErr *neo4j.TransactionExecutionLimit
-	return errors.As(err, &limitErr) && slices.ContainsFunc(limitErr.Errors, IsConnectivityError)
+	return errors.As(err, &limitErr) && slices.ContainsFunc(limitErr.Errors, isConnectionFailure)
 }
 
 // Neo4jErrorCode returns the Neo4j error code when err wraps a *neo4j.Neo4jError.
