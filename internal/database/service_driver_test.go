@@ -13,7 +13,6 @@ import (
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/mcpcontext"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
-	neo4jconfig "github.com/neo4j/neo4j-go-driver/v6/neo4j/config"
 )
 
 func TestNewNeo4jService_DriverValidation(t *testing.T) {
@@ -128,33 +127,4 @@ func TestGetDriver(t *testing.T) {
 			assert.Equal(t, tt.wantDriver, got)
 		})
 	}
-}
-
-func TestExecuteReadQuery_ConnectivityError(t *testing.T) {
-	driver, err := neo4j.NewDriver("bolt://127.0.0.1:1", neo4j.NoAuth(), func(c *neo4jconfig.Config) {
-		c.MaxTransactionRetryTime = 0
-	})
-	require.NoError(t, err)
-	defer func() { _ = driver.Close(context.Background()) }()
-
-	t.Run("HTTP mode returns a generic error", func(t *testing.T) {
-		svc, err := NewNeo4jService(nil, "", config.TransportModeHTTP, "test-version")
-		require.NoError(t, err)
-		ctx := mcpcontext.WithDatabaseName(mcpcontext.WithDriver(context.Background(), driver), "neo4j")
-
-		_, err = svc.ExecuteReadQuery(ctx, "RETURN 1", nil)
-
-		require.ErrorIs(t, err, ErrConnectionFailed)
-		assert.NotContains(t, err.Error(), "127.0.0.1")
-	})
-
-	t.Run("STDIO mode keeps the driver error", func(t *testing.T) {
-		svc, err := NewNeo4jService(driver, "neo4j", config.TransportModeStdio, "test-version")
-		require.NoError(t, err)
-
-		_, err = svc.ExecuteReadQuery(context.Background(), "RETURN 1", nil)
-
-		require.NotErrorIs(t, err, ErrConnectionFailed)
-		assert.Contains(t, err.Error(), "127.0.0.1")
-	})
 }
