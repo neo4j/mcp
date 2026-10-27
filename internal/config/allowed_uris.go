@@ -139,7 +139,7 @@ func (l AllowedURIs) Allows(host, port string) bool {
 		if allowed.port != port {
 			continue
 		}
-		if allowed.wildcard && strings.HasSuffix(host, allowed.host) || host == allowed.host {
+		if (allowed.wildcard && strings.HasSuffix(host, allowed.host)) || host == allowed.host {
 			return true
 		}
 	}
