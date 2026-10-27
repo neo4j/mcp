@@ -14,8 +14,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +32,7 @@ import (
 // It polls /healthz until the server is ready and returns the base URL.
 // The server process is automatically terminated when the test ends.
 // extraArgs are appended to the server command line (e.g. "--request-timeout", "5s").
+// The test database host is allowed by default; passing "--http-allowed-uris" in extraArgs replaces it.
 func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 	t.Helper()
 
@@ -38,18 +41,25 @@ func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 
-	// In HTTP mode the config validation rejects NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, and
-	// NEO4J_MCP_DATABASE — the URI, credentials, and database are supplied per-request via the
-	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
-	// Strip those keys so any locally-set env values don't cause a startup validation error.
-	args := append([]string{
+	boltURI, err := url.Parse(dbs.GetDriverConf().URI)
+	require.NoError(t, err, "could not parse the test database URI")
+
+	args := []string{
 		"--transport-mode", "http",
 		"--http-host", "127.0.0.1",
 		"--http-port", fmt.Sprintf("%d", port),
 		"--telemetry", "false",
-	}, extraArgs...)
+	}
+	if !slices.Contains(extraArgs, "--http-allowed-uris") {
+		args = append(args, "--http-allowed-uris", boltURI.Host)
+	}
+	args = append(args, extraArgs...)
 	cmd := exec.Command(server, args...) // #nosec G204 -- server is a binary path built by the test harness, not user input
-	cmd.Env = stripEnv(os.Environ(), "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "NEO4J_DATABASE", "NEO4J_MCP_URI", "NEO4J_MCP_USERNAME", "NEO4J_MCP_PASSWORD", "NEO4J_MCP_DATABASE")
+	// In HTTP mode the config validation rejects NEO4J_MCP_URI, NEO4J_MCP_USERNAME, NEO4J_MCP_PASSWORD and
+	// NEO4J_MCP_DATABASE — the URI, credentials, and database are supplied per-request via the
+	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
+	// Strip those keys so any locally-set env values don't cause a startup validation error.
+	cmd.Env = stripEnv(os.Environ(), "NEO4J_MCP_URI", "NEO4J_MCP_USERNAME", "NEO4J_MCP_PASSWORD", "NEO4J_MCP_DATABASE")
 
 	require.NoError(t, cmd.Start(), "failed to start HTTP server")
 

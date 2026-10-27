@@ -121,6 +121,15 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "Neo4j username and password should not be set for HTTP transport mode; credentials are provided per-request via Auth headers",
 		},
 		{
+			name: "missing allowed URIs for HTTP mode should raise error",
+			cfg: &Config{
+				Telemetry:     true,
+				TransportMode: TransportModeHTTP,
+			},
+			wantErr: true,
+			errMsg:  "NEO4J_MCP_HTTP_ALLOWED_URIS environment variable or --http-allowed-uris flag is required for HTTP transport mode",
+		},
+		{
 			name: "invalid tool should raise error",
 			cfg: &Config{
 				Telemetry: true,
@@ -493,6 +502,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 			name: "HTTP mode with TLS enabled and both cert files provided",
 			cfg: &Config{
 				TransportMode:   TransportModeHTTP,
+				HTTPAllowedURIs: AllowedURIs{{host: "localhost", port: "7687"}},
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: certPath,
 				HTTPTLSKeyFile:  keyPath,
@@ -503,6 +513,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 			name: "HTTP mode with TLS enabled but missing cert file",
 			cfg: &Config{
 				TransportMode:   TransportModeHTTP,
+				HTTPAllowedURIs: AllowedURIs{{host: "localhost", port: "7687"}},
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "",
 				HTTPTLSKeyFile:  "/path/to/key.pem",
@@ -514,6 +525,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 			name: "HTTP mode with TLS enabled but missing key file",
 			cfg: &Config{
 				TransportMode:   TransportModeHTTP,
+				HTTPAllowedURIs: AllowedURIs{{host: "localhost", port: "7687"}},
 				HTTPTLSEnabled:  true,
 				HTTPTLSCertFile: "/path/to/cert.pem",
 				HTTPTLSKeyFile:  "",
@@ -525,6 +537,7 @@ func TestConfig_Validate_TLS(t *testing.T) {
 			name: "HTTP mode with TLS disabled and no cert files",
 			cfg: &Config{
 				TransportMode:   TransportModeHTTP,
+				HTTPAllowedURIs: AllowedURIs{{host: "localhost", port: "7687"}},
 				HTTPTLSEnabled:  false,
 				HTTPTLSCertFile: "",
 				HTTPTLSKeyFile:  "",
@@ -575,6 +588,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
@@ -618,6 +632,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
@@ -642,6 +657,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 
 	t.Run("TLS validation error when missing cert file", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/path/to/key.pem")
 
@@ -660,6 +676,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 
 	t.Run("TLS validation error with invalid cert/key files", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", "/nonexistent/cert.pem")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", "/nonexistent/key.pem")
@@ -681,6 +698,7 @@ func TestLoadConfig_TLS(t *testing.T) {
 func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 	t.Run("Default port 80 when TLS disabled", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		// NEO4J_MCP_HTTP_TLS_ENABLED is not set (defaults to false)
 
 		cfg, err := LoadConfig(nil)
@@ -697,6 +715,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
@@ -716,6 +735,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
@@ -735,6 +755,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "true")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
@@ -756,6 +777,7 @@ func TestLoadConfig_DefaultHTTPPort(t *testing.T) {
 		certPath, keyPath := testutil.GenerateTestTLSCertificate(t)
 
 		t.Setenv("NEO4J_MCP_TRANSPORT_MODE", "http")
+		t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_ENABLED", "false")
 		t.Setenv("NEO4J_MCP_HTTP_TLS_CERT_FILE", certPath)
 		t.Setenv("NEO4J_MCP_HTTP_TLS_KEY_FILE", keyPath)
@@ -963,6 +985,7 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("NEO4J_MCP_TRANSPORT_MODE", tt.transport)
+			t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", "localhost")
 			if tt.databaseEnv != "" {
 				t.Setenv("NEO4J_MCP_DATABASE", tt.databaseEnv)
 			}
@@ -975,6 +998,76 @@ func TestLoadConfig_HTTPModeDatabase(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantDatabase, cfg.Database)
+		})
+	}
+}
+
+func TestLoadConfig_HTTPAllowedURIs(t *testing.T) {
+	tests := []struct {
+		name         string
+		transport    string
+		allowedEnv   string
+		cliOverrides *CLIOverrides
+		wantErr      string
+		want         AllowedURIs
+	}{
+		{
+			name:      "HTTP mode without NEO4J_MCP_HTTP_ALLOWED_URIS should raise error",
+			transport: "http",
+			wantErr:   "NEO4J_MCP_HTTP_ALLOWED_URIS environment variable or --http-allowed-uris flag is required",
+		},
+		{
+			name:       "HTTP mode with only empty entries should raise error",
+			transport:  "http",
+			allowedEnv: " , ",
+			wantErr:    "NEO4J_MCP_HTTP_ALLOWED_URIS environment variable or --http-allowed-uris flag is required",
+		},
+		{
+			name:       "HTTP mode with invalid entry should raise error",
+			transport:  "http",
+			allowedEnv: "bolt://db.example.com",
+			wantErr:    `invalid NEO4J_MCP_HTTP_ALLOWED_URIS: invalid entry "bolt://db.example.com"`,
+		},
+		{
+			name:       "HTTP mode parses env var",
+			transport:  "http",
+			allowedEnv: "db.example.com,*.databases.neo4j.io",
+			want:       AllowedURIs{{host: "db.example.com", port: "7687"}, {host: ".databases.neo4j.io", port: "7687", wildcard: true}},
+		},
+		{
+			name:         "CLI flag overrides env var",
+			transport:    "http",
+			allowedEnv:   "env.example.com",
+			cliOverrides: &CLIOverrides{AllowedURIs: "cli.example.com:7473"},
+			want:         AllowedURIs{{host: "cli.example.com", port: "7473"}},
+		},
+		{
+			name:       "Malformed NEO4J_MCP_HTTP_ALLOWED_URIS should raise error regardless of transport mode (STDIO)",
+			transport:  "stdio",
+			allowedEnv: "bolt://db.example.com",
+			wantErr:    `invalid NEO4J_MCP_HTTP_ALLOWED_URIS: invalid entry "bolt://db.example.com"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("NEO4J_MCP_TRANSPORT_MODE", tt.transport)
+			t.Setenv("NEO4J_MCP_HTTP_ALLOWED_URIS", tt.allowedEnv)
+			if tt.transport == "stdio" {
+				t.Setenv("NEO4J_MCP_URI", "bolt://localhost:7687")
+				t.Setenv("NEO4J_MCP_USERNAME", "neo4j")
+				t.Setenv("NEO4J_MCP_PASSWORD", "password")
+				t.Setenv("NEO4J_MCP_DATABASE", "neo4j")
+			}
+
+			cfg, err := LoadConfig(tt.cliOverrides)
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.HTTPAllowedURIs)
 		})
 	}
 }

@@ -45,7 +45,7 @@ openssl req -x509 -newkey rsa:4096 \
 ```bash
 # Default port 443 when TLS is enabled
 ./bin/neo4j-mcp \
-  --uri bolt://localhost:7687 \
+  --http-allowed-uris localhost:7687 \
   --transport-mode http \
   --http-tls-enabled true \
   --http-tls-cert-file cert.pem \
@@ -53,7 +53,7 @@ openssl req -x509 -newkey rsa:4096 \
 
 # Or specify a custom port like 8443
 ./bin/neo4j-mcp \
-  --uri bolt://localhost:7687 \
+  --http-allowed-uris localhost:7687 \
   --transport-mode http \
   --http-port 8443 \
   --http-tls-enabled true \

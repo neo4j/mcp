@@ -67,7 +67,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	}
 
 	if cfg.TransportMode == config.TransportModeHTTP {
-		neo4jServer.uriResolver = &HeaderURIResolver{}
+		neo4jServer.uriResolver = &HeaderURIResolver{allowed: cfg.HTTPAllowedURIs}
 		neo4jServer.driverRegistry = &database.PerRequestDriverRegistry{}
 	}
 
@@ -425,7 +425,7 @@ func (s *Neo4jMCPServer) checkGDSAvailable(ctx context.Context) (bool, error) {
 
 // isConnectivityOrAuthError checks whether an error is related to database connectivity, authentication issues, or timeouts.
 func isConnectivityOrAuthError(err error) bool {
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || errors.Is(err, database.ErrConnectionFailed) {
 		return true
 	}
 

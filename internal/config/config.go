@@ -39,27 +39,28 @@ var AvailableTools = []string{"read-cypher", "write-cypher", "list-gds-procedure
 
 // Config holds the application configuration
 type Config struct {
-	URI                           string
-	Username                      string
-	Password                      string // #nosec G117
-	Database                      string
-	ReadOnly                      bool // If true, disables write tools
-	Tools                         []string
-	ToolsExplicitlySet            bool // True when Tools is set via NEO4J_MCP_TOOLS or the --tools CLI flag.
-	Telemetry                     bool // If false, disables telemetry
-	LogLevel                      string
-	LogFormat                     string
-	SchemaSampleSize              int32
-	TransportMode                 TransportMode // MCP Transport mode (e.g., "stdio", "http")
-	HTTPPort                      string        // HTTP server port (default: "443" with TLS, "80" without TLS)
-	HTTPHost                      string        // HTTP server host (default: "127.0.0.1")
-	HTTPAllowedOrigins            string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
-	HTTPTLSEnabled                bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
-	HTTPTLSCertFile               string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
-	HTTPTLSKeyFile                string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
-	AuthHeaderName                string        // HTTP header name to read auth credentials from (default: "Authorization")
-	AllowUnauthenticatedPing      bool          // If true, allows unauthenticated ping health checks in HTTP mode
-	RequestTimeout                time.Duration // Maximum duration for a single MCP request (default: 3m)
+	URI                      string
+	Username                 string
+	Password                 string // #nosec G117
+	Database                 string
+	ReadOnly                 bool // If true, disables write tools
+	Tools                    []string
+	ToolsExplicitlySet       bool // True when Tools is set via NEO4J_MCP_TOOLS or the --tools CLI flag.
+	Telemetry                bool // If false, disables telemetry
+	LogLevel                 string
+	LogFormat                string
+	SchemaSampleSize         int32
+	TransportMode            TransportMode // MCP Transport mode (e.g., "stdio", "http")
+	HTTPPort                 string        // HTTP server port (default: "443" with TLS, "80" without TLS)
+	HTTPHost                 string        // HTTP server host (default: "127.0.0.1")
+	HTTPAllowedOrigins       string        // Comma-separated list of allowed CORS origins (optional, "*" for all)
+	HTTPAllowedURIs          AllowedURIs   // Neo4j hosts the X-Neo4j-MCP-URI header may target (required in HTTP mode)
+	HTTPTLSEnabled           bool          // If true, enables TLS/HTTPS for HTTP server (default: false)
+	HTTPTLSCertFile          string        // Path to TLS certificate file (required if HTTPTLSEnabled is true)
+	HTTPTLSKeyFile           string        // Path to TLS private key file (required if HTTPTLSEnabled is true)
+	AuthHeaderName           string        // HTTP header name to read auth credentials from (default: "Authorization")
+	AllowUnauthenticatedPing bool          // If true, allows unauthenticated ping health checks in HTTP mode
+	RequestTimeout           time.Duration // Maximum duration for a single MCP request (default: 3m)
 }
 
 // Validate validates the configuration and returns an error if invalid
@@ -106,6 +107,9 @@ func (c *Config) Validate() error {
 		}
 		if c.Database != "" {
 			return fmt.Errorf("NEO4J_MCP_DATABASE environment variable or --database flag should not be set for HTTP transport mode; database is selected per-request via URL path (e.g., /db/{databaseName}/mcp)")
+		}
+		if len(c.HTTPAllowedURIs) == 0 {
+			return fmt.Errorf("NEO4J_MCP_HTTP_ALLOWED_URIS environment variable or --http-allowed-uris flag is required for HTTP transport mode; set it to a comma-separated list of host[:port] entries the server may connect to (e.g., *.databases.neo4j.io)")
 		}
 	}
 
@@ -154,6 +158,7 @@ type CLIOverrides struct {
 	Port                     string
 	Host                     string
 	AllowedOrigins           string
+	AllowedURIs              string
 	TLSEnabled               string
 	TLSCertFile              string
 	TLSKeyFile               string
@@ -180,6 +185,8 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		fmt.Fprintf(os.Stderr, "Warning: invalid NEO4J_MCP_LOG_FORMAT '%s', using default 'text'. Valid values: %v\n", logFormat, logger.ValidLogFormats)
 		logFormat = "text"
 	}
+
+	allowedURIs := GetEnv("NEO4J_MCP_HTTP_ALLOWED_URIS")
 
 	cfg := &Config{
 		URI:                      GetEnv("NEO4J_MCP_URI"),
@@ -250,6 +257,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		if cliOverrides.AllowedOrigins != "" {
 			cfg.HTTPAllowedOrigins = cliOverrides.AllowedOrigins
 		}
+		if cliOverrides.AllowedURIs != "" {
+			allowedURIs = cliOverrides.AllowedURIs
+		}
 		if cliOverrides.TLSEnabled != "" {
 			cfg.HTTPTLSEnabled = ParseBool(cliOverrides.TLSEnabled, false)
 		}
@@ -272,6 +282,11 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 			}
 			cfg.RequestTimeout = requestTimeout
 		}
+	}
+
+	cfg.HTTPAllowedURIs, err = ParseAllowedURIs(allowedURIs)
+	if err != nil {
+		return nil, fmt.Errorf("invalid NEO4J_MCP_HTTP_ALLOWED_URIS: %w", err)
 	}
 
 	// Set default HTTP port based on TLS configuration if not explicitly provided

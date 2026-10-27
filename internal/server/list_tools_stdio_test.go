@@ -257,10 +257,10 @@ func TestNeo4jMCPServerStdioModeGDSGating(t *testing.T) {
 		name     string
 		explicit bool
 	}{
-		{	name: "default-enabled",
+		{name: "default-enabled",
 			explicit: false,
 		},
-		{	name: "explicitly requested via Config.Tools",
+		{name: "explicitly requested via Config.Tools",
 			explicit: true,
 		},
 	} {

@@ -9,12 +9,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/neo4j/mcp/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHeaderURIResolver_Resolve(t *testing.T) {
-	resolver := &HeaderURIResolver{}
+	allowed, err := config.ParseAllowedURIs("localhost,aura.example.com")
+	require.NoError(t, err)
+	resolver := &HeaderURIResolver{allowed: allowed}
 
 	invalidURIErrMsg := fmt.Sprintf("invalid URI in header %s: scheme must be one of bolt, bolt+s, bolt+ssc, neo4j, neo4j+s, neo4j+ssc", URIHeader)
 	missingURIErrMsg := fmt.Sprintf("missing required header %s", URIHeader)
@@ -90,6 +93,24 @@ func TestHeaderURIResolver_Resolve(t *testing.T) {
 			header:    "localhost:7687",
 			wantErr:   invalidURIErrMsg,
 		},
+		{
+			name:      "missing host rejected",
+			setHeader: true,
+			header:    "bolt://:7687",
+			wantErr:   fmt.Sprintf("invalid URI in header %s: host is required", URIHeader),
+		},
+		{
+			name:      "host not in allowed URIs rejected",
+			setHeader: true,
+			header:    "bolt://other.example.com:7687",
+			wantErr:   errURINotAllowed.Error(),
+		},
+		{
+			name:      "port not in allowed URIs rejected",
+			setHeader: true,
+			header:    "bolt://localhost:7474",
+			wantErr:   errURINotAllowed.Error(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -110,4 +131,14 @@ func TestHeaderURIResolver_Resolve(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHeaderURIResolver_ResolveWithoutAllowedURIsRejectsAll(t *testing.T) {
+	resolver := &HeaderURIResolver{}
+	req := httptest.NewRequest(http.MethodPost, "/db/neo4j/mcp", nil)
+	req.Header.Set(URIHeader, "bolt://localhost:7687")
+
+	_, err := resolver.Resolve(req)
+
+	require.ErrorIs(t, err, errURINotAllowed)
 }
