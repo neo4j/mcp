@@ -1,4 +1,0 @@
-kind: Major
-body: | 
-  The Initialize request may now fail when connectivity cannot be verified, required plugins (such as APOC) are missing, or configuration is invalid, with descriptive error messages.
-time: 2026-05-19T11:24:32.375014+01:00

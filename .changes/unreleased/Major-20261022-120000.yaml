@@ -1,7 +1,0 @@
-kind: Major
-body: |
-  HTTP mode no longer starts without `NEO4J_MCP_HTTP_ALLOWED_URIS` (or `--http-allowed-uris`). STDIO is unaffected.
-  List the Neo4j hosts clients may target in `X-Neo4j-MCP-URI`; other hosts are rejected.
-  Format: comma-separated `host[:port]`, no scheme, port defaults to 7687, `*.` wildcard for subdomains. Port ranges and CIDRs are not supported; an invalid entry stops the server from starting.
-  Example: `NEO4J_MCP_HTTP_ALLOWED_URIS=*.databases.neo4j.io,db.example.com:7688,10.0.0.5`
-time: 2026-10-22T12:00:00+01:00
