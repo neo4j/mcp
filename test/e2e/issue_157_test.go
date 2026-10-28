@@ -8,10 +8,10 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"os/exec"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 	"github.com/stretchr/testify/require"
 )
@@ -44,26 +44,20 @@ func TestIssue157(t *testing.T) {
 		"--database", cfg.Database,
 	}
 
-	mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
+	mcpClient := helpers.NewTestClient()
+	session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
 	if err != nil {
-		t.Fatalf("failed to create MCP client: %v", err)
-	}
-
-	// Initialize the server
-	_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
-	if err != nil {
-		t.Fatalf("failed to initialize MCP server: %v", err)
+		t.Fatalf("failed to connect MCP client: %v", err)
 	}
 	t.Cleanup(func() {
-		mcpClient.Close()
+		session.Close()
 	})
 
 	t.Run("all tools returned from listTools should contains inputSchema properties", func(t *testing.T) {
 		t.Parallel()
 		_ = helpers.NewE2ETestContext(t, dbs.GetDriver())
 		// List all available tools
-		listToolsRequest := mcp.ListToolsRequest{}
-		mcpListToolsResponse, err := mcpClient.ListTools(ctx, listToolsRequest)
+		mcpListToolsResponse, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 		require.NoError(t, err, "failed to list tools")
 		require.NotEmpty(t, mcpListToolsResponse.Tools, "expected at least one tool")
 

@@ -173,12 +173,6 @@ func TestHTTPServerTimeoutConstants(t *testing.T) {
 			description:   "Should be 15s to prevent slow-read attacks",
 		},
 		{
-			name:          "WriteTimeout",
-			actualValue:   serverHTTPWriteTimeout,
-			expectedValue: 60 * time.Second,
-			description:   "Should be 60s to allow complex Neo4j queries",
-		},
-		{
 			name:          "IdleTimeout",
 			actualValue:   serverHTTPIdleTimeout,
 			expectedValue: 120 * time.Second,

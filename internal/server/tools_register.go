@@ -4,7 +4,11 @@
 package server
 
 import (
-	"github.com/mark3labs/mcp-go/server"
+	"fmt"
+	"log/slog"
+	"slices"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/internal/tools/gds"
@@ -12,134 +16,48 @@ import (
 
 // registerTools registers all enabled MCP tools and adds them to the provided MCP server.
 // Tools are filtered according to the server configuration. For example, when the read-only
-// mode is enabled (e.g. via the NEO4J_MCP_READ_ONLY environment variable or the Config.ReadOnly flag),
-// any tool that performs state mutation will be excluded; only tools annotated as read-only will be registered.
-// Note: this read-only filtering relies on the tool annotation "readonly" (ReadOnlyHint). If the annotation
-// is not defined or is set to false, the tool will be added (i.e., only tools with readonly=true are filtered in read-only mode).
-func (s *Neo4jMCPServer) registerTools() error {
-	filteredTools := s.getEnabledTools()
-	s.MCPServer.AddTools(filteredTools...)
-	return nil
-}
-
-type toolFilter func(tools []ToolDefinition) []ToolDefinition
-
-type toolCategory int
-
-const (
-	cypherCategory toolCategory = 0
-	gdsCategory    toolCategory = 1
-)
-
-type ToolDefinition struct {
-	category   toolCategory
-	definition server.ServerTool
-	readonly   bool
-}
-
-func (s *Neo4jMCPServer) addGDSTools() {
+// mode is enabled (e.g. via the Config.ReadOnly flag, which can be set by the NEO4J_MCP_READ_ONLY environment variable or --read-only flag),
+// any tool that performs state mutation will be excluded.
+// Individual tools can also be selected via Config.Tools, which can be set by the NEO4J_MCP_TOOLS environment variable or --tools flag, with Config.ReadOnly taking precedence.
+func (s *Neo4jMCPServer) registerTools() {
 	deps := &tools.ToolDependencies{
 		DBService:        s.dbService,
 		AnalyticsService: s.anService,
 	}
-	toolDefs := s.getAllToolsDefs(deps)
-	toolDefinition := make([]server.ServerTool, 0)
-	GDSTools := make([]ToolDefinition, 0, len(toolDefs))
-	for _, t := range toolDefs {
-		if t.category == gdsCategory {
-			GDSTools = append(GDSTools, t)
-		}
+
+	var registered []string
+
+	// Cypher section
+	if toolName, ok := registerTool(s, cypher.GetSchemaSpec(), cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize)); ok {
+		registered = append(registered, toolName)
 	}
-	for _, toolDef := range GDSTools {
-		toolDefinition = append(toolDefinition, toolDef.definition)
+	if toolName, ok := registerTool(s, cypher.ReadCypherSpec(), cypher.ReadCypherHandler(deps)); ok {
+		registered = append(registered, toolName)
 	}
-	s.MCPServer.AddTools(toolDefinition...)
+	if toolName, ok := registerTool(s, cypher.WriteCypherSpec(), cypher.WriteCypherHandler(deps)); ok {
+		registered = append(registered, toolName)
+	}
+
+	// GDS section
+	if toolName, ok := registerTool(s, gds.ListGDSProceduresSpec(), gds.ListGdsProceduresHandler(deps)); ok {
+		registered = append(registered, toolName)
+	}
+
+	slog.Info("Registered server tools", "count", len(registered), "tools", registered)
 }
 
-func (s *Neo4jMCPServer) getEnabledTools() []server.ServerTool {
-	filters := make([]toolFilter, 0)
+// registerTool applies filtering and, if the tool passes, adds it to s.MCPServer.
+func registerTool[In, Out any](s *Neo4jMCPServer, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) (string, bool) {
+	if !slices.Contains(s.config.Tools, tool.Name) {
+		return tool.Name, false
+	}
 
-	// If read-only mode is enabled, expose only tools annotated as read-only.
-	if s.config != nil && s.config.ReadOnly {
-		filters = append(filters, filterWriteTools)
+	if s.config.ReadOnly && (tool.Annotations == nil || !tool.Annotations.ReadOnlyHint) {
+		slog.Info(fmt.Sprintf("Ignoring tool '%s': not available in read-only mode", tool.Name))
+		return tool.Name, false
 	}
-	// If GDS is not installed, disable GDS tools.
-	if !s.gdsInstalled {
-		filters = append(filters, filterGDSTools)
-	}
-	deps := &tools.ToolDependencies{
-		DBService:        s.dbService,
-		AnalyticsService: s.anService,
-	}
-	toolDefs := s.getAllToolsDefs(deps)
 
-	for _, filter := range filters {
-		toolDefs = filter(toolDefs)
-	}
-	enabledTools := make([]server.ServerTool, 0)
-	for _, toolDef := range toolDefs {
-		enabledTools = append(enabledTools, toolDef.definition)
-	}
-	return enabledTools
-}
-
-func filterWriteTools(tools []ToolDefinition) []ToolDefinition {
-	readOnlyTools := make([]ToolDefinition, 0, len(tools))
-	for _, t := range tools {
-		if t.readonly {
-			readOnlyTools = append(readOnlyTools, t)
-		}
-	}
-	return readOnlyTools
-}
-
-func filterGDSTools(tools []ToolDefinition) []ToolDefinition {
-	nonGDSTools := make([]ToolDefinition, 0, len(tools))
-	for _, t := range tools {
-		if t.category != gdsCategory {
-			nonGDSTools = append(nonGDSTools, t)
-		}
-	}
-	return nonGDSTools
-}
-
-// getAllToolsDefs returns all available tools with their specs and handlers
-func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDefinition {
-
-	return []ToolDefinition{
-		{
-			category: cypherCategory,
-			definition: server.ServerTool{
-				Tool:    cypher.GetSchemaSpec(),
-				Handler: cypher.GetSchemaHandler(deps, s.config.SchemaSampleSize),
-			},
-			readonly: true,
-		},
-		{
-			category: cypherCategory,
-			definition: server.ServerTool{
-				Tool:    cypher.ReadCypherSpec(),
-				Handler: cypher.ReadCypherHandler(deps),
-			},
-			readonly: true,
-		},
-		{
-			category: cypherCategory,
-			definition: server.ServerTool{
-				Tool:    cypher.WriteCypherSpec(),
-				Handler: cypher.WriteCypherHandler(deps),
-			},
-			readonly: false,
-		},
-		// GDS Category/Section
-		{
-			category: gdsCategory,
-			definition: server.ServerTool{
-				Tool:    gds.ListGDSProceduresSpec(),
-				Handler: gds.ListGdsProceduresHandler(deps),
-			},
-			readonly: true,
-		},
-		// Add other categories below...
-	}
+	mcp.AddTool(s.MCPServer, tool, withToolLogging(tool.Name, handler))
+	s.toolsByName[tool.Name] = tool
+	return tool.Name, true
 }

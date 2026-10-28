@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/server"
@@ -88,41 +89,28 @@ func TestServerLifecycle(t *testing.T) {
 			if s == nil {
 				t.Fatal("the NewNeo4jMCPServer() returned nil")
 			}
+			
+			serverTransport, clientTransport := mcp.NewInMemoryTransports()
+			if _, err := s.MCPServer.Connect(context.Background(), serverTransport, nil); err != nil {
+				t.Fatalf("error connecting in-process server session: %s", err.Error())
+			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
-			defer cancel()
-
-			var wg sync.WaitGroup
-			wg.Add(1)
-
-			var startErr error
-			go func() {
-				defer wg.Done()
-				startErr = s.Start()
-			}()
-
-			for {
-				select {
-				case <-ctx.Done():
-					if tc.expectError {
-						if startErr == nil {
-							t.Fatal("expected an error but got nil")
-						}
-					} else {
-						if startErr != nil {
-							t.Fatalf("Start returned an unexpected error: %s", startErr.Error())
-						}
-					}
-					return
-				default:
-					time.Sleep(50 * time.Millisecond)
+			mcpClient := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
+			_, err = mcpClient.Connect(context.Background(), clientTransport, nil)
+			if tc.expectError {
+				if err == nil {
+					t.Fatal("expected an error but got nil")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("start returned an unexpected error: %s", err.Error())
 				}
 			}
 		})
 	}
 
 	t.Run("server stop should return no errors", func(t *testing.T) {
-		driver, err := neo4j.NewDriverWithContext(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
+		driver, err := neo4j.NewDriver(testCFG.URI, neo4j.BasicAuth(testCFG.Username, testCFG.Password, ""))
 		if err != nil {
 			t.Fatalf("failed to create Neo4j driver: %s", err.Error())
 		}

@@ -1,0 +1,132 @@
+// Copyright (c) "Neo4j"
+// Neo4j Sweden AB [http://neo4j.com]
+
+//go:build e2e
+
+// Shared helpers for spinning up the MCP server in HTTP transport mode against a
+// random local port. Kept in their own file so any e2e test that needs an HTTP
+// server can use them without depending on (or importing from) another test
+// file.
+package e2e
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/neo4j/mcp/test/e2e/helpers"
+
+	"github.com/stretchr/testify/require"
+)
+
+// startHTTPModeServer launches the server binary in HTTP mode on a random free port.
+// It polls /healthz until the server is ready and returns the base URL.
+// The server process is automatically terminated when the test ends.
+// extraArgs are appended to the server command line (e.g. "--request-timeout", "5s").
+// The test database host is allowed by default; passing "--http-allowed-uris" in extraArgs replaces it.
+func startHTTPModeServer(t *testing.T, extraArgs ...string) string {
+	t.Helper()
+
+	port, err := freePort()
+	require.NoError(t, err, "could not find a free port")
+
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+
+	boltURI, err := url.Parse(dbs.GetDriverConf().URI)
+	require.NoError(t, err, "could not parse the test database URI")
+
+	args := []string{
+		"--transport-mode", "http",
+		"--http-host", "127.0.0.1",
+		"--http-port", fmt.Sprintf("%d", port),
+		"--telemetry", "false",
+	}
+	if !slices.Contains(extraArgs, "--http-allowed-uris") {
+		args = append(args, "--http-allowed-uris", boltURI.Host)
+	}
+	args = append(args, extraArgs...)
+	cmd := exec.Command(server, args...) // #nosec G204 -- server is a binary path built by the test harness, not user input
+	// In HTTP mode the config validation rejects NEO4J_MCP_URI, NEO4J_MCP_USERNAME, NEO4J_MCP_PASSWORD and
+	// NEO4J_MCP_DATABASE — the URI, credentials, and database are supplied per-request via the
+	// X-Neo4j-MCP-URI header, Auth headers, and URL path respectively.
+	// Strip those keys so any locally-set env values don't cause a startup validation error.
+	cmd.Env = stripEnv(os.Environ(), "NEO4J_MCP_URI", "NEO4J_MCP_USERNAME", "NEO4J_MCP_PASSWORD", "NEO4J_MCP_DATABASE")
+
+	require.NoError(t, cmd.Start(), "failed to start HTTP server")
+
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	})
+
+	waitForHealthz(t, baseURL+"/healthz")
+	return baseURL
+}
+
+// freePort returns an available TCP port on localhost.
+func freePort() (int, error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer ln.Close()
+	return ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+// stripEnv returns a copy of env with entries matching any of the given keys removed.
+func stripEnv(env []string, keys ...string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, e := range env {
+		skip := false
+		for _, key := range keys {
+			if strings.HasPrefix(e, key+"=") {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
+}
+
+// waitForHealthz polls /healthz until it returns HTTP 200 or the deadline expires.
+func waitForHealthz(t *testing.T, url string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(url) // #nosec G107
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("server at %s did not become ready within 10s", url)
+}
+
+// newHTTPClient connects an MCP client over streamable HTTP, forwarding the provided headers.
+func newHTTPClient(t *testing.T, ctx context.Context, mcpURL string, headers map[string]string) (*mcp.ClientSession, error) {
+	t.Helper()
+
+	mcpClient := helpers.NewTestClient()
+	httpClient := helpers.NewHeaderInjectingHTTPClient(headers, 15*time.Second)
+
+	clientSession, err := mcpClient.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: mcpURL, HTTPClient: httpClient}, nil)
+
+	return clientSession, err
+}

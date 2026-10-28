@@ -134,12 +134,15 @@ var sensitiveKeys = map[string]bool{
 	"api_key":    true,
 	"auth_token": true,
 
-	// Connection details
-	"uri":      true,
-	"address":  true,
-	"host":     true,
-	"port":     true,
-	"bolt_uri": true,
+	// Raw connection keys: values may contain credentials or full endpoints.
+	// For observability, use neo4j_target with SafeBoltTarget instead.
+	"uri":        true,
+	"url":        true,
+	"listen_url": true,
+	"address":    true,
+	"host":       true,
+	"port":       true,
+	"bolt_uri":   true,
 }
 
 // IsSensitiveKey checks if a key contains sensitive information that should be redacted.

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	db "github.com/neo4j/mcp/internal/database/mocks"
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/gds"
@@ -34,9 +34,8 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
-		request := mcp.CallToolRequest{}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -52,9 +51,8 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
-		request := mcp.CallToolRequest{}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -75,9 +73,8 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
-		request := mcp.CallToolRequest{}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
@@ -102,9 +99,8 @@ func TestListGdsProceduresHandler(t *testing.T) {
 		}
 
 		handler := gds.ListGdsProceduresHandler(deps)
-		request := mcp.CallToolRequest{}
 
-		result, err := handler(context.Background(), request)
+		result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, struct{}{})
 
 		if err != nil {
 			t.Errorf("Expected no error from handler, got: %v", err)
