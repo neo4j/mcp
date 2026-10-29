@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/neo4j/mcp/internal/logger"
 )
 
@@ -136,6 +137,16 @@ func readOnlyFromRequest(r *http.Request) (bool, bool) {
 	default:
 		return false, false
 	}
+}
+
+// requestIDFromHeader returns the inbound X-Request-Id header as sent, or a generated UUID
+// when the header is missing or empty.
+func requestIDFromHeader(r *http.Request) string {
+	if id := r.Header.Get(RequestIDHeader); id != "" {
+		return id
+	}
+
+	return uuid.NewString()
 }
 
 // rejectRequest logs a rejection reason and writes an HTTP error response.
