@@ -7,8 +7,9 @@ package server
 // and other packages reference these constants instead of repeating the wire values,
 // which the compiler cannot connect back to here.
 const (
-	URIHeader      = "X-Neo4j-MCP-URI"
-	ToolsHeader    = "X-Neo4j-MCP-Tools"
-	ReadOnlyHeader = "X-Neo4j-MCP-ReadOnly"
-	TimeoutHeader  = "X-Neo4j-MCP-Request-Timeout"
+	URIHeader       = "X-Neo4j-MCP-URI"
+	ToolsHeader     = "X-Neo4j-MCP-Tools"
+	ReadOnlyHeader  = "X-Neo4j-MCP-ReadOnly"
+	TimeoutHeader   = "X-Neo4j-MCP-Request-Timeout"
+	RequestIDHeader = "X-Request-Id"
 )
