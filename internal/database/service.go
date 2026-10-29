@@ -198,7 +198,7 @@ func (s *Neo4jService) GetQueryType(ctx context.Context, cypher string, params m
 func (s *Neo4jService) Neo4jRecordsToJSON(records []*neo4j.Record) (string, error) {
 	results := make([]map[string]any, 0)
 	for _, record := range records {
-		recordMap := record.AsMap()
+		recordMap := sanitizeValue(record.AsMap()).(map[string]any)
 		results = append(results, recordMap)
 	}
 
