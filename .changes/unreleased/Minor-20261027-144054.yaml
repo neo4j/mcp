@@ -1,0 +1,4 @@
+kind: Minor
+body: |
+  In HTTP mode the server now uses the inbound `X-Request-Id` header as `request_id` in its logs. A missing or empty header falls back to a generated UUID.
+time: 2026-10-27T14:40:54.000000+00:00
