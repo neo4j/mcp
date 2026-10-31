@@ -41,6 +41,7 @@ func main() {
 		ReadOnly:                 cliArgs.ReadOnly,
 		Tools:                    cliArgs.Tools,
 		Telemetry:                cliArgs.Telemetry,
+		SchemaSampleSize:         cliArgs.SchemaSampleSize,
 		TransportMode:            cliArgs.TransportMode,
 		Port:                     cliArgs.HTTPPort,
 		Host:                     cliArgs.HTTPHost,
