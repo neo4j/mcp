@@ -128,7 +128,7 @@ func GetRequestTimeout(ctx context.Context) time.Duration {
 	return timeout
 }
 
-// WithRequestID stores a server-generated request correlation ID in the context.
+// WithRequestID stores the request correlation ID in the context.
 func WithRequestID(ctx context.Context, requestID string) context.Context {
 	return context.WithValue(ctx, requestIDKey, requestID)
 }

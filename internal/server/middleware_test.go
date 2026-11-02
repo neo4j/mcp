@@ -444,6 +444,55 @@ func TestObservabilityMiddleware(t *testing.T) {
 	if rec.Body.String() != "OK" {
 		t.Errorf("Expected body 'OK', got %q", rec.Body.String())
 	}
+	assert.Empty(t, rec.Header(), "middleware must not set response headers")
+}
+
+func TestObservabilityMiddleware_RequestID(t *testing.T) {
+	var got string
+
+	handler := observabilityMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, _ = mcpcontext.GetRequestID(r.Context())
+		_, _ = w.Write([]byte("OK"))
+	}))
+
+	sendRequestWithID := func(id string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, "/test", nil)
+		if id != "" {
+			request.Header.Set(RequestIDHeader, id)
+		}
+
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+
+		return recorder
+	}
+
+	t.Run("inbound ID reaches handler", func(t *testing.T) {
+		rec := sendRequestWithID("abc-123")
+
+		assert.Equal(t, "abc-123", got)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "OK", rec.Body.String())
+		assert.Empty(t, rec.Header().Get(RequestIDHeader))
+	})
+
+	t.Run("same inbound ID gives same ID", func(t *testing.T) {
+		sendRequestWithID("same")
+		first := got
+		sendRequestWithID("same")
+
+		assert.Equal(t, first, got)
+	})
+
+	t.Run("no header gives different generated IDs", func(t *testing.T) {
+		sendRequestWithID("")
+		first := got
+		sendRequestWithID("")
+
+		assert.NotEmpty(t, first)
+		assert.NotEmpty(t, got)
+		assert.NotEqual(t, first, got)
+	})
 }
 
 func TestAuthTypeFromRequest(t *testing.T) {

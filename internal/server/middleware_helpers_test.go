@@ -4,9 +4,13 @@
 package server
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseMCPPath(t *testing.T) {
@@ -102,6 +106,39 @@ func TestIsValidDatabaseName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, isValidDatabaseName(tt.dbName))
+		})
+	}
+}
+
+func TestRequestIDFromHeader(t *testing.T) {
+	tests := []struct {
+		name     string
+		values   []string
+		wantID   string // expected value, ignored when wantUUID is true
+		wantUUID bool
+	}{
+		{name: "UUID is returned unchanged", values: []string{"123e4567-e89b-12d3-a456-426614174000"}, wantID: "123e4567-e89b-12d3-a456-426614174000"},
+		{name: "missing header generates a UUID", values: nil, wantUUID: true},
+		{name: "empty header generates a UUID", values: []string{""}, wantUUID: true},
+		{name: "first of several values is used", values: []string{"first", "second"}, wantID: "first"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/db/testdb/mcp", nil)
+			
+			for _, value := range tt.values {
+				req.Header.Add(RequestIDHeader, value)
+			}
+
+			got := requestIDFromHeader(req)
+
+			if tt.wantUUID {
+				_, err := uuid.Parse(got)
+				require.NoError(t, err, "expected a UUID, got %q", got)
+				return
+			}
+			assert.Equal(t, tt.wantID, got)
 		})
 	}
 }

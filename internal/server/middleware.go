@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/logger"
@@ -77,11 +76,11 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
-// observabilityMiddleware assigns a server-generated request ID and logs request completion with status and duration.
+// observabilityMiddleware assigns a request ID (inbound X-Request-Id, else generated) and logs request completion with status and duration.
 func observabilityMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := mcpcontext.WithRequestID(r.Context(), uuid.NewString())
+			ctx := mcpcontext.WithRequestID(r.Context(), requestIDFromHeader(r))
 			r = r.WithContext(ctx)
 
 			start := time.Now()
