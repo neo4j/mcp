@@ -154,6 +154,7 @@ type CLIOverrides struct {
 	ReadOnly                 string
 	Tools                    *string
 	Telemetry                string
+	SchemaSampleSize         string
 	TransportMode            string
 	Port                     string
 	Host                     string
@@ -244,6 +245,9 @@ func LoadConfig(cliOverrides *CLIOverrides) (*Config, error) {
 		}
 		if cliOverrides.Telemetry != "" {
 			cfg.Telemetry = ParseBool(cliOverrides.Telemetry, true)
+		}
+		if cliOverrides.SchemaSampleSize != "" {
+			cfg.SchemaSampleSize = ParseInt32(cliOverrides.SchemaSampleSize, DefaultSchemaSampleSize)
 		}
 		if cliOverrides.TransportMode != "" {
 			cfg.TransportMode = TransportMode(cliOverrides.TransportMode)
