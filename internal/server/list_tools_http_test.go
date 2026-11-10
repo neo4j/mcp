@@ -563,8 +563,18 @@ func TestNeo4jMCPServerHTTPModeToolsFilter(t *testing.T) {
 	}
 }
 
+// verifiedDriverStub is a neo4j.Driver that accepts any credentials. Any other Driver method
+// panics (nil embedded interface): the tests use a mocked database service, so none is expected.
+type verifiedDriverStub struct{ neo4j.Driver }
+
+func (verifiedDriverStub) VerifyAuthentication(context.Context, *neo4j.AuthToken) error { return nil }
+func (verifiedDriverStub) Close(context.Context) error                                  { return nil }
+
 func createHTTPServer(t *testing.T, cfg *config.Config, mockDB *db.MockService, analyticsService *analytics.MockService) (*server.Neo4jMCPServer, chan error) {
-	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService)
+	registry := db.NewMockDriverRegistry(gomock.NewController(t))
+	registry.EXPECT().GetDriver(gomock.Any()).Return(verifiedDriverStub{}, nil).AnyTimes()
+
+	s := server.NewNeo4jMCPServer("test-version", cfg, mockDB, analyticsService, server.WithDriverRegistry(registry))
 
 	if s == nil {
 		t.Fatal("NewNeo4jMCPServer() returned nil")

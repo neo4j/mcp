@@ -17,6 +17,7 @@ import (
 	"github.com/neo4j/mcp/internal/database"
 	"github.com/neo4j/mcp/internal/logger"
 	"github.com/neo4j/mcp/internal/mcpcontext"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 const (
@@ -144,6 +145,27 @@ func neo4jDriverMiddleware(resolver URIResolver, registry database.DriverRegistr
 				}
 			}()
 
+			// Verify the request credentials against Neo4j. A request only reaches this point without
+			// credentials through the allowed unauthenticated methods (see authMiddleware), so it is not verified.
+			if token := database.HTTPAuthToken(r.Context()); token != nil {
+				if err := driver.VerifyAuthentication(r.Context(), token); err != nil {
+					var invalidAuth *neo4j.InvalidAuthenticationError
+					if !errors.As(err, &invalidAuth) {
+						slog.Error("Credential verification failed", append(logger.AppendRequestInfo(r.Context()), database.ErrorLogAttrs(err)...)...)
+						rejectRequest(w, r, http.StatusBadGateway, "credential_verification_failed", "Bad Gateway: unable to verify credentials with the Neo4j instance")
+						return
+					}
+
+					scheme := "Basic"
+					if _, isBearer := mcpcontext.GetBearerToken(r.Context()); isBearer {
+						scheme = "Bearer"
+					}
+					w.Header().Set("WWW-Authenticate", scheme+` realm="Neo4j MCP Server"`)
+					rejectRequest(w, r, http.StatusUnauthorized, "invalid_credentials", "Unauthorized: invalid credentials")
+					return
+				}
+			}
+
 			ctx := mcpcontext.WithDriver(r.Context(), driver)
 			if targetInfo.DBID != "" {
 				ctx = mcpcontext.WithDBID(ctx, targetInfo.DBID)
@@ -172,6 +194,7 @@ func uriRejectionReason(err error) string {
 // unauthenticatedMethods is an optional list of JSON-RPC method names (e.g. "ping")
 // that are permitted without credentials.
 // Returns 401 Unauthorized if credentials are missing or malformed.
+// Invalid credentials are not checked here: that is delegated to neo4jDriverMiddleware.
 func authMiddleware(headerName string, unauthenticatedMethods []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

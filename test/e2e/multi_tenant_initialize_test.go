@@ -41,16 +41,16 @@ func TestMultiTenantHTTPInitializeIsolation(t *testing.T) {
 	defer cancel()
 
 	// Tenant A — valid URI header but wrong password. The auth middleware
-	// happily forwards the credentials, neo4jDriverMiddleware builds a per-request
-	// driver, and the initialize hook then runs verifyRequirements which fails
-	// because Neo4j rejects the password. Connect performs the initialize
-	// handshake internally, so that failure must propagate back as the error.
+	// forwards the credentials, neo4jDriverMiddleware builds a per-request driver
+	// and verifies the credentials against Neo4j, which rejects the password with
+	// an HTTP 401. Connect performs the initialize handshake internally, so that
+	// failure must propagate back as the error.
 	_, err := newHTTPClient(t, ctx, mcpURL, map[string]string{
 		"Authorization":     "Basic " + base64.StdEncoding.EncodeToString([]byte(cfg.Username+":definitely-not-the-password")),
 		mcpserver.URIHeader: cfg.URI,
 	})
-	require.ErrorContains(t, err, "impossible to verify connectivity with the Neo4j instance",
-		"expected initialize with wrong credentials to fail during the Neo4j connectivity check")
+	require.ErrorContains(t, err, "Unauthorized",
+		"expected initialize with wrong credentials to be rejected with HTTP 401")
 
 	// Tenant B — same server, correct credentials. If the server correctly
 	// isolates per-request state, this initialize must succeed even though the
