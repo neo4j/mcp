@@ -53,9 +53,17 @@ type Neo4jMCPServer struct {
 	toolsByName     map[string]*mcp.Tool
 }
 
+// Option customizes a Neo4jMCPServer at construction time.
+type Option func(*Neo4jMCPServer)
+
+// WithDriverRegistry overrides the registry used in HTTP mode to create the per-request Neo4j drivers.
+func WithDriverRegistry(registry database.DriverRegistry) Option {
+	return func(s *Neo4jMCPServer) { s.driverRegistry = registry }
+}
+
 // NewNeo4jMCPServer creates a new MCP server instance
 // The config parameter is expected to be already validated
-func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service) *Neo4jMCPServer {
+func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Service, anService analytics.Service, opts ...Option) *Neo4jMCPServer {
 	neo4jServer := &Neo4jMCPServer{
 		HTTPServerReady: make(chan struct{}),
 		shutdownChan:    make(chan struct{}),
@@ -69,6 +77,10 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	if cfg.TransportMode == config.TransportModeHTTP {
 		neo4jServer.uriResolver = &HeaderURIResolver{allowed: cfg.HTTPAllowedURIs}
 		neo4jServer.driverRegistry = &database.PerRequestDriverRegistry{}
+	}
+
+	for _, opt := range opts {
+		opt(neo4jServer)
 	}
 
 	mcpServer := mcp.NewServer(

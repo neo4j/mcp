@@ -85,7 +85,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 
 	// For HTTP mode, extract credentials from context and use impersonation
 	if s.transportMode == config.TransportModeHTTP {
-		authToken := s.getHTTPAuthToken(ctx)
+		authToken := HTTPAuthToken(ctx)
 		if authToken != nil {
 			queryOptions = append(queryOptions, neo4j.ExecuteQueryWithAuthToken(*authToken))
 		}
@@ -95,7 +95,7 @@ func (s *Neo4jService) buildQueryOptions(ctx context.Context, baseOptions ...neo
 }
 
 // Collect HTTP Auth token from Context.
-func (s *Neo4jService) getHTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
+func HTTPAuthToken(ctx context.Context) *neo4j.AuthToken {
 	if token, hasBearerToken := mcpcontext.GetBearerToken(ctx); hasBearerToken {
 		authToken := neo4j.BearerAuth(token)
 		return &authToken
