@@ -1,3 +1,0 @@
-kind: Patch
-body: In HTTP mode, requests with invalid credentials (wrong Basic password or invalid Bearer token) now return `401 Unauthorized` with a `WWW-Authenticate` header.
-time: 2026-11-10T16:14:19.737504Z
