@@ -1,0 +1,3 @@
+kind: Minor
+body: Query results from `read-cypher`, `write-cypher` and `list-gds-procedures` now replace embedding-like values (lists of 128 or more floats, and native `VECTOR` values of 128 or more elements) with a placeholder such as `<embedding: 1536 values omitted>`, including inside nodes, relationships and paths. Embeddings carry no information an LLM can use and can exhaust its context window. Long lists of other values, such as `collect(m.title)`, are returned unchanged.
+time: 2026-10-13T12:00:00-06:00
