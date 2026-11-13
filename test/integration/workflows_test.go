@@ -19,15 +19,15 @@ func TestWriteThenRead(t *testing.T) {
 	companyLabel := tc.GetUniqueLabel("Company")
 
 	write := cypher.WriteCypherHandler(tc.Deps)
-	tc.CallTool(write, map[string]any{
-		"query":  "CREATE (c:" + companyLabel + " {name: $name, industry: $industry}) RETURN c",
-		"params": map[string]any{"name": "Neo4j", "industry": "Database"},
+	helpers.CallTool(tc, write, cypher.WriteCypherInput{
+		Query:  "CREATE (c:" + companyLabel.String() + " {name: $name, industry: $industry}) RETURN c",
+		Params: cypher.Params{"name": "Neo4j", "industry": "Database"},
 	})
 
 	read := cypher.ReadCypherHandler(tc.Deps)
-	res := tc.CallTool(read, map[string]any{
-		"query":  "MATCH (c:" + companyLabel + ") RETURN c",
-		"params": map[string]any{},
+	res := helpers.CallTool(tc, read, cypher.ReadCypherInput{
+		Query:  "MATCH (c:" + companyLabel.String() + ") RETURN c",
+		Params: cypher.Params{},
 	})
 
 	var records []map[string]any

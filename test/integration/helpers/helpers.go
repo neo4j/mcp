@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	analytics "github.com/neo4j/mcp/internal/analytics/mocks"
 	"github.com/neo4j/mcp/internal/config"
 	"github.com/neo4j/mcp/internal/database"
@@ -158,17 +158,11 @@ func (tc *TestContext) GetUniqueLabel(label string) UniqueLabel {
 	return uniqueLabel
 }
 
-// CallTool invokes an MCP tool and returns the response
-func (tc *TestContext) CallTool(handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), args map[string]any) *mcp.CallToolResult {
+// CallTool invokes an MCP tool and returns the response.
+func CallTool[In any](tc *TestContext, handler mcp.ToolHandlerFor[In, any], args In) *mcp.CallToolResult {
 	tc.t.Helper()
 
-	req := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Arguments: args,
-		},
-	}
-
-	res, err := handler(tc.ctx, req)
+	res, _, err := handler(tc.ctx, &mcp.CallToolRequest{}, args)
 	if err != nil {
 		tc.t.Fatalf("tool call failed: %v", err)
 		return nil
@@ -185,17 +179,11 @@ func (tc *TestContext) CallTool(handler func(context.Context, mcp.CallToolReques
 	return res
 }
 
-// Similar to CallTool but returns the error to assert error handlings, if mcp.CallToolResult.isError is false then fails
-func (tc *TestContext) GetToolError(handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), args map[string]any) string {
+// GetToolError is similar to CallTool but returns the error to assert error handlings, if mcp.CallToolResult.isError is false then fails
+func GetToolError[In any](tc *TestContext, handler mcp.ToolHandlerFor[In, any], args In) string {
 	tc.t.Helper()
 
-	req := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Arguments: args,
-		},
-	}
-
-	res, err := handler(tc.ctx, req)
+	res, _, err := handler(tc.ctx, &mcp.CallToolRequest{}, args)
 	if err != nil {
 		tc.t.Fatalf("tool call failed: %v", err)
 		return ""
@@ -209,7 +197,7 @@ func (tc *TestContext) GetToolError(handler func(context.Context, mcp.CallToolRe
 		return ""
 	}
 
-	textContent, ok := mcp.AsTextContent(res.Content[0])
+	textContent, ok := res.Content[0].(*mcp.TextContent)
 	if !ok {
 		tc.t.Fatalf("expected error as TextContent, got %T", res.Content[0])
 		return ""
@@ -225,7 +213,7 @@ func (tc *TestContext) ParseJSONResponse(res *mcp.CallToolResult, v any) {
 		tc.t.Fatal("response has no content")
 	}
 
-	textContent, ok := mcp.AsTextContent(res.Content[0])
+	textContent, ok := res.Content[0].(*mcp.TextContent)
 	if !ok {
 		tc.t.Fatalf("expected TextContent, got %T", res.Content[0])
 	}
@@ -243,7 +231,7 @@ func (tc *TestContext) ParseTextResponse(res *mcp.CallToolResult) string {
 		tc.t.Fatal("response has no content")
 	}
 
-	textContent, ok := mcp.AsTextContent(res.Content[0])
+	textContent, ok := res.Content[0].(*mcp.TextContent)
 	if !ok {
 		tc.t.Fatalf("expected TextContent, got %T", res.Content[0])
 	}

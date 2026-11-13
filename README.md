@@ -29,9 +29,9 @@ Query results replace embedding-like values (lists of 128 or more floats, and na
 pip install neo4j-mcp-server
 ```
 
-Otherwise see [MCP documentation -> Installation](https://neo4j.com/docs/mcp/current/installation).
+For manual installation or using `brew`, please see [MCP documentation -> Installation](https://neo4j.com/docs/mcp/current/installation).
 
-## Server configuration (VSCode)
+## Server configuration (VSCode - STDIO)
 
 Create / edit `mcp.json`:
 
@@ -47,11 +47,6 @@ Create / edit `mcp.json`:
         "NEO4J_MCP_USERNAME": "neo4j",
         "NEO4J_MCP_PASSWORD": "password",
         "NEO4J_MCP_DATABASE": "neo4j",
-        "NEO4J_MCP_READ_ONLY": "true",
-        "NEO4J_MCP_TELEMETRY": "false",
-        "NEO4J_MCP_LOG_LEVEL": "info",
-        "NEO4J_MCP_LOG_FORMAT": "text",
-        "NEO4J_MCP_SCHEMA_SAMPLE_SIZE": "100"
       }
     }
   }
@@ -59,6 +54,7 @@ Create / edit `mcp.json`:
 ```
 
 See [MCP documentation > Configuration](https://neo4j.com/docs/mcp/current/configuration) for more details.
+
 
 ## Links
 

@@ -8,10 +8,10 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/neo4j/mcp/test/e2e/helpers"
 )
 
@@ -28,18 +28,13 @@ func TestGetSchemaE2E(t *testing.T) {
 		"--database", cfg.Database,
 	}
 
-	mcpClient, err := client.NewStdioMCPClient(server, []string{}, args...)
+	mcpClient := helpers.NewTestClient()
+	session, err := mcpClient.Connect(ctx, &mcp.CommandTransport{Command: exec.Command(server, args...)}, nil)
 	if err != nil {
-		t.Fatalf("failed to create MCP client: %v", err)
-	}
-
-	// Initialize the server
-	_, err = mcpClient.Initialize(ctx, helpers.BuildInitializeRequest())
-	if err != nil {
-		t.Fatalf("failed to initialize MCP server: %v", err)
+		t.Fatalf("failed to connect MCP client: %v", err)
 	}
 	t.Cleanup(func() {
-		mcpClient.Close()
+		session.Close()
 	})
 
 	t.Run("get-schema with nodes only", func(t *testing.T) {
@@ -65,17 +60,13 @@ func TestGetSchemaE2E(t *testing.T) {
 		}
 
 		// Call get-schema tool
-		callToolRequest := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name: "get-schema",
-			},
-		}
-
-		callToolResponse, err := mcpClient.CallTool(ctx, callToolRequest)
+		callToolResponse, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name: "get-schema",
+		})
 		if err != nil {
 			t.Fatalf("failed to call get-schema tool: %v", err)
 		}
-		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
+		textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
 		if !ok {
 			t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
 		}
@@ -152,20 +143,16 @@ func TestGetSchemaE2E(t *testing.T) {
 		}
 
 		// Call get-schema tool
-		callToolRequest := mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name: "get-schema",
-			},
-		}
-
-		callToolResponse, err := mcpClient.CallTool(ctx, callToolRequest)
+		callToolResponse, err := session.CallTool(ctx, &mcp.CallToolParams{
+			Name: "get-schema",
+		})
 		if err != nil {
 			t.Fatalf("failed to call get-schema tool: %v", err)
 		}
 
 		// Verify the tool call was successful
 		if callToolResponse.IsError {
-			textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
+			textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
 			if !ok {
 				t.Fatalf("expected error as TextContent, got %T", callToolResponse.Content[0])
 			}
@@ -176,7 +163,7 @@ func TestGetSchemaE2E(t *testing.T) {
 			t.Fatal("expected get-schema tool to return content, but got none")
 		}
 
-		textContent, ok := mcp.AsTextContent(callToolResponse.Content[0])
+		textContent, ok := callToolResponse.Content[0].(*mcp.TextContent)
 		if !ok {
 			t.Fatalf("expected content as TextContent, got %T", callToolResponse.Content[0])
 		}

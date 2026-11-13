@@ -4,7 +4,8 @@
 package cypher
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/neo4j/mcp/internal/tools"
 )
 
 type WriteCypherInput struct {
@@ -12,14 +13,16 @@ type WriteCypherInput struct {
 	Params Params `json:"params,omitempty" jsonschema:"Parameters to pass to the Cypher query"`
 }
 
-func WriteCypherSpec() mcp.Tool {
-	return mcp.NewTool("write-cypher",
-		mcp.WithDescription("write-cypher executes any arbitrary Cypher query, with write access, against the user-configured Neo4j database."),
-		mcp.WithInputSchema[WriteCypherInput](),
-		mcp.WithTitleAnnotation("Write Cypher"),
-		mcp.WithReadOnlyHintAnnotation(false),
-		mcp.WithDestructiveHintAnnotation(true),
-		mcp.WithIdempotentHintAnnotation(false),
-		mcp.WithOpenWorldHintAnnotation(true),
-	)
+func WriteCypherSpec() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "write-cypher",
+		Description: "write-cypher executes any arbitrary Cypher query, with write access, against the user-configured Neo4j database.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Write Cypher",
+			ReadOnlyHint:    false,
+			DestructiveHint: tools.BoolPtr(true),
+			IdempotentHint:  false,
+			OpenWorldHint:   tools.BoolPtr(true),
+		},
+	}
 }

@@ -16,7 +16,7 @@ import (
 )
 
 var dbs = dbservice.NewDBService()
-var server string = ""
+var server string
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()

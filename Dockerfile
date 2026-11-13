@@ -1,5 +1,5 @@
 # Builder stage
-FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS builder
+FROM golang:1.27-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS builder
 
 ARG VERSION=development
 
@@ -8,7 +8,7 @@ LABEL io.modelcontextprotocol.server.name="io.github.neo4j/mcp"
 WORKDIR /build
 
 # Install CA certificates
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache --upgrade "ca-certificates>=20261020"
 
 # Copy go mod files
 COPY go.mod go.sum ./

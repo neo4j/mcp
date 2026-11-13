@@ -29,10 +29,10 @@ go.work.sum
 .env.task
 
 # Editor/IDE
-# .idea/
+.idea/
 .vscode/
 .cursor/
-
+.claude/
 
 # Binaries
 bin/
@@ -42,4 +42,5 @@ dist/
 # Agents
 CLAUDE.md
 gemini.md
+
 *.pem
