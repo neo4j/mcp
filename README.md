@@ -19,6 +19,8 @@ By implementing the Model Context Protocol (MCP), it acts as a bridge between an
 - `write-cypher` — execute write Cypher queries (disabled if `NEO4J_MCP_READ_ONLY=true`)
 - `list-gds-procedures` — list available GDS procedures
 
+Query results replace embedding-like values (lists of 128 or more floats, and native `VECTOR` values of 128 or more elements) with a placeholder such as `"<embedding: 1536 values omitted>"`, so stored embeddings do not fill the model's context window. Long lists of other values, such as `collect(m.title)`, are returned unchanged.
+
 ## Installation
 
 **Install with PyPI:**
