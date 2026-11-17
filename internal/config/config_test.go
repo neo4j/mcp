@@ -380,6 +380,19 @@ func TestLoadConfig_ValidIntValue(t *testing.T) {
 		}
 	})
 
+	t.Run("CLI flag overrides env", func(t *testing.T) {
+		t.Setenv("NEO4J_MCP_SCHEMA_SAMPLE_SIZE", "500")
+
+		cfg, err := LoadConfig(&CLIOverrides{SchemaSampleSize: "250"})
+		if err != nil {
+			t.Fatalf("LoadConfig() unexpected error: %v", err)
+		}
+
+		if cfg.SchemaSampleSize != 250 {
+			t.Errorf("LoadConfig() SchemaSampleSize = %v, want 250", cfg.SchemaSampleSize)
+		}
+	})
+
 	t.Run("invalid value from env", func(t *testing.T) {
 		t.Setenv("NEO4J_MCP_SCHEMA_SAMPLE_SIZE", "invalid")
 
