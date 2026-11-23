@@ -1,0 +1,3 @@
+kind: Patch
+body: The `--schema-sample-size` CLI flag is now applied; previously it was accepted but ignored and only `NEO4J_MCP_SCHEMA_SAMPLE_SIZE` took effect.
+time: 2026-10-31T10:00:00+00:00
