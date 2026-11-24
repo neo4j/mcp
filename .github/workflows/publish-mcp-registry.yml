@@ -1,0 +1,109 @@
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: publish-mcp-registry
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # GitHub OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Get the latest version (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        id: changie
+        uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3
+        with:
+          version: latest
+          args: latest
+
+      - name: Resolve version
+        id: v
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CHANGIE_TAG: ${{ steps.changie.outputs.output }}
+        run: |
+          TAG="${RELEASE_TAG:-$CHANGIE_TAG}"           # e.g. v1.6.0
+          [ -n "$TAG" ] || { echo "no version found" >&2; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already in the registry
+        id: exists
+        env:
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          SERVER_NAME=$(jq -r .name server.json)       # single source of truth: the file mcp-publisher publishes
+          [ -n "$SERVER_NAME" ] && [ "$SERVER_NAME" != null ] || { echo "no .name in server.json" >&2; exit 1; }
+          NAME_ENC="${SERVER_NAME//\//%2F}"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.modelcontextprotocol.io/v0/servers/${NAME_ENC}/versions/${V}")
+          echo "registry returned $CODE for $SERVER_NAME $V"
+          case "$CODE" in
+            200) echo "skip=true"  >> "$GITHUB_OUTPUT" ;;
+            404) echo "skip=false" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "unexpected registry response $CODE" >&2; exit 1 ;;
+          esac
+
+      - name: Wait for the PyPI release
+        if: steps.exists.outputs.skip == 'false'
+        env:
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf "https://pypi.org/pypi/neo4j-mcp-server/$V/json" >/dev/null && exit 0
+            echo "waiting for neo4j-mcp-server $V on PyPI ($i/30)"; sleep 60
+          done
+          echo "neo4j-mcp-server $V not on PyPI after 30 min" >&2; exit 1
+
+      - name: Check server.json matches the release
+        if: steps.exists.outputs.skip == 'false'
+        env:
+          V: ${{ steps.v.outputs.version }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          BAD=$(jq -r --arg v "$V" --arg tag "$TAG" '
+            [ (if .version != $v then "version is \(.version)" else empty end),
+              (.packages[] | select(.registryType=="pypi" and .version != $v) | "pypi package version is \(.version)"),
+              (.packages[] | select(.registryType=="oci" and (.identifier | endswith(":" + $tag) | not)) | "oci image is \(.identifier)")
+            ] | .[]' server.json)
+          if [ -n "$BAD" ]; then
+            echo "server.json does not match release $TAG:" >&2; echo "$BAD" >&2
+            echo "Check the replacements in .changie.yaml." >&2
+            exit 1
+          fi
+          echo "server.json matches $TAG"
+
+      - name: Install cosign
+        if: steps.exists.outputs.skip == 'false'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (Renovate keeps this current)
+
+      - name: Install mcp-publisher (latest, signature-verified)
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          BASE="https://github.com/modelcontextprotocol/registry/releases/latest/download"
+          curl -sfL -o pub.tgz               "$BASE/mcp-publisher_linux_amd64.tar.gz"
+          curl -sfL -o pub.tgz.sigstore.json "$BASE/mcp-publisher_linux_amd64.tar.gz.sigstore.json"
+          cosign verify-blob pub.tgz \
+            --bundle pub.tgz.sigstore.json \
+            --certificate-identity-regexp '^https://github\.com/modelcontextprotocol/registry/\.github/workflows/release\.yml@refs/tags/v.+$' \
+            --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+          tar xzf pub.tgz mcp-publisher
+          ./mcp-publisher --version || true
+
+      - name: Validate, authenticate, publish
+        if: steps.exists.outputs.skip == 'false'
+        run: |
+          ./mcp-publisher validate
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.neo4j/mcp",
+  "title": "Neo4j",
+  "description": "The official Neo4j MCP server",
+  "repository": {
+    "url": "https://github.com/neo4j/mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/neo4j/mcp",
+  "version": "2.1.2",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "neo4j-mcp-server",
+      "version": "2.1.2",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NEO4J_MCP_URI",
+          "description": "Bolt/neo4j URI, e.g. bolt://localhost:7687",
+          "isRequired": true,
+          "format": "string"
+        },
+        {
+          "name": "NEO4J_MCP_USERNAME",
+          "description": "Neo4j username",
+          "isRequired": true,
+          "format": "string"
+        },
+        {
+          "name": "NEO4J_MCP_PASSWORD",
+          "description": "Neo4j password",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "NEO4J_MCP_DATABASE",
+          "description": "Database name (default: neo4j)",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "NEO4J_MCP_READ_ONLY",
+          "description": "Set to true to disable write-cypher",
+          "isRequired": false,
+          "format": "boolean"
+        },
+        {
+          "name": "NEO4J_MCP_TOOLS",
+          "description": "Comma-separated list of tools to enable (default: all). Available: read-cypher, write-cypher, list-gds-procedures, get-schema",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "NEO4J_MCP_LOG_LEVEL",
+          "description": "Log level, e.g. info, debug, warning (default: info)",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "NEO4J_MCP_SCHEMA_SAMPLE_SIZE",
+          "description": "Nodes sampled per label when inferring the schema (default: 100)",
+          "isRequired": false,
+          "format": "number"
+        },
+        {
+          "name": "NEO4J_MCP_REQUEST_TIMEOUT",
+          "description": "Maximum duration for a single request as a Go duration string, e.g. 3m (default: 3m, max: 30m)",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

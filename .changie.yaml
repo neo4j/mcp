@@ -18,3 +18,10 @@ newlines:
   beforeChangelogVersion: 1
   endOfVersion: 1
 envPrefix: CHANGIE_
+# changie runs these during `changie merge` (changie.yml, when it builds the release PR), so each
+# release PR also bumps server.json and the committed file always matches the latest release.
+replacements:
+  # server.json (MCP Registry entry): top-level "version" and each package "version"
+  - path: server.json
+    find: '^(\s*)"version": "[^"]*",'
+    replace: '${1}"version": "{{.VersionNoPrefix}}",'
