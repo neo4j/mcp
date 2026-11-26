@@ -6,6 +6,7 @@ package cypher_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -286,4 +287,50 @@ func TestReadCypherHandler(t *testing.T) {
 			t.Error("Expected error result for explain failure")
 		}
 	})
+}
+
+func TestReadCypherHandler_OmitEmbeddings(t *testing.T) {
+	const query = "MATCH (m:Movie) RETURN m.embedding AS e"
+	embedding := make([]any, 1536)
+	for i := range embedding {
+		embedding[i] = 0.25
+	}
+
+	tests := []struct {
+		name           string
+		omitEmbeddings bool
+		want           any
+	}{
+		{name: "default leaves results unchanged", omitEmbeddings: false, want: embedding},
+		{name: "omitEmbeddings replaces embeddings", omitEmbeddings: true, want: "<embedding: 1536 values omitted>"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			records := []*neo4j.Record{{Keys: []string{"e"}, Values: []any{embedding}}}
+
+			mockDB := db.NewMockService(ctrl)
+			mockDB.EXPECT().GetQueryType(gomock.Any(), query, gomock.Nil()).Return(neo4j.QueryTypeReadOnly, nil)
+			mockDB.EXPECT().ExecuteReadQuery(gomock.Any(), query, gomock.Nil()).Return(records, nil)
+			var formatted []*neo4j.Record
+			mockDB.EXPECT().Neo4jRecordsToJSON(gomock.Any()).DoAndReturn(func(r []*neo4j.Record) (string, error) {
+				formatted = r
+				return "[]", nil
+			})
+
+			handler := cypher.ReadCypherHandler(&tools.ToolDependencies{DBService: mockDB, AnalyticsService: analytics.NewMockService(ctrl)})
+			result, _, err := handler(context.Background(), &mcp.CallToolRequest{}, cypher.ReadCypherInput{Query: query, OmitEmbeddings: tt.omitEmbeddings})
+
+			if err != nil || result == nil || result.IsError {
+				t.Fatalf("expected success, got result=%+v err=%v", result, err)
+			}
+			if !tt.omitEmbeddings && formatted[0] != records[0] {
+				t.Error("expected the driver records to be formatted as-is when omitEmbeddings is false")
+			}
+			if !reflect.DeepEqual(formatted[0].Values[0], tt.want) {
+				t.Errorf("formatted value = %v, want %v", formatted[0].Values[0], tt.want)
+			}
+		})
+	}
 }

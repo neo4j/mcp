@@ -56,6 +56,10 @@ func handleReadCypher(ctx context.Context, args ReadCypherInput, deps *tools.Too
 		return tools.NewToolErrorResult(err.Error()), nil, nil
 	}
 
+	if args.OmitEmbeddings {
+		records = omitEmbeddings(records)
+	}
+
 	// Format records to JSON
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {

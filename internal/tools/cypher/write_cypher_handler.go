@@ -42,6 +42,10 @@ func handleWriteCypher(ctx context.Context, args WriteCypherInput, deps *tools.T
 		return tools.NewToolErrorResult(err.Error()), nil, nil
 	}
 
+	if args.OmitEmbeddings {
+		records = omitEmbeddings(records)
+	}
+
 	response, err := deps.DBService.Neo4jRecordsToJSON(records)
 	if err != nil {
 		slog.Error("error formatting query results", "error", err)

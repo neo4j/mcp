@@ -263,7 +263,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		// (tools/list response shape: name, description, inputSchema with type/properties/required, and tool annotations).
 		expected := map[string]toolExpectation{
 			"read-cypher": {
-				description: "read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead.",
+				description: "read-cypher can run only read-only Cypher statements. For write operations (CREATE, MERGE, DELETE, SET, etc...), schema/admin commands, or PROFILE queries, use write-cypher instead. Prefer returning only needed properties over whole nodes to avoid context bloat from large responses.",
 				annotations: mcp.ToolAnnotations{
 					Title:           "Read Cypher",
 					ReadOnlyHint:    true,
@@ -272,12 +272,13 @@ func TestServerInitializationE2E(t *testing.T) {
 					OpenWorldHint:   boolPtr(true),
 				},
 				properties: map[string]propertyExpectation{
-					"query":  {jsonSchemaType: "string", required: true},
-					"params": {jsonSchemaType: "object", required: false},
+					"query":          {jsonSchemaType: "string", required: true},
+					"params":         {jsonSchemaType: "object", required: false},
+					"omitEmbeddings": {jsonSchemaType: "boolean", required: false},
 				},
 			},
 			"write-cypher": {
-				description: "write-cypher executes any arbitrary Cypher query, with write access, against the user-configured Neo4j database.",
+				description: "write-cypher executes any arbitrary Cypher query, with write access, against the user-configured Neo4j database. Prefer returning only needed properties over whole nodes to avoid context bloat from large responses.",
 				annotations: mcp.ToolAnnotations{
 					Title:           "Write Cypher",
 					ReadOnlyHint:    false,
@@ -286,8 +287,9 @@ func TestServerInitializationE2E(t *testing.T) {
 					OpenWorldHint:   boolPtr(true),
 				},
 				properties: map[string]propertyExpectation{
-					"query":  {jsonSchemaType: "string", required: true},
-					"params": {jsonSchemaType: "object", required: false},
+					"query":          {jsonSchemaType: "string", required: true},
+					"params":         {jsonSchemaType: "object", required: false},
+					"omitEmbeddings": {jsonSchemaType: "boolean", required: false},
 				},
 			},
 			"get-schema": {
