@@ -1,0 +1,4 @@
+kind: Minor
+body: |
+  `read-cypher` and `write-cypher` accept an optional `omitEmbeddings` parameter (default `false`). When set, embedding-like values in the results (native `VECTOR` values and lists of 128 or more floats, including inside nodes, relationships and paths) are replaced with a placeholder such as `<embedding: 1536 values omitted>`. The tool descriptions and server instructions now suggest returning only the properties needed.
+time: 2026-11-26T12:00:00.000000+00:00

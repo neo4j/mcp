@@ -6,6 +6,7 @@
 package integration
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -61,4 +62,96 @@ func TestReadCypher(t *testing.T) {
 		}
 	})
 
+	t.Run("read-cypher with omitEmbeddings should replace stored embeddings and keep other long lists", func(t *testing.T) {
+		tc := helpers.NewTestContext(t, dbs.GetDriver())
+
+		movieLabel, err := tc.SeedNode("Movie", map[string]any{"title": "Heat", "embedding": testEmbedding(1536)})
+		if err != nil {
+			t.Fatalf("failed to seed data: %v", err)
+		}
+
+		read := cypher.ReadCypherHandler(tc.Deps)
+		res := helpers.CallTool(tc, read, cypher.ReadCypherInput{
+			Query:          "MATCH (m:" + movieLabel.String() + ") RETURN m, m.embedding AS e, range(1, 300) AS ids",
+			OmitEmbeddings: true,
+		})
+
+		var records []map[string]any
+		tc.ParseJSONResponse(res, &records)
+		if len(records) != 1 {
+			t.Fatalf("expected 1 record, got %d", len(records))
+		}
+
+		node, ok := records[0]["m"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected m to be map[string]any, got %T", records[0]["m"])
+		}
+		tc.AssertNodeProperties(node, map[string]any{
+			"title":     "Heat",
+			"embedding": "<embedding: 1536 values omitted>",
+		})
+		if records[0]["e"] != "<embedding: 1536 values omitted>" {
+			t.Errorf("e = %v, want the embedding placeholder", records[0]["e"])
+		}
+		if ids, ok := records[0]["ids"].([]any); !ok || len(ids) != 300 {
+			t.Errorf("ids = %v, want the 300 integers from range(1, 300)", records[0]["ids"])
+		}
+	})
+
+	t.Run("read-cypher without omitEmbeddings should return embeddings unchanged", func(t *testing.T) {
+		tc := helpers.NewTestContext(t, dbs.GetDriver())
+
+		movieLabel, err := tc.SeedNode("Movie", map[string]any{"title": "Heat", "embedding": testEmbedding(1536)})
+		if err != nil {
+			t.Fatalf("failed to seed data: %v", err)
+		}
+
+		read := cypher.ReadCypherHandler(tc.Deps)
+		res := helpers.CallTool(tc, read, cypher.ReadCypherInput{
+			Query: "MATCH (m:" + movieLabel.String() + ") RETURN m.embedding AS e",
+		})
+
+		var records []map[string]any
+		tc.ParseJSONResponse(res, &records)
+		if len(records) != 1 {
+			t.Fatalf("expected 1 record, got %d", len(records))
+		}
+		if e, ok := records[0]["e"].([]any); !ok || len(e) != 1536 {
+			t.Errorf("e = %v, want the stored list of 1536 floats", records[0]["e"])
+		}
+	})
+
+	t.Run("read-cypher with omitEmbeddings should replace native VECTOR values", func(t *testing.T) {
+		tc := helpers.NewTestContext(t, dbs.GetDriver())
+
+		// The VECTOR type is not available on older servers; skip where it is unsupported.
+		if _, err := tc.Service.ExecuteReadQuery(context.Background(), "RETURN vector([1.0], 1, FLOAT32) AS v", nil); err != nil {
+			t.Skipf("server does not support the VECTOR type: %v", err)
+		}
+
+		read := cypher.ReadCypherHandler(tc.Deps)
+		res := helpers.CallTool(tc, read, cypher.ReadCypherInput{
+			Query:          "RETURN vector($embedding, 1536, FLOAT32) AS v",
+			Params:         cypher.Params{"embedding": testEmbedding(1536)},
+			OmitEmbeddings: true,
+		})
+
+		var records []map[string]any
+		tc.ParseJSONResponse(res, &records)
+		if len(records) != 1 {
+			t.Fatalf("expected 1 record, got %d", len(records))
+		}
+		if records[0]["v"] != "<embedding: 1536 values omitted>" {
+			t.Errorf("v = %v, want the embedding placeholder", records[0]["v"])
+		}
+	})
+}
+
+// testEmbedding returns a list of n floats, the shape of a stored embedding.
+func testEmbedding(n int) []float64 {
+	embedding := make([]float64, n)
+	for i := range embedding {
+		embedding[i] = 0.25
+	}
+	return embedding
 }
